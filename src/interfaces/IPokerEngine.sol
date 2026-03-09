@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./ITournamentGameEngine.sol";
+import {ITournamentGameEngine} from "./ITournamentGameEngine.sol";
 
 interface IPokerEngine is ITournamentGameEngine {
     struct HandStateView {

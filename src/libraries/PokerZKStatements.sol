@@ -13,21 +13,22 @@ library PokerZKStatements {
         bytes32 handNonce,
         bytes32 nullifier,
         uint256 proofSequence
-    ) internal pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                engineTypeId,
-                gameId,
-                handNumber,
-                player,
-                oldCommitment,
-                newCommitment,
-                deckCommitment,
-                handNonce,
-                nullifier,
-                proofSequence
-            )
+    ) internal pure returns (bytes32 statementHash) {
+        bytes memory encoded = abi.encode(
+            engineTypeId,
+            gameId,
+            handNumber,
+            player,
+            oldCommitment,
+            newCommitment,
+            deckCommitment,
+            handNonce,
+            nullifier,
+            proofSequence
         );
+        assembly ("memory-safe") {
+            statementHash := keccak256(add(encoded, 0x20), mload(encoded))
+        }
     }
 
     function hashShowdownStatement(
@@ -38,7 +39,10 @@ library PokerZKStatements {
         address winnerAddr,
         bool isTie,
         bytes32 handNonce
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encode(engineTypeId, gameId, handNumber, commitments, winnerAddr, isTie, handNonce));
+    ) internal pure returns (bytes32 statementHash) {
+        bytes memory encoded = abi.encode(engineTypeId, gameId, handNumber, commitments, winnerAddr, isTie, handNonce);
+        assembly ("memory-safe") {
+            statementHash := keccak256(add(encoded, 0x20), mload(encoded))
+        }
     }
 }

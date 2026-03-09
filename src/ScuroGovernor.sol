@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "openzeppelin-contracts/contracts/governance/Governor.sol";
-import "openzeppelin-contracts/contracts/governance/extensions/GovernorCountingSimple.sol";
-import "openzeppelin-contracts/contracts/governance/extensions/GovernorSettings.sol";
-import "openzeppelin-contracts/contracts/governance/extensions/GovernorVotes.sol";
-import "openzeppelin-contracts/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
-import "openzeppelin-contracts/contracts/governance/extensions/GovernorTimelockControl.sol";
-import "openzeppelin-contracts/contracts/governance/TimelockController.sol";
-import "openzeppelin-contracts/contracts/interfaces/IERC5805.sol";
+import {IERC5805} from "openzeppelin-contracts/contracts/interfaces/IERC5805.sol";
+import {Governor} from "openzeppelin-contracts/contracts/governance/Governor.sol";
+import {TimelockController} from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
+import {GovernorCountingSimple} from "openzeppelin-contracts/contracts/governance/extensions/GovernorCountingSimple.sol";
+import {GovernorSettings} from "openzeppelin-contracts/contracts/governance/extensions/GovernorSettings.sol";
+import {GovernorTimelockControl} from "openzeppelin-contracts/contracts/governance/extensions/GovernorTimelockControl.sol";
+import {GovernorVotes} from "openzeppelin-contracts/contracts/governance/extensions/GovernorVotes.sol";
+import {GovernorVotesQuorumFraction} from "openzeppelin-contracts/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
 
 contract ScuroGovernor is
     Governor,

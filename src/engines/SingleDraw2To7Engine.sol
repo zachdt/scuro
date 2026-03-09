@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../interfaces/IPokerZKEngine.sol";
-import "../interfaces/IPokerVerifier.sol";
-import "../libraries/PokerZKStatements.sol";
+import {IPokerVerifier} from "../interfaces/IPokerVerifier.sol";
+import {IPokerZKEngine} from "../interfaces/IPokerZKEngine.sol";
+import {PokerZKStatements} from "../libraries/PokerZKStatements.sol";
 
 contract SingleDraw2To7Engine is IPokerZKEngine {
     using PokerZKStatements for bytes32;
@@ -73,8 +73,12 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
     event ShowdownSubmitted(uint256 indexed gameId, address indexed submitter, address indexed winner, bool isTie);
 
     modifier onlyController(uint256 gameId) {
-        require(msg.sender == games[gameId].tournamentController, "SingleDraw: not controller");
+        _onlyController(gameId);
         _;
+    }
+
+    function _onlyController(uint256 gameId) internal view {
+        require(msg.sender == games[gameId].tournamentController, "SingleDraw: not controller");
     }
 
     function engineType() external pure override returns (bytes32) {
@@ -115,10 +119,24 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         game.handCoordinator = handCoordinator;
         game.gameStartTime = block.timestamp;
         game.tournamentController = msg.sender;
-        game.players[0] = PlayerState(players[0], startingStacks[0], 0, false, false, false);
-        game.players[1] = PlayerState(players[1], startingStacks[1], 0, false, false, false);
+        game.players[0] = PlayerState({
+            addr: players[0],
+            stack: startingStacks[0],
+            currentBet: 0,
+            hasFolded: false,
+            hasActed: false,
+            hasDrawn: false
+        });
+        game.players[1] = PlayerState({
+            addr: players[1],
+            stack: startingStacks[1],
+            currentBet: 0,
+            hasFolded: false,
+            hasActed: false,
+            hasDrawn: false
+        });
 
-        _startNextHand(gameId, game);
+        _startNextHand(game);
     }
 
     function bet(uint256 gameId, uint256 amount) external {
@@ -159,7 +177,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         _requireUnexpired(game);
 
         game.players[game.currentTurn].hasFolded = true;
-        _completeHand(gameId, game, game.players[1 - game.currentTurn].addr, false);
+        _completeHand(game, game.players[1 - game.currentTurn].addr, false);
     }
 
     function initializeHandState(
@@ -305,26 +323,26 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         }
 
         emit ShowdownSubmitted(gameId, msg.sender, winnerAddr, isTie);
-        _completeHand(gameId, game, winnerAddr, isTie);
+        _completeHand(game, winnerAddr, isTie);
     }
 
     function resolveShowdown(uint256 gameId, address winnerAddr, bool isTie) external onlyController(gameId) {
         Game storage game = games[gameId];
         require(game.hand.handPhase == uint8(HandPhase.ShowdownProofPending), "SingleDraw: no showdown");
-        _completeHand(gameId, game, winnerAddr, isTie);
+        _completeHand(game, winnerAddr, isTie);
     }
 
     function handleTimeout(uint256 gameId, address player) external override onlyController(gameId) {
         Game storage game = games[gameId];
         require(game.players[game.currentTurn].addr == player, "SingleDraw: wrong actor");
         require(block.timestamp > game.hand.deadlineAt, "SingleDraw: active");
-        _completeHand(gameId, game, game.players[1 - game.currentTurn].addr, false);
+        _completeHand(game, game.players[1 - game.currentTurn].addr, false);
     }
 
     function claimTimeout(uint256 gameId) external override {
         Game storage game = games[gameId];
         require(block.timestamp > game.hand.deadlineAt, "SingleDraw: active");
-        _completeHand(gameId, game, game.players[1 - game.currentTurn].addr, false);
+        _completeHand(game, game.players[1 - game.currentTurn].addr, false);
     }
 
     function isGameOver(uint256 gameId) public view override returns (bool isOver) {
@@ -388,7 +406,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         emit PublicActionTaken(gameId, game.players[1 - game.currentTurn].addr, game.hand.handPhase, 0);
     }
 
-    function _startNextHand(uint256 gameId, Game storage game) internal {
+    function _startNextHand(Game storage game) internal {
         game.hand.handPhase = uint8(HandPhase.PreDraw);
         game.hand.handNumber += 1;
         game.hand.deadlineAt = block.timestamp + game.actionWindow;
@@ -424,7 +442,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         game.hand.expectedActor = uint8(game.currentTurn);
     }
 
-    function _completeHand(uint256 gameId, Game storage game, address winnerAddr, bool isTie) internal {
+    function _completeHand(Game storage game, address winnerAddr, bool isTie) internal {
         if (isTie) {
             uint256 half = game.pot / 2;
             game.players[0].stack += half;
@@ -443,7 +461,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         }
 
         game.dealerIdx = 1 - game.dealerIdx;
-        _startNextHand(gameId, game);
+        _startNextHand(game);
     }
 
     function _playerIndex(Game storage game, address player) internal view returns (uint256) {

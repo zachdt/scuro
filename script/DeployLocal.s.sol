@@ -1,22 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/Script.sol";
-import "openzeppelin-contracts/contracts/governance/TimelockController.sol";
-import "../src/ScuroToken.sol";
-import "../src/ScuroStakingToken.sol";
-import "../src/ScuroGovernor.sol";
-import "../src/GameEngineRegistry.sol";
-import "../src/CreatorRewards.sol";
-import "../src/ProtocolSettlement.sol";
-import "../src/controllers/TournamentController.sol";
-import "../src/controllers/PvPController.sol";
-import "../src/controllers/NumberPickerAdapter.sol";
-import "../src/engines/NumberPickerEngine.sol";
-import "../src/engines/SingleDraw2To7Engine.sol";
-import "../src/mocks/VRFCoordinatorMock.sol";
+import {Script, console} from "forge-std/Script.sol";
+import {TimelockController} from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
+import {CreatorRewards} from "../src/CreatorRewards.sol";
+import {GameEngineRegistry} from "../src/GameEngineRegistry.sol";
+import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
+import {ScuroGovernor} from "../src/ScuroGovernor.sol";
+import {ScuroStakingToken} from "../src/ScuroStakingToken.sol";
+import {ScuroToken} from "../src/ScuroToken.sol";
+import {NumberPickerAdapter} from "../src/controllers/NumberPickerAdapter.sol";
+import {PvPController} from "../src/controllers/PvPController.sol";
+import {TournamentController} from "../src/controllers/TournamentController.sol";
+import {NumberPickerEngine} from "../src/engines/NumberPickerEngine.sol";
+import {SingleDraw2To7Engine} from "../src/engines/SingleDraw2To7Engine.sol";
+import {MockPokerVerifier} from "../src/mocks/MockPokerVerifier.sol";
+import {VRFCoordinatorMock} from "../src/mocks/VRFCoordinatorMock.sol";
 
 contract DeployLocal is Script {
+    address internal constant PLAYER1 = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
+    address internal constant PLAYER2 = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC;
+    address internal constant SOLO_CREATOR = 0x90F79bf6EB2c4f870365E785982E1f101E93b906;
+    address internal constant POKER_CREATOR = 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65;
+    uint256 internal constant PLAYER_FUNDS = 10_000 ether;
+    uint256 internal constant CREATOR_FUNDS = 1_000 ether;
+
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
@@ -46,10 +54,13 @@ contract DeployLocal is Script {
         NumberPickerAdapter numberPickerAdapter =
             new NumberPickerAdapter(admin, address(settlement), address(registry), address(numberPickerEngine));
         SingleDraw2To7Engine pokerEngine = new SingleDraw2To7Engine();
+        MockPokerVerifier drawVerifier = new MockPokerVerifier();
+        MockPokerVerifier showdownVerifier = new MockPokerVerifier();
 
         token.grantRole(token.MINTER_ROLE(), address(settlement));
         token.grantRole(token.MINTER_ROLE(), address(creatorRewards));
         creatorRewards.grantRole(creatorRewards.SETTLEMENT_ROLE(), address(settlement));
+        creatorRewards.grantRole(creatorRewards.EPOCH_MANAGER_ROLE(), address(timelock));
         settlement.setControllerAuthorization(address(tournamentController), true);
         settlement.setControllerAuthorization(address(pvpController), true);
         settlement.setControllerAuthorization(address(numberPickerAdapter), true);
@@ -57,6 +68,42 @@ contract DeployLocal is Script {
 
         timelock.grantRole(timelock.PROPOSER_ROLE(), address(governor));
         timelock.grantRole(timelock.EXECUTOR_ROLE(), address(0));
+
+        registry.registerEngine(
+            address(numberPickerEngine),
+            GameEngineRegistry.EngineMetadata({
+                engineType: numberPickerEngine.ENGINE_TYPE(),
+                creator: SOLO_CREATOR,
+                verifier: address(0),
+                configHash: keccak256("number-picker-auto"),
+                creatorRateBps: 500,
+                active: true,
+                supportsTournament: false,
+                supportsPvP: false,
+                supportsSolo: true
+            })
+        );
+
+        registry.registerEngine(
+            address(pokerEngine),
+            GameEngineRegistry.EngineMetadata({
+                engineType: pokerEngine.ENGINE_TYPE(),
+                creator: POKER_CREATOR,
+                verifier: address(drawVerifier),
+                configHash: keccak256("single-draw-2-7"),
+                creatorRateBps: 1000,
+                active: true,
+                supportsTournament: true,
+                supportsPvP: true,
+                supportsSolo: false
+            })
+        );
+
+        token.mint(PLAYER1, PLAYER_FUNDS);
+        token.mint(PLAYER2, PLAYER_FUNDS);
+        token.mint(admin, PLAYER_FUNDS);
+        token.mint(SOLO_CREATOR, CREATOR_FUNDS);
+        token.mint(POKER_CREATOR, CREATOR_FUNDS);
 
         console.log("ScuroToken", address(token));
         console.log("ScuroStakingToken", address(stakingToken));
@@ -71,6 +118,13 @@ contract DeployLocal is Script {
         console.log("NumberPickerEngine", address(numberPickerEngine));
         console.log("NumberPickerAdapter", address(numberPickerAdapter));
         console.log("SingleDraw2To7Engine", address(pokerEngine));
+        console.log("DrawVerifier", address(drawVerifier));
+        console.log("ShowdownVerifier", address(showdownVerifier));
+        console.log("Admin", admin);
+        console.log("Player1", PLAYER1);
+        console.log("Player2", PLAYER2);
+        console.log("SoloCreator", SOLO_CREATOR);
+        console.log("PokerCreator", POKER_CREATOR);
 
         vm.stopBroadcast();
     }

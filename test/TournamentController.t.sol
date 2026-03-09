@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/Test.sol";
-import "../src/ScuroToken.sol";
-import "../src/GameEngineRegistry.sol";
-import "../src/CreatorRewards.sol";
-import "../src/ProtocolSettlement.sol";
-import "../src/controllers/TournamentController.sol";
-import "../src/engines/SingleDraw2To7Engine.sol";
-import "../src/mocks/MockPokerVerifier.sol";
+import {Test} from "forge-std/Test.sol";
+import {CreatorRewards} from "../src/CreatorRewards.sol";
+import {GameEngineRegistry} from "../src/GameEngineRegistry.sol";
+import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
+import {ScuroToken} from "../src/ScuroToken.sol";
+import {TournamentController} from "../src/controllers/TournamentController.sol";
+import {SingleDraw2To7Engine} from "../src/engines/SingleDraw2To7Engine.sol";
+import {MockPokerVerifier} from "../src/mocks/MockPokerVerifier.sol";
 
 contract TournamentControllerTest is Test {
     ScuroToken internal token;

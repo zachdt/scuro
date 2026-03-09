@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./IScuroGameEngine.sol";
+import {IScuroGameEngine} from "./IScuroGameEngine.sol";
 
 interface ITournamentGameEngine is IScuroGameEngine {
     function initializeGame(

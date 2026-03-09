@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../interfaces/IPokerVerifier.sol";
+import {IPokerVerifier} from "../interfaces/IPokerVerifier.sol";
 
 contract MockPokerVerifier is IPokerVerifier {
     bool public shouldVerify = true;

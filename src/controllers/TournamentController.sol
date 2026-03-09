@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "openzeppelin-contracts/contracts/access/AccessControl.sol";
-import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
-import "../ProtocolSettlement.sol";
-import "../GameEngineRegistry.sol";
-import "../interfaces/ITournamentGameEngine.sol";
+import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {GameEngineRegistry} from "../GameEngineRegistry.sol";
+import {ProtocolSettlement} from "../ProtocolSettlement.sol";
+import {ITournamentGameEngine} from "../interfaces/ITournamentGameEngine.sol";
 
 contract TournamentController is AccessControl, ReentrancyGuard {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
@@ -19,8 +19,8 @@ contract TournamentController is AccessControl, ReentrancyGuard {
         bytes engineConfig;
     }
 
-    ProtocolSettlement public immutable settlement;
-    GameEngineRegistry public immutable registry;
+    ProtocolSettlement internal immutable SETTLEMENT;
+    GameEngineRegistry internal immutable REGISTRY;
 
     uint256 public nextTournamentId = 1;
     uint256 public nextGameId = 1;
@@ -35,10 +35,18 @@ contract TournamentController is AccessControl, ReentrancyGuard {
     event GameSettled(uint256 indexed gameId, address indexed engine);
 
     constructor(address admin, address settlementAddress, address registryAddress) {
-        settlement = ProtocolSettlement(settlementAddress);
-        registry = GameEngineRegistry(registryAddress);
+        SETTLEMENT = ProtocolSettlement(settlementAddress);
+        REGISTRY = GameEngineRegistry(registryAddress);
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(OPERATOR_ROLE, admin);
+    }
+
+    function settlement() public view returns (ProtocolSettlement) {
+        return SETTLEMENT;
+    }
+
+    function registry() public view returns (GameEngineRegistry) {
+        return REGISTRY;
     }
 
     function createTournament(
@@ -48,7 +56,7 @@ contract TournamentController is AccessControl, ReentrancyGuard {
         uint256 startingStack,
         bytes calldata engineConfig
     ) external onlyRole(OPERATOR_ROLE) returns (uint256 tournamentId) {
-        require(registry.isRegisteredForTournament(gameEngine), "TournamentController: engine inactive");
+        require(REGISTRY.isRegisteredForTournament(gameEngine), "TournamentController: engine inactive");
         tournamentId = nextTournamentId++;
         tournaments[tournamentId] = Tournament({
             active: true,
@@ -76,8 +84,8 @@ contract TournamentController is AccessControl, ReentrancyGuard {
         require(tournament.active, "TournamentController: inactive");
 
         if (tournament.entryFee > 0) {
-            settlement.burnPlayerWager(p1, tournament.entryFee);
-            settlement.burnPlayerWager(p2, tournament.entryFee);
+            SETTLEMENT.burnPlayerWager(p1, tournament.entryFee);
+            SETTLEMENT.burnPlayerWager(p2, tournament.entryFee);
         }
 
         gameId = nextGameId++;
@@ -107,16 +115,16 @@ contract TournamentController is AccessControl, ReentrancyGuard {
         require(!gameReported[gameId], "TournamentController: reported");
         uint256 tournamentId = gameToTournament[gameId];
         Tournament memory tournament = tournaments[tournamentId];
-        require(registry.isRegisteredForTournament(tournament.gameEngine), "TournamentController: engine inactive");
+        require(REGISTRY.isRegisteredForTournament(tournament.gameEngine), "TournamentController: engine inactive");
         require(ITournamentGameEngine(tournament.gameEngine).isGameOver(gameId), "TournamentController: game active");
 
         gameReported[gameId] = true;
         (address[] memory winners, uint256[] memory payouts) = ITournamentGameEngine(tournament.gameEngine).getOutcomes(gameId);
         for (uint256 i = 0; i < winners.length; i++) {
-            settlement.mintPlayerReward(winners[i], payouts[i]);
+            SETTLEMENT.mintPlayerReward(winners[i], payouts[i]);
         }
 
-        settlement.accrueCreatorForEngine(tournament.gameEngine, tournament.rewardPool + (tournament.entryFee * 2));
+        SETTLEMENT.accrueCreatorForEngine(tournament.gameEngine, tournament.rewardPool + (tournament.entryFee * 2));
         emit GameSettled(gameId, tournament.gameEngine);
     }
 }

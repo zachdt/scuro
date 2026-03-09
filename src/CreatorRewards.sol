@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "openzeppelin-contracts/contracts/access/AccessControl.sol";
-import "./ScuroToken.sol";
+import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import {ScuroToken} from "./ScuroToken.sol";
 
 contract CreatorRewards is AccessControl {
     bytes32 public constant SETTLEMENT_ROLE = keccak256("SETTLEMENT_ROLE");
     bytes32 public constant EPOCH_MANAGER_ROLE = keccak256("EPOCH_MANAGER_ROLE");
 
-    ScuroToken public immutable token;
+    ScuroToken internal immutable TOKEN;
     uint256 public currentEpoch = 1;
     uint256 public epochDuration;
     uint256 public epochStart;
@@ -23,13 +23,17 @@ contract CreatorRewards is AccessControl {
 
     constructor(address admin, address tokenAddress, uint256 epochDurationSeconds) {
         require(epochDurationSeconds > 0, "CreatorRewards: invalid duration");
-        token = ScuroToken(tokenAddress);
+        TOKEN = ScuroToken(tokenAddress);
         epochDuration = epochDurationSeconds;
         epochStart = block.timestamp;
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(SETTLEMENT_ROLE, admin);
         _grantRole(EPOCH_MANAGER_ROLE, admin);
+    }
+
+    function token() public view returns (ScuroToken) {
+        return TOKEN;
     }
 
     function setEpochDuration(uint256 newDuration) external onlyRole(EPOCH_MANAGER_ROLE) {
@@ -72,7 +76,7 @@ contract CreatorRewards is AccessControl {
         }
 
         if (totalClaimed > 0) {
-            token.mint(msg.sender, totalClaimed);
+            TOKEN.mint(msg.sender, totalClaimed);
         }
     }
 }

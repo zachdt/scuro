@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./IPokerEngine.sol";
+import {IPokerEngine} from "./IPokerEngine.sol";
 
 interface IPokerZKEngine is IPokerEngine {
     function submitDrawProof(

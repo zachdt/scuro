@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/Test.sol";
-import "openzeppelin-contracts/contracts/governance/TimelockController.sol";
-import "../src/ScuroToken.sol";
-import "../src/ScuroStakingToken.sol";
-import "../src/ScuroGovernor.sol";
-import "../src/GameEngineRegistry.sol";
-import "../src/CreatorRewards.sol";
-import "../src/ProtocolSettlement.sol";
+import {Test} from "forge-std/Test.sol";
+import {TimelockController} from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
+import {CreatorRewards} from "../src/CreatorRewards.sol";
+import {GameEngineRegistry} from "../src/GameEngineRegistry.sol";
+import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
+import {ScuroGovernor} from "../src/ScuroGovernor.sol";
+import {ScuroStakingToken} from "../src/ScuroStakingToken.sol";
+import {ScuroToken} from "../src/ScuroToken.sol";
 
 contract ProtocolCoreTest is Test {
     ScuroToken internal token;

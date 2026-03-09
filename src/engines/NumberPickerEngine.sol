@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
 
 contract NumberPickerEngine is AccessControl {
     bytes32 public constant ADAPTER_ROLE = keccak256("ADAPTER_ROLE");
@@ -50,7 +50,16 @@ contract NumberPickerEngine is AccessControl {
         return ENGINE_TYPE;
     }
 
+    function setVrfCoordinator(address newCoordinator) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _setVrfCoordinator(newCoordinator);
+    }
+
+    // forge-lint: disable-next-line(mixed-case-function)
     function setVRFCoordinator(address newCoordinator) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _setVrfCoordinator(newCoordinator);
+    }
+
+    function _setVrfCoordinator(address newCoordinator) internal {
         vrfCoordinator = newCoordinator;
     }
 
