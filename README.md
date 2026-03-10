@@ -2,8 +2,6 @@
 
 Scuro is a generalized on-chain gaming protocol built around a shared token, shared settlement layer, creator rewards, and governance-controlled protocol configuration.
 
-The root of this repository is the canonical protocol package. Older protocol-specific codebases live under `archive/` and are not part of the active surface area.
-
 ## What Scuro Includes
 
 - One protocol token for gameplay, staking, governance, and rewards: `ScuroToken` (`SCU`)
@@ -93,7 +91,11 @@ Current example engines:
 - `SingleDraw2To7Engine`
   - 2-player single-draw poker
   - supports tournament and PvP controller flows
-  - includes proof-gated draw/showdown hooks for generalized poker ZK integration
+  - uses real Groth16 verifier bundles for initial deal, draw resolution, and showdown
+- `SingleDeckBlackjackEngine`
+  - single-player blackjack with a fresh single deck each hand
+  - uses real Groth16 verifier bundles for deal, action resolution, and showdown
+  - settled through `BlackjackController`
 
 ## Architecture
 
@@ -114,11 +116,14 @@ graph TB
     Solo["NumberPickerAdapter"]
     Num["NumberPickerEngine"]
     Poker["SingleDraw2To7Engine"]
+    BjCtrl["BlackjackController"]
+    Bj["SingleDeckBlackjackEngine"]
 
     Player --> Stake
     Player --> Tour
     Player --> PvP
     Player --> Solo
+    Player --> BjCtrl
 
     Stake --> Token
     Gov --> Time
@@ -130,6 +135,8 @@ graph TB
     PvP --> Registry
     Solo --> Settle
     Solo --> Registry
+    BjCtrl --> Settle
+    BjCtrl --> Registry
 
     Settle --> Token
     Settle --> Registry
@@ -137,6 +144,7 @@ graph TB
 
     Registry --> Num
     Registry --> Poker
+    Registry --> Bj
 ```
 
 ## Repository Layout
@@ -178,12 +186,19 @@ graph TB
 ### Prerequisites
 
 - Foundry (`forge`, `cast`, `anvil`)
+- Bun
 - `bash` for the deploy smoke helper
 
 ### Build
 
 ```bash
 forge build
+```
+
+### Build zk artifacts
+
+```bash
+bun run --cwd zk build
 ```
 
 ### Run all tests
@@ -222,7 +237,7 @@ forge script script/DeployLocal.s.sol:DeployLocal \
 The local deploy script does the following:
 
 - deploys the token, staking token, timelock, governor, registry, rewards, settlement, controllers, and example engines
-- deploys VRF and poker verifier mocks
+- deploys VRF plus real poker and blackjack Groth16 verifier bundles
 - grants required minting / settlement / controller / adapter roles
 - registers both example engines in the registry
 - seeds:
@@ -240,11 +255,14 @@ The local deploy script does the following:
 
 The smoke script:
 
+- validates committed zk artifacts with Bun
 - starts Anvil
 - runs the local deploy script
 - verifies deploy-time roles and registry state
 - checks seeded balances
 - performs one post-deploy staking interaction
+- runs one real-proof poker tournament hand
+- runs one real-proof blackjack hand
 
 ## Testing Strategy
 
@@ -316,12 +334,14 @@ Current rule:
 
 - `src/engines/NumberPickerEngine.sol`
 - `src/engines/SingleDraw2To7Engine.sol`
+- `src/engines/SingleDeckBlackjackEngine.sol`
 
 ### Interfaces and helpers
 
 - `src/interfaces/`
-- `src/libraries/PokerZKStatements.sol`
+- `src/libraries/Groth16ProofCodec.sol`
 - `src/mocks/`
+- `zk/`
 
 ## Example User Flows Covered Today
 
@@ -331,6 +351,7 @@ Current rule:
 - creator accrues and claims rewards after epoch close
 - tournament match settles through poker engine
 - PvP session settles through poker engine
+- solo blackjack hand settles through blackjack engine
 - inactive engine and replay protections block invalid settlement flows
 - poker timeout, fold, tie, and verifier-rejection paths are exercised
 

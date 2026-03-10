@@ -1,0 +1,22 @@
+{
+  "sessionId": "1",
+  "proofSequence": "1",
+  "pendingAction": "1",
+  "oldPlayerSlots": ["8", "4", "0", "0", "0", "0", "0", "0"],
+  "newPlayerSlots": ["8", "4", "7", "0", "0", "0", "0", "0"],
+  "dealerSlots": ["10", "7", "0", "0"],
+  "oldPlayerSalt": "1001",
+  "newPlayerSalt": "1004",
+  "dealerSalt": "1002",
+  "playerKey": ["311", "312"],
+  "playerCipherSalt": "705",
+  "dealerCipherSalt": "706",
+  "dealerUpValue": "10",
+  "handCount": "1",
+  "activeHandIndex": "0",
+  "nextPhase": "2",
+  "handValues": ["19", "0", "0", "0"],
+  "softMask": "0",
+  "handStatuses": ["0", "0", "0", "0"],
+  "allowedActionMasks": ["3", "0", "0", "0"]
+}

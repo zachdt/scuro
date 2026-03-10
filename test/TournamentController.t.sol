@@ -8,17 +8,20 @@ import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
 import {ScuroToken} from "../src/ScuroToken.sol";
 import {TournamentController} from "../src/controllers/TournamentController.sol";
 import {SingleDraw2To7Engine} from "../src/engines/SingleDraw2To7Engine.sol";
-import {MockPokerVerifier} from "../src/mocks/MockPokerVerifier.sol";
+import {PokerVerifierBundle} from "../src/verifiers/PokerVerifierBundle.sol";
+import {PokerDrawResolveVerifier} from "../src/verifiers/generated/PokerDrawResolveVerifier.sol";
+import {PokerInitialDealVerifier} from "../src/verifiers/generated/PokerInitialDealVerifier.sol";
+import {PokerShowdownVerifier} from "../src/verifiers/generated/PokerShowdownVerifier.sol";
+import {ZkFixtureLoader} from "./helpers/ZkFixtureLoader.sol";
 
-contract TournamentControllerTest is Test {
+contract TournamentControllerTest is ZkFixtureLoader {
     ScuroToken internal token;
     GameEngineRegistry internal registry;
     CreatorRewards internal creatorRewards;
     ProtocolSettlement internal settlement;
     TournamentController internal controller;
     SingleDraw2To7Engine internal engine;
-    MockPokerVerifier internal drawVerifier;
-    MockPokerVerifier internal showdownVerifier;
+    PokerVerifierBundle internal verifierBundle;
 
     address internal creator = address(0xC0FFEE);
     address internal player1 = address(0x111);
@@ -30,9 +33,13 @@ contract TournamentControllerTest is Test {
         creatorRewards = new CreatorRewards(address(this), address(token), 7 days);
         settlement = new ProtocolSettlement(address(this), address(token), address(registry), address(creatorRewards));
         controller = new TournamentController(address(this), address(settlement), address(registry));
+        verifierBundle = new PokerVerifierBundle(
+            address(this),
+            address(new PokerInitialDealVerifier()),
+            address(new PokerDrawResolveVerifier()),
+            address(new PokerShowdownVerifier())
+        );
         engine = new SingleDraw2To7Engine();
-        drawVerifier = new MockPokerVerifier();
-        showdownVerifier = new MockPokerVerifier();
 
         token.grantRole(token.MINTER_ROLE(), address(settlement));
         token.grantRole(token.MINTER_ROLE(), address(creatorRewards));
@@ -44,7 +51,7 @@ contract TournamentControllerTest is Test {
             GameEngineRegistry.EngineMetadata({
                 engineType: engine.ENGINE_TYPE(),
                 creator: creator,
-                verifier: address(drawVerifier),
+                verifier: address(verifierBundle),
                 configHash: keccak256("2-7"),
                 creatorRateBps: 1_000,
                 active: true,
@@ -63,40 +70,22 @@ contract TournamentControllerTest is Test {
     }
 
     function test_TournamentLifecycleSettlesRewardsAndCreatorAccrual() public {
-        bytes memory engineConfig = abi.encode(
-            uint256(10),
-            uint256(20),
-            uint256(180),
-            uint256(60),
-            address(drawVerifier),
-            address(showdownVerifier),
-            address(this)
-        );
-
-        uint256 tournamentId = controller.createTournament(10 ether, 20 ether, address(engine), 1_000, engineConfig);
-        uint256 gameId = controller.startGameForPlayers(tournamentId, player1, player2);
-
-        assertEq(token.balanceOf(player1), 90 ether);
-        assertEq(token.balanceOf(player2), 90 ether);
+        uint256 gameId = _createTournamentGame();
 
         vm.prank(player1);
         engine.bet(gameId, 990);
         vm.prank(player2);
         engine.bet(gameId, 980);
 
-        uint8[] memory empty = new uint8[](0);
-        vm.prank(player2);
-        engine.discardCards(gameId, empty);
-        vm.prank(player1);
-        engine.discardCards(gameId, empty);
+        _resolveDrawPhase(gameId);
 
         vm.prank(player2);
         engine.bet(gameId, 0);
         vm.prank(player1);
         engine.bet(gameId, 0);
 
-        vm.prank(player2);
-        engine.submitShowdownProof(gameId, player1, false, hex"01");
+        PokerShowdownFixture memory showdown = _loadPokerShowdownFixture("poker_showdown");
+        engine.submitShowdownProof(gameId, player1, showdown.isTie, showdown.proof);
         assertTrue(engine.isGameOver(gameId));
 
         controller.reportOutcome(gameId);
@@ -110,16 +99,6 @@ contract TournamentControllerTest is Test {
     }
 
     function test_ZkInterfacesSmokeForGenericPokerFlow() public {
-        bytes memory engineConfig = abi.encode(
-            uint256(5),
-            uint256(10),
-            uint256(180),
-            uint256(60),
-            address(drawVerifier),
-            address(showdownVerifier),
-            address(this)
-        );
-
         address[] memory players = new address[](2);
         players[0] = player1;
         players[1] = player2;
@@ -128,29 +107,67 @@ contract TournamentControllerTest is Test {
         stacks[0] = 100;
         stacks[1] = 100;
 
-        engine.initializeGame(99, players, stacks, 0, 50 ether, engineConfig);
-        engine.initializeHandState(
-            99,
-            keccak256("deck"),
-            keccak256("nonce"),
-            [bytes32(uint256(1)), bytes32(uint256(2))],
-            [bytes32(uint256(3)), bytes32(uint256(4))],
-            [bytes32(uint256(5)), bytes32(uint256(6))]
+        engine.initializeGame(1, players, stacks, 0, 50 ether, _defaultPokerConfig());
+        _submitInitialDealProof(1);
+
+        vm.prank(player1);
+        engine.bet(1, 10);
+        vm.prank(player2);
+        engine.bet(1, 0);
+
+        _resolveDrawPhase(1);
+
+        assertEq(engine.getCurrentPhase(1), 5);
+        assertEq(engine.getProofDeadline(1), block.timestamp + 60);
+    }
+
+    function _createTournamentGame() internal returns (uint256 gameId) {
+        uint256 tournamentId = controller.createTournament(10 ether, 20 ether, address(engine), 1_000, _defaultPokerConfig());
+        gameId = controller.startGameForPlayers(tournamentId, player1, player2);
+        _submitInitialDealProof(gameId);
+    }
+
+    function _submitInitialDealProof(uint256 gameId) internal {
+        PokerInitialDealFixture memory fixture = _loadPokerInitialDealFixture();
+        engine.submitInitialDealProof(
+            gameId,
+            fixture.deckCommitment,
+            fixture.handNonce,
+            fixture.handCommitments,
+            fixture.encryptionKeyCommitments,
+            fixture.ciphertextRefs,
+            fixture.proof
         );
+    }
 
-        vm.prank(player1);
-        engine.bet(99, 5);
+    function _resolveDrawPhase(uint256 gameId) internal {
+        uint8[] memory empty = new uint8[](0);
         vm.prank(player2);
-        engine.bet(99, 0);
-
-        vm.prank(player2);
-        engine.submitDrawProof(99, bytes32(uint256(11)), bytes32(uint256(12)), hex"01");
-        engine.finalizeDraw(99, player2);
+        engine.declareDraw(gameId, empty);
         vm.prank(player1);
-        engine.submitDrawProof(99, bytes32(uint256(13)), bytes32(uint256(14)), hex"01");
-        engine.finalizeDraw(99, player1);
+        engine.declareDraw(gameId, empty);
 
-        assertEq(engine.getCurrentPhase(99), 3);
-        assertEq(engine.getProofDeadline(99), block.timestamp + 60);
+        PokerDrawFixture memory player0Draw = _loadPokerDrawFixture("poker_draw_resolve");
+        PokerDrawFixture memory player1Draw = _loadPokerDrawFixture("poker_draw_resolve_player1");
+        engine.submitDrawProof(
+            gameId,
+            player1,
+            player0Draw.newCommitment,
+            player0Draw.newEncryptionKeyCommitment,
+            player0Draw.newCiphertextRef,
+            player0Draw.proof
+        );
+        engine.submitDrawProof(
+            gameId,
+            player2,
+            player1Draw.newCommitment,
+            player1Draw.newEncryptionKeyCommitment,
+            player1Draw.newCiphertextRef,
+            player1Draw.proof
+        );
+    }
+
+    function _defaultPokerConfig() internal view returns (bytes memory) {
+        return abi.encode(uint256(10), uint256(20), uint256(180), uint256(60), address(verifierBundle), address(this));
     }
 }

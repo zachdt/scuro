@@ -1,21 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Script, console} from "forge-std/Script.sol";
-import {TimelockController} from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
-import {CreatorRewards} from "../src/CreatorRewards.sol";
-import {GameEngineRegistry} from "../src/GameEngineRegistry.sol";
-import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
-import {ScuroGovernor} from "../src/ScuroGovernor.sol";
-import {ScuroStakingToken} from "../src/ScuroStakingToken.sol";
-import {ScuroToken} from "../src/ScuroToken.sol";
-import {NumberPickerAdapter} from "../src/controllers/NumberPickerAdapter.sol";
-import {PvPController} from "../src/controllers/PvPController.sol";
-import {TournamentController} from "../src/controllers/TournamentController.sol";
-import {NumberPickerEngine} from "../src/engines/NumberPickerEngine.sol";
-import {SingleDraw2To7Engine} from "../src/engines/SingleDraw2To7Engine.sol";
-import {MockPokerVerifier} from "../src/mocks/MockPokerVerifier.sol";
-import {VRFCoordinatorMock} from "../src/mocks/VRFCoordinatorMock.sol";
+import { Script, console } from "forge-std/Script.sol";
+import { TimelockController } from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
+import { CreatorRewards } from "../src/CreatorRewards.sol";
+import { GameEngineRegistry } from "../src/GameEngineRegistry.sol";
+import { ProtocolSettlement } from "../src/ProtocolSettlement.sol";
+import { ScuroGovernor } from "../src/ScuroGovernor.sol";
+import { ScuroStakingToken } from "../src/ScuroStakingToken.sol";
+import { ScuroToken } from "../src/ScuroToken.sol";
+import { BlackjackController } from "../src/controllers/BlackjackController.sol";
+import { NumberPickerAdapter } from "../src/controllers/NumberPickerAdapter.sol";
+import { PvPController } from "../src/controllers/PvPController.sol";
+import { TournamentController } from "../src/controllers/TournamentController.sol";
+import { NumberPickerEngine } from "../src/engines/NumberPickerEngine.sol";
+import { SingleDeckBlackjackEngine } from "../src/engines/SingleDeckBlackjackEngine.sol";
+import { SingleDraw2To7Engine } from "../src/engines/SingleDraw2To7Engine.sol";
+import { VRFCoordinatorMock } from "../src/mocks/VRFCoordinatorMock.sol";
+import { BlackjackVerifierBundle } from "../src/verifiers/BlackjackVerifierBundle.sol";
+import { PokerVerifierBundle } from "../src/verifiers/PokerVerifierBundle.sol";
+import { BlackjackActionResolveVerifier } from "../src/verifiers/generated/BlackjackActionResolveVerifier.sol";
+import { BlackjackInitialDealVerifier } from "../src/verifiers/generated/BlackjackInitialDealVerifier.sol";
+import { BlackjackShowdownVerifier } from "../src/verifiers/generated/BlackjackShowdownVerifier.sol";
+import { PokerDrawResolveVerifier } from "../src/verifiers/generated/PokerDrawResolveVerifier.sol";
+import { PokerInitialDealVerifier } from "../src/verifiers/generated/PokerInitialDealVerifier.sol";
+import { PokerShowdownVerifier } from "../src/verifiers/generated/PokerShowdownVerifier.sol";
 
 contract DeployLocal is Script {
     address internal constant PLAYER1 = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
@@ -53,9 +62,28 @@ contract DeployLocal is Script {
         NumberPickerEngine numberPickerEngine = new NumberPickerEngine(admin, address(vrfCoordinator));
         NumberPickerAdapter numberPickerAdapter =
             new NumberPickerAdapter(admin, address(settlement), address(registry), address(numberPickerEngine));
+
+        PokerInitialDealVerifier pokerInitialDealVerifier = new PokerInitialDealVerifier();
+        PokerDrawResolveVerifier pokerDrawResolveVerifier = new PokerDrawResolveVerifier();
+        PokerShowdownVerifier pokerShowdownVerifier = new PokerShowdownVerifier();
+        PokerVerifierBundle pokerVerifierBundle = new PokerVerifierBundle(
+            admin, address(pokerInitialDealVerifier), address(pokerDrawResolveVerifier), address(pokerShowdownVerifier)
+        );
         SingleDraw2To7Engine pokerEngine = new SingleDraw2To7Engine();
-        MockPokerVerifier drawVerifier = new MockPokerVerifier();
-        MockPokerVerifier showdownVerifier = new MockPokerVerifier();
+
+        BlackjackInitialDealVerifier blackjackInitialDealVerifier = new BlackjackInitialDealVerifier();
+        BlackjackActionResolveVerifier blackjackActionResolveVerifier = new BlackjackActionResolveVerifier();
+        BlackjackShowdownVerifier blackjackShowdownVerifier = new BlackjackShowdownVerifier();
+        BlackjackVerifierBundle blackjackVerifierBundle = new BlackjackVerifierBundle(
+            admin,
+            address(blackjackInitialDealVerifier),
+            address(blackjackActionResolveVerifier),
+            address(blackjackShowdownVerifier)
+        );
+        SingleDeckBlackjackEngine blackjackEngine =
+            new SingleDeckBlackjackEngine(admin, address(blackjackVerifierBundle), 60);
+        BlackjackController blackjackController =
+            new BlackjackController(admin, address(settlement), address(registry), address(blackjackEngine));
 
         token.grantRole(token.MINTER_ROLE(), address(settlement));
         token.grantRole(token.MINTER_ROLE(), address(creatorRewards));
@@ -64,7 +92,9 @@ contract DeployLocal is Script {
         settlement.setControllerAuthorization(address(tournamentController), true);
         settlement.setControllerAuthorization(address(pvpController), true);
         settlement.setControllerAuthorization(address(numberPickerAdapter), true);
+        settlement.setControllerAuthorization(address(blackjackController), true);
         numberPickerEngine.grantRole(numberPickerEngine.ADAPTER_ROLE(), address(numberPickerAdapter));
+        blackjackEngine.grantRole(blackjackEngine.CONTROLLER_ROLE(), address(blackjackController));
 
         timelock.grantRole(timelock.PROPOSER_ROLE(), address(governor));
         timelock.grantRole(timelock.EXECUTOR_ROLE(), address(0));
@@ -89,13 +119,28 @@ contract DeployLocal is Script {
             GameEngineRegistry.EngineMetadata({
                 engineType: pokerEngine.ENGINE_TYPE(),
                 creator: POKER_CREATOR,
-                verifier: address(drawVerifier),
+                verifier: address(pokerVerifierBundle),
                 configHash: keccak256("single-draw-2-7"),
                 creatorRateBps: 1000,
                 active: true,
                 supportsTournament: true,
                 supportsPvP: true,
                 supportsSolo: false
+            })
+        );
+
+        registry.registerEngine(
+            address(blackjackEngine),
+            GameEngineRegistry.EngineMetadata({
+                engineType: blackjackEngine.ENGINE_TYPE(),
+                creator: SOLO_CREATOR,
+                verifier: address(blackjackVerifierBundle),
+                configHash: keccak256("single-deck-blackjack-zk"),
+                creatorRateBps: 500,
+                active: true,
+                supportsTournament: false,
+                supportsPvP: false,
+                supportsSolo: true
             })
         );
 
@@ -117,9 +162,11 @@ contract DeployLocal is Script {
         console.log("VRFCoordinatorMock", address(vrfCoordinator));
         console.log("NumberPickerEngine", address(numberPickerEngine));
         console.log("NumberPickerAdapter", address(numberPickerAdapter));
+        console.log("PokerVerifierBundle", address(pokerVerifierBundle));
         console.log("SingleDraw2To7Engine", address(pokerEngine));
-        console.log("DrawVerifier", address(drawVerifier));
-        console.log("ShowdownVerifier", address(showdownVerifier));
+        console.log("BlackjackVerifierBundle", address(blackjackVerifierBundle));
+        console.log("SingleDeckBlackjackEngine", address(blackjackEngine));
+        console.log("BlackjackController", address(blackjackController));
         console.log("Admin", admin);
         console.log("Player1", PLAYER1);
         console.log("Player2", PLAYER2);

@@ -20,17 +20,26 @@ trap cleanup EXIT
 
 cd "${ROOT_DIR}"
 
+bun run --cwd "${ROOT_DIR}/zk" check >/dev/null
+
 anvil --port "${RPC_PORT}" >"${ANVIL_LOG}" 2>&1 &
 ANVIL_PID=$!
 
+rpc_ready() {
+  curl -sSf \
+    -H "Content-Type: application/json" \
+    -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+    "${RPC_URL}" | grep -q '"result"'
+}
+
 for _ in $(seq 1 20); do
-  if cast block-number --rpc-url "${RPC_URL}" >/dev/null 2>&1; then
+  if rpc_ready; then
     break
   fi
   sleep 1
 done
 
-if ! cast block-number --rpc-url "${RPC_URL}" >/dev/null 2>&1; then
+if ! rpc_ready; then
   echo "anvil did not start" >&2
   exit 1
 fi
@@ -62,11 +71,17 @@ CREATOR_REWARDS="$(extract_address CreatorRewards)"
 NUMBER_PICKER_ENGINE="$(extract_address NumberPickerEngine)"
 NUMBER_PICKER_ADAPTER="$(extract_address NumberPickerAdapter)"
 POKER_ENGINE="$(extract_address SingleDraw2To7Engine)"
+POKER_VERIFIER_BUNDLE="$(extract_address PokerVerifierBundle)"
+BLACKJACK_ENGINE="$(extract_address SingleDeckBlackjackEngine)"
+BLACKJACK_VERIFIER_BUNDLE="$(extract_address BlackjackVerifierBundle)"
+BLACKJACK_CONTROLLER="$(extract_address BlackjackController)"
+TOURNAMENT_CONTROLLER="$(extract_address TournamentController)"
 PLAYER1="$(extract_address Player1)"
 PLAYER2="$(extract_address Player2)"
 SOLO_CREATOR="$(extract_address SoloCreator)"
+POKER_CREATOR="$(extract_address PokerCreator)"
 
-for label in SCURO_TOKEN STAKING_TOKEN SETTLEMENT REGISTRY CREATOR_REWARDS NUMBER_PICKER_ENGINE NUMBER_PICKER_ADAPTER POKER_ENGINE PLAYER1 PLAYER2 SOLO_CREATOR; do
+for label in SCURO_TOKEN STAKING_TOKEN SETTLEMENT REGISTRY CREATOR_REWARDS NUMBER_PICKER_ENGINE NUMBER_PICKER_ADAPTER POKER_ENGINE POKER_VERIFIER_BUNDLE BLACKJACK_ENGINE BLACKJACK_VERIFIER_BUNDLE BLACKJACK_CONTROLLER TOURNAMENT_CONTROLLER PLAYER1 PLAYER2 SOLO_CREATOR POKER_CREATOR; do
   if [[ -z "${!label}" ]]; then
     echo "missing deployment output for ${label}" >&2
     exit 1
@@ -101,6 +116,10 @@ assert_equal \
   "$(cast call "${REGISTRY}" "isRegisteredForTournament(address)(bool)" "${POKER_ENGINE}" --rpc-url "${RPC_URL}")" \
   "true" \
   "poker tournament registration"
+assert_equal \
+  "$(cast call "${REGISTRY}" "isRegisteredForSolo(address)(bool)" "${BLACKJACK_ENGINE}" --rpc-url "${RPC_URL}")" \
+  "true" \
+  "blackjack solo registration"
 
 assert_equal \
   "$(cast call "${SCURO_TOKEN}" "balanceOf(address)(uint256)" "${PLAYER1}" --rpc-url "${RPC_URL}")" \
@@ -123,5 +142,21 @@ assert_equal \
   "$(cast call "${STAKING_TOKEN}" "balanceOf(address)(uint256)" "${ADMIN_ADDR}" --rpc-url "${RPC_URL}")" \
   "5000000000000000000" \
   "admin staked balance"
+
+PRIVATE_KEY="${ADMIN_KEY}" \
+PLAYER1_PRIVATE_KEY=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d \
+PLAYER2_PRIVATE_KEY=0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a \
+SCURO_TOKEN="${SCURO_TOKEN}" \
+CREATOR_REWARDS="${CREATOR_REWARDS}" \
+REGISTRY="${REGISTRY}" \
+TOURNAMENT_CONTROLLER="${TOURNAMENT_CONTROLLER}" \
+POKER_ENGINE="${POKER_ENGINE}" \
+POKER_VERIFIER_BUNDLE="${POKER_VERIFIER_BUNDLE}" \
+BLACKJACK_CONTROLLER="${BLACKJACK_CONTROLLER}" \
+BLACKJACK_ENGINE="${BLACKJACK_ENGINE}" \
+BLACKJACK_VERIFIER_BUNDLE="${BLACKJACK_VERIFIER_BUNDLE}" \
+SOLO_CREATOR="${SOLO_CREATOR}" \
+POKER_CREATOR="${POKER_CREATOR}" \
+forge script script/SmokeRealProofHands.s.sol:SmokeRealProofHands --rpc-url "${RPC_URL}" --broadcast >/dev/null
 
 echo "deploy smoke passed"

@@ -12,8 +12,11 @@ contract SmokeE2ETest is BaseE2ETest {
         assertTrue(settlement.hasRole(settlement.CONTROLLER_ROLE(), address(tournamentController)));
         assertTrue(settlement.hasRole(settlement.CONTROLLER_ROLE(), address(pvpController)));
         assertTrue(settlement.hasRole(settlement.CONTROLLER_ROLE(), address(numberPickerAdapter)));
+        assertTrue(settlement.hasRole(settlement.CONTROLLER_ROLE(), address(blackjackController)));
         assertTrue(numberPickerEngine.hasRole(numberPickerEngine.ADAPTER_ROLE(), address(numberPickerAdapter)));
+        assertTrue(blackjackEngine.hasRole(blackjackEngine.CONTROLLER_ROLE(), address(blackjackController)));
         assertTrue(registry.isRegisteredForSolo(address(numberPickerEngine)));
+        assertTrue(registry.isRegisteredForSolo(address(blackjackEngine)));
         assertTrue(registry.isRegisteredForTournament(address(pokerEngine)));
         assertTrue(registry.isRegisteredForPvP(address(pokerEngine)));
         assertTrue(timelock.hasRole(timelock.PROPOSER_ROLE(), address(governor)));

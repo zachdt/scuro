@@ -119,7 +119,7 @@ contract AbusePathsE2ETest is BaseE2ETest {
         governor.execute(targets, values, calldatas, descriptionHash);
     }
 
-    function test_PokerRejectsBadPhasesBadProofsSupportsTimeoutFoldAndTiePaths() public {
+    function test_PokerRejectsDrawProofsOutsideDrawPhase() public {
         address[] memory players = new address[](2);
         players[0] = player1.addr;
         players[1] = player2.addr;
@@ -131,51 +131,129 @@ contract AbusePathsE2ETest is BaseE2ETest {
         uint256 invalidPhaseGameId = 700;
         pokerEngine.initializeGame(invalidPhaseGameId, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
 
-        vm.prank(player1.addr);
+        PokerDrawFixture memory player0Draw = _loadPokerDrawFixture("poker_draw_resolve");
         vm.expectRevert("SingleDraw: no draw");
-        pokerEngine.submitDrawProof(invalidPhaseGameId, bytes32(uint256(1)), bytes32(uint256(2)), hex"01");
+        pokerEngine.submitDrawProof(
+            invalidPhaseGameId,
+            player1.addr,
+            player0Draw.newCommitment,
+            player0Draw.newEncryptionKeyCommitment,
+            player0Draw.newCiphertextRef,
+            player0Draw.proof
+        );
+    }
 
-        _advanceToShowdown(invalidPhaseGameId);
-        showdownVerifier.setShouldVerify(false);
-        vm.prank(player2.addr);
-        vm.expectRevert("SingleDraw: invalid showdown");
-        pokerEngine.submitShowdownProof(invalidPhaseGameId, player1.addr, false, hex"01");
-        showdownVerifier.setShouldVerify(true);
+    function test_PokerRejectsInvalidDrawAndShowdownProofs() public {
+        address[] memory players = new address[](2);
+        players[0] = player1.addr;
+        players[1] = player2.addr;
 
-        uint256 drawFailureGameId = 701;
-        pokerEngine.initializeGame(drawFailureGameId, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
+        uint256[] memory stacks = new uint256[](2);
+        stacks[0] = 1_000;
+        stacks[1] = 1_000;
+
+        pokerEngine.initializeGame(1, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
+        _submitPokerInitialDealProof(1);
+
         vm.prank(player1.addr);
-        pokerEngine.bet(drawFailureGameId, 10);
+        pokerEngine.bet(1, 10);
         vm.prank(player2.addr);
-        pokerEngine.bet(drawFailureGameId, 0);
+        pokerEngine.bet(1, 0);
 
-        drawVerifier.setShouldVerify(false);
+        uint8[] memory empty = new uint8[](0);
         vm.prank(player2.addr);
+        pokerEngine.declareDraw(1, empty);
+        vm.prank(player1.addr);
+        pokerEngine.declareDraw(1, empty);
+
+        PokerDrawFixture memory player0Draw = _loadPokerDrawFixture("poker_draw_resolve");
         vm.expectRevert("SingleDraw: invalid draw proof");
-        pokerEngine.submitDrawProof(drawFailureGameId, bytes32(uint256(3)), bytes32(uint256(4)), hex"01");
-        drawVerifier.setShouldVerify(true);
+        pokerEngine.submitDrawProof(
+            1,
+            player1.addr,
+            bytes32(uint256(player0Draw.newCommitment) + 1),
+            player0Draw.newEncryptionKeyCommitment,
+            player0Draw.newCiphertextRef,
+            player0Draw.proof
+        );
 
-        uint256 timeoutGameId = 702;
-        pokerEngine.initializeGame(timeoutGameId, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
+        PokerDrawFixture memory player1Draw = _loadPokerDrawFixture("poker_draw_resolve_player1");
+        pokerEngine.submitDrawProof(
+            1,
+            player1.addr,
+            player0Draw.newCommitment,
+            player0Draw.newEncryptionKeyCommitment,
+            player0Draw.newCiphertextRef,
+            player0Draw.proof
+        );
+        pokerEngine.submitDrawProof(
+            1,
+            player2.addr,
+            player1Draw.newCommitment,
+            player1Draw.newEncryptionKeyCommitment,
+            player1Draw.newCiphertextRef,
+            player1Draw.proof
+        );
+
+        vm.prank(player2.addr);
+        pokerEngine.bet(1, 0);
+        vm.prank(player1.addr);
+        pokerEngine.bet(1, 0);
+
+        PokerShowdownFixture memory showdown = _loadPokerShowdownFixture("poker_showdown");
+        vm.expectRevert("SingleDraw: invalid showdown");
+        pokerEngine.submitShowdownProof(1, player2.addr, showdown.isTie, showdown.proof);
+    }
+
+    function test_PokerTimeoutClaimsTheCurrentHand() public {
+        address[] memory players = new address[](2);
+        players[0] = player1.addr;
+        players[1] = player2.addr;
+
+        uint256[] memory stacks = new uint256[](2);
+        stacks[0] = 1_000;
+        stacks[1] = 1_000;
+
+        pokerEngine.initializeGame(1, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
+        _submitPokerInitialDealProof(1);
         vm.expectRevert("SingleDraw: active");
-        pokerEngine.claimTimeout(timeoutGameId);
+        pokerEngine.claimTimeout(1);
 
         vm.warp(block.timestamp + 61);
-        pokerEngine.claimTimeout(timeoutGameId);
-        assertFalse(pokerEngine.isGameOver(timeoutGameId));
+        pokerEngine.claimTimeout(1);
+        assertFalse(pokerEngine.isGameOver(1));
+    }
 
-        uint256 foldGameId = 703;
-        pokerEngine.initializeGame(foldGameId, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
+    function test_PokerFoldEndsTheCurrentHand() public {
+        address[] memory players = new address[](2);
+        players[0] = player1.addr;
+        players[1] = player2.addr;
+
+        uint256[] memory stacks = new uint256[](2);
+        stacks[0] = 1_000;
+        stacks[1] = 1_000;
+
+        pokerEngine.initializeGame(1, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
+        _submitPokerInitialDealProof(1);
         vm.prank(player1.addr);
-        pokerEngine.fold(foldGameId);
-        assertFalse(pokerEngine.isGameOver(foldGameId));
+        pokerEngine.fold(1);
+        assertFalse(pokerEngine.isGameOver(1));
+    }
 
-        uint256 tieGameId = 704;
-        pokerEngine.initializeGame(tieGameId, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
-        _advanceToShowdown(tieGameId);
-        pokerEngine.resolveShowdown(tieGameId, address(0), true);
-        assertFalse(pokerEngine.isGameOver(tieGameId));
-        assertEq(pokerEngine.getHandState(tieGameId).handNumber, 2);
+    function test_PokerTieProofAdvancesToNextHand() public {
+        address[] memory players = new address[](2);
+        players[0] = player1.addr;
+        players[1] = player2.addr;
+
+        uint256[] memory stacks = new uint256[](2);
+        stacks[0] = 1_000;
+        stacks[1] = 1_000;
+
+        pokerEngine.initializeGame(1, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
+        _advanceToShowdown(1);
+        _submitPokerTieShowdown(1);
+        assertFalse(pokerEngine.isGameOver(1));
+        assertEq(pokerEngine.getHandState(1).handNumber, 2);
     }
 
     function test_RegistryAndSettlementRejectUnauthorizedCallers() public {

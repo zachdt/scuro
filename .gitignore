@@ -4,3 +4,12 @@
 /.env
 /.env.*
 /archive/
+/zk/node_modules/
+/zk/.cache/
+/zk/tmp/
+/zk/artifacts/
+/zk/**/*.zkey
+/zk/**/*.wtns
+/zk/**/*.sym
+/zk/**/*.r1cs
+/zk/**/*.wasm

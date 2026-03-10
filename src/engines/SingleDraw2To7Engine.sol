@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IPokerVerifier} from "../interfaces/IPokerVerifier.sol";
-import {IPokerZKEngine} from "../interfaces/IPokerZKEngine.sol";
-import {PokerZKStatements} from "../libraries/PokerZKStatements.sol";
+import { IPokerEngine } from "../interfaces/IPokerEngine.sol";
+import { IPokerZKEngine } from "../interfaces/IPokerZKEngine.sol";
+import { IPokerVerifierBundle } from "../interfaces/IPokerVerifierBundle.sol";
 
 contract SingleDraw2To7Engine is IPokerZKEngine {
-    using PokerZKStatements for bytes32;
-
     bytes32 public constant ENGINE_TYPE = keccak256("POKER_2_7_SINGLE_DRAW");
+    uint8 internal constant COORDINATOR_ACTOR = type(uint8).max;
 
     enum MatchState {
         Inactive,
@@ -18,9 +17,11 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
 
     enum HandPhase {
         None,
-        PreDraw,
+        AwaitingInitialDeal,
+        PreDrawBetting,
+        DrawDeclaration,
         DrawProofPending,
-        PostDraw,
+        PostDrawBetting,
         ShowdownProofPending,
         HandComplete
     }
@@ -31,14 +32,6 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         uint256 currentBet;
         bool hasFolded;
         bool hasActed;
-        bool hasDrawn;
-    }
-
-    struct PendingDraw {
-        bytes32 newCommitment;
-        bytes32 nullifier;
-        uint256 nextProofSequence;
-        bool exists;
     }
 
     struct Game {
@@ -55,30 +48,33 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         uint256 actionWindow;
         uint256 gameStartTime;
         address tournamentController;
-        address drawVerifier;
-        address showdownVerifier;
+        address verifierBundle;
         address handCoordinator;
         address matchWinner;
         bool isTie;
         PlayerState[2] players;
         HandStateView hand;
-        PendingDraw[2] pendingDraws;
     }
 
     mapping(uint256 => Game) public games;
 
-    event HandInitialized(uint256 indexed gameId, uint256 indexed handNumber);
+    event HandAwaitingInitialDeal(uint256 indexed gameId, uint256 indexed handNumber);
     event PublicActionTaken(uint256 indexed gameId, address indexed player, uint8 phase, uint256 amount);
-    event DrawSubmitted(uint256 indexed gameId, address indexed player, bytes32 newCommitment);
+    event DrawDeclared(uint256 indexed gameId, address indexed player, uint8 discardMask);
+    event DrawResolved(uint256 indexed gameId, address indexed player, bytes32 newCommitment);
     event ShowdownSubmitted(uint256 indexed gameId, address indexed submitter, address indexed winner, bool isTie);
 
     modifier onlyController(uint256 gameId) {
-        _onlyController(gameId);
+        require(msg.sender == games[gameId].tournamentController, "SingleDraw: not controller");
         _;
     }
 
-    function _onlyController(uint256 gameId) internal view {
-        require(msg.sender == games[gameId].tournamentController, "SingleDraw: not controller");
+    modifier onlyCoordinator(uint256 gameId) {
+        Game storage game = games[gameId];
+        require(
+            msg.sender == game.handCoordinator || msg.sender == game.tournamentController, "SingleDraw: not coordinator"
+        );
+        _;
     }
 
     function engineType() external pure override returns (bytes32) {
@@ -102,8 +98,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
             uint256 bigBlind,
             uint256 blindInterval,
             uint256 actionWindow,
-            address drawVerifier,
-            address showdownVerifier,
+            address verifierBundle,
             address handCoordinator
         ) = _decodeConfig(engineConfig);
 
@@ -114,36 +109,22 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         game.currentBigBlind = bigBlind;
         game.blindEscalationInterval = blindInterval;
         game.actionWindow = actionWindow;
-        game.drawVerifier = drawVerifier;
-        game.showdownVerifier = showdownVerifier;
+        game.verifierBundle = verifierBundle;
         game.handCoordinator = handCoordinator;
         game.gameStartTime = block.timestamp;
         game.tournamentController = msg.sender;
-        game.players[0] = PlayerState({
-            addr: players[0],
-            stack: startingStacks[0],
-            currentBet: 0,
-            hasFolded: false,
-            hasActed: false,
-            hasDrawn: false
-        });
-        game.players[1] = PlayerState({
-            addr: players[1],
-            stack: startingStacks[1],
-            currentBet: 0,
-            hasFolded: false,
-            hasActed: false,
-            hasDrawn: false
-        });
+        game.players[0] = PlayerState(players[0], startingStacks[0], 0, false, false);
+        game.players[1] = PlayerState(players[1], startingStacks[1], 0, false, false);
 
-        _startNextHand(game);
+        _startNextHand(gameId, game);
     }
 
     function bet(uint256 gameId, uint256 amount) external {
         Game storage game = games[gameId];
         require(game.matchState == MatchState.Active, "SingleDraw: inactive");
         require(
-            game.hand.handPhase == uint8(HandPhase.PreDraw) || game.hand.handPhase == uint8(HandPhase.PostDraw),
+            game.hand.handPhase == uint8(HandPhase.PreDrawBetting)
+                || game.hand.handPhase == uint8(HandPhase.PostDrawBetting),
             "SingleDraw: betting closed"
         );
         require(game.players[game.currentTurn].addr == msg.sender, "SingleDraw: not turn");
@@ -167,33 +148,68 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
 
         player.hasActed = true;
         emit PublicActionTaken(gameId, msg.sender, game.hand.handPhase, amount);
-        _advanceAfterAction(gameId, game);
+        _advanceAfterBettingAction(game, false);
     }
 
     function fold(uint256 gameId) external {
         Game storage game = games[gameId];
         require(game.matchState == MatchState.Active, "SingleDraw: inactive");
+        require(
+            game.hand.handPhase == uint8(HandPhase.PreDrawBetting)
+                || game.hand.handPhase == uint8(HandPhase.PostDrawBetting),
+            "SingleDraw: fold closed"
+        );
         require(game.players[game.currentTurn].addr == msg.sender, "SingleDraw: not turn");
         _requireUnexpired(game);
 
         game.players[game.currentTurn].hasFolded = true;
-        _completeHand(game, game.players[1 - game.currentTurn].addr, false);
+        _completeHand(gameId, game, game.players[1 - game.currentTurn].addr, false);
     }
 
-    function initializeHandState(
+    function submitInitialDealProof(
         uint256 gameId,
         bytes32 deckCommitment,
         bytes32 handNonce,
         bytes32[2] calldata handCommitments,
         bytes32[2] calldata encryptionKeyCommitments,
-        bytes32[2] calldata ciphertextRefs
-    ) external override {
+        bytes32[2] calldata ciphertextRefs,
+        bytes calldata proof
+    ) external override onlyCoordinator(gameId) {
+        _submitInitialDealProof(
+            gameId, deckCommitment, handNonce, handCommitments, encryptionKeyCommitments, ciphertextRefs, proof
+        );
+    }
+
+    function _submitInitialDealProof(
+        uint256 gameId,
+        bytes32 deckCommitment,
+        bytes32 handNonce,
+        bytes32[2] calldata handCommitments,
+        bytes32[2] calldata encryptionKeyCommitments,
+        bytes32[2] calldata ciphertextRefs,
+        bytes memory proof
+    ) internal {
         Game storage game = games[gameId];
         require(game.matchState == MatchState.Active, "SingleDraw: inactive");
-        require(msg.sender == game.handCoordinator || msg.sender == game.tournamentController, "SingleDraw: bad init");
+        require(game.hand.handPhase == uint8(HandPhase.AwaitingInitialDeal), "SingleDraw: bad init phase");
 
-        game.hand.handNumber += 1;
-        game.hand.handPhase = uint8(HandPhase.PreDraw);
+        if (game.verifierBundle != address(0)) {
+            IPokerVerifierBundle.InitialDealPublicInputs memory inputs = IPokerVerifierBundle.InitialDealPublicInputs({
+                gameId: gameId,
+                handNumber: game.hand.handNumber,
+                handNonce: uint256(handNonce),
+                deckCommitment: uint256(deckCommitment),
+                handCommitments: [uint256(handCommitments[0]), uint256(handCommitments[1])],
+                encryptionKeyCommitments: [uint256(encryptionKeyCommitments[0]), uint256(encryptionKeyCommitments[1])],
+                ciphertextRefs: [uint256(ciphertextRefs[0]), uint256(ciphertextRefs[1])]
+            });
+            require(
+                IPokerVerifierBundle(game.verifierBundle).verifyInitialDeal(proof, inputs),
+                "SingleDraw: invalid init proof"
+            );
+        }
+
+        game.hand.handPhase = uint8(HandPhase.PreDrawBetting);
         game.hand.deckCommitment = deckCommitment;
         game.hand.handNonce = handNonce;
         game.hand.handCommitments = handCommitments;
@@ -203,94 +219,37 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         game.hand.proofSequences[1] = 0;
         game.hand.drawResolved[0] = false;
         game.hand.drawResolved[1] = false;
+        game.hand.drawDeclared[0] = false;
+        game.hand.drawDeclared[1] = false;
+        game.hand.declaredDrawMasks[0] = 0;
+        game.hand.declaredDrawMasks[1] = 0;
         game.hand.deadlineAt = block.timestamp + game.actionWindow;
         game.hand.expectedActor = uint8(game.currentTurn);
-        emit HandInitialized(gameId, game.hand.handNumber);
     }
 
-    function discardCards(uint256 gameId, uint8[] calldata cardIndices) external {
+    function declareDraw(uint256 gameId, uint8[] calldata cardIndices) external override {
+        _declareDraw(gameId, cardIndices);
+    }
+
+    function _declareDraw(uint256 gameId, uint8[] calldata cardIndices) internal {
         Game storage game = games[gameId];
         require(game.matchState == MatchState.Active, "SingleDraw: inactive");
-        require(game.hand.handPhase == uint8(HandPhase.DrawProofPending), "SingleDraw: not draw");
-
-        uint256 playerIndex = _playerIndex(game, msg.sender);
-        require(!game.players[playerIndex].hasDrawn, "SingleDraw: drew");
-        require(cardIndices.length <= 5, "SingleDraw: too many");
-        game.players[playerIndex].hasDrawn = true;
-        game.hand.drawResolved[playerIndex] = true;
-
-        if (game.hand.drawResolved[0] && game.hand.drawResolved[1]) {
-            game.hand.handPhase = uint8(HandPhase.PostDraw);
-            game.players[0].hasActed = false;
-            game.players[1].hasActed = false;
-            game.players[0].currentBet = 0;
-            game.players[1].currentBet = 0;
-            game.highestBet = 0;
-            game.currentTurn = 1 - game.dealerIdx;
-            game.hand.deadlineAt = block.timestamp + game.actionWindow;
-            game.hand.expectedActor = uint8(game.currentTurn);
-        }
-    }
-
-    function submitDrawProof(
-        uint256 gameId,
-        bytes32 newCommitment,
-        bytes32 nullifier,
-        bytes calldata proof
-    ) external override {
-        Game storage game = games[gameId];
-        require(game.hand.handPhase == uint8(HandPhase.DrawProofPending), "SingleDraw: no draw");
+        require(game.hand.handPhase == uint8(HandPhase.DrawDeclaration), "SingleDraw: not draw");
         require(game.players[game.currentTurn].addr == msg.sender, "SingleDraw: not turn");
         _requireUnexpired(game);
 
         uint256 actor = game.currentTurn;
-        bytes32 statementHash = PokerZKStatements.hashDrawStatement(
-            ENGINE_TYPE,
-            gameId,
-            game.hand.handNumber,
-            msg.sender,
-            game.hand.handCommitments[actor],
-            newCommitment,
-            game.hand.deckCommitment,
-            game.hand.handNonce,
-            nullifier,
-            game.hand.proofSequences[actor] + 1
-        );
+        require(!game.hand.drawDeclared[actor], "SingleDraw: declared");
+        uint8 discardMask = _drawMask(cardIndices);
 
-        if (game.drawVerifier != address(0)) {
-            require(IPokerVerifier(game.drawVerifier).verify(proof, statementHash), "SingleDraw: invalid draw proof");
-        }
+        game.hand.drawDeclared[actor] = true;
+        game.hand.declaredDrawMasks[actor] = discardMask;
+        emit DrawDeclared(gameId, msg.sender, discardMask);
 
-        game.pendingDraws[actor] = PendingDraw({
-            newCommitment: newCommitment,
-            nullifier: nullifier,
-            nextProofSequence: game.hand.proofSequences[actor] + 1,
-            exists: true
-        });
-        emit DrawSubmitted(gameId, msg.sender, newCommitment);
-    }
-
-    function finalizeDraw(uint256 gameId, address player) external override {
-        Game storage game = games[gameId];
-        uint256 actor = _playerIndex(game, player);
-        PendingDraw storage pending = game.pendingDraws[actor];
-        require(pending.exists, "SingleDraw: no draw");
-
-        game.hand.handCommitments[actor] = pending.newCommitment;
-        game.hand.proofSequences[actor] = pending.nextProofSequence;
-        game.hand.drawResolved[actor] = true;
-        delete game.pendingDraws[actor];
-
-        if (game.hand.drawResolved[0] && game.hand.drawResolved[1]) {
-            game.hand.handPhase = uint8(HandPhase.PostDraw);
-            game.players[0].hasActed = false;
-            game.players[1].hasActed = false;
-            game.players[0].currentBet = 0;
-            game.players[1].currentBet = 0;
-            game.highestBet = 0;
-            game.currentTurn = 1 - game.dealerIdx;
-            game.hand.deadlineAt = block.timestamp + game.actionWindow;
-            game.hand.expectedActor = uint8(game.currentTurn);
+        if (game.hand.drawDeclared[0] && game.hand.drawDeclared[1]) {
+            game.hand.handPhase = uint8(HandPhase.DrawProofPending);
+            game.hand.expectedActor = COORDINATOR_ACTOR;
+            game.hand.deadlineAt = 0;
         } else {
             game.currentTurn = 1 - actor;
             game.hand.expectedActor = uint8(game.currentTurn);
@@ -298,58 +257,125 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         }
     }
 
-    function submitShowdownProof(
+    function submitDrawProof(
         uint256 gameId,
-        address winnerAddr,
-        bool isTie,
+        address player,
+        bytes32 newCommitment,
+        bytes32 newEncryptionKeyCommitment,
+        bytes32 newCiphertextRef,
         bytes calldata proof
-    ) external override {
-        Game storage game = games[gameId];
-        require(game.hand.handPhase == uint8(HandPhase.ShowdownProofPending), "SingleDraw: no showdown");
-        require(game.players[game.currentTurn].addr == msg.sender, "SingleDraw: not turn");
-        _requireUnexpired(game);
+    ) external override onlyCoordinator(gameId) {
+        _submitDrawProof(gameId, player, newCommitment, newEncryptionKeyCommitment, newCiphertextRef, proof);
+    }
 
-        bytes32 statementHash = PokerZKStatements.hashShowdownStatement(
-            ENGINE_TYPE,
-            gameId,
-            game.hand.handNumber,
-            game.hand.handCommitments,
-            winnerAddr,
-            isTie,
-            game.hand.handNonce
-        );
-        if (game.showdownVerifier != address(0)) {
-            require(IPokerVerifier(game.showdownVerifier).verify(proof, statementHash), "SingleDraw: invalid showdown");
+    function _submitDrawProof(
+        uint256 gameId,
+        address player,
+        bytes32 newCommitment,
+        bytes32 newEncryptionKeyCommitment,
+        bytes32 newCiphertextRef,
+        bytes memory proof
+    ) internal onlyCoordinator(gameId) {
+        Game storage game = games[gameId];
+        require(game.matchState == MatchState.Active, "SingleDraw: inactive");
+        require(game.hand.handPhase == uint8(HandPhase.DrawProofPending), "SingleDraw: no draw");
+
+        uint256 actor = _playerIndex(game, player);
+        require(game.hand.drawDeclared[actor], "SingleDraw: draw undeclared");
+        require(!game.hand.drawResolved[actor], "SingleDraw: draw resolved");
+
+        if (game.verifierBundle != address(0)) {
+            IPokerVerifierBundle.DrawPublicInputs memory inputs = IPokerVerifierBundle.DrawPublicInputs({
+                gameId: gameId,
+                handNumber: game.hand.handNumber,
+                handNonce: uint256(game.hand.handNonce),
+                playerIndex: actor,
+                deckCommitment: uint256(game.hand.deckCommitment),
+                oldCommitment: uint256(game.hand.handCommitments[actor]),
+                newCommitment: uint256(newCommitment),
+                newEncryptionKeyCommitment: uint256(newEncryptionKeyCommitment),
+                newCiphertextRef: uint256(newCiphertextRef),
+                discardMask: game.hand.declaredDrawMasks[actor],
+                proofSequence: game.hand.proofSequences[actor] + 1
+            });
+            require(
+                IPokerVerifierBundle(game.verifierBundle).verifyDraw(proof, inputs), "SingleDraw: invalid draw proof"
+            );
+        }
+
+        game.hand.handCommitments[actor] = newCommitment;
+        game.hand.encryptionKeyCommitments[actor] = newEncryptionKeyCommitment;
+        game.hand.ciphertextRefs[actor] = newCiphertextRef;
+        game.hand.proofSequences[actor] += 1;
+        game.hand.drawResolved[actor] = true;
+        emit DrawResolved(gameId, player, newCommitment);
+
+        if (game.hand.drawResolved[0] && game.hand.drawResolved[1]) {
+            game.hand.handPhase = uint8(HandPhase.PostDrawBetting);
+            game.players[0].hasActed = false;
+            game.players[1].hasActed = false;
+            game.players[0].currentBet = 0;
+            game.players[1].currentBet = 0;
+            game.highestBet = 0;
+            game.currentTurn = 1 - game.dealerIdx;
+            game.hand.expectedActor = uint8(game.currentTurn);
+            game.hand.deadlineAt = block.timestamp + game.actionWindow;
+        }
+    }
+
+    function submitShowdownProof(uint256 gameId, address winnerAddr, bool isTie, bytes calldata proof)
+        external
+        override
+        onlyCoordinator(gameId)
+    {
+        Game storage game = games[gameId];
+        require(game.matchState == MatchState.Active, "SingleDraw: inactive");
+        require(game.hand.handPhase == uint8(HandPhase.ShowdownProofPending), "SingleDraw: no showdown");
+
+        uint256 winnerIndex = isTie ? 2 : _playerIndex(game, winnerAddr);
+        if (game.verifierBundle != address(0)) {
+            IPokerVerifierBundle.ShowdownPublicInputs memory inputs = IPokerVerifierBundle.ShowdownPublicInputs({
+                gameId: gameId,
+                handNumber: game.hand.handNumber,
+                handNonce: uint256(game.hand.handNonce),
+                handCommitments: [uint256(game.hand.handCommitments[0]), uint256(game.hand.handCommitments[1])],
+                winnerIndex: winnerIndex,
+                isTie: isTie ? 1 : 0
+            });
+            require(
+                IPokerVerifierBundle(game.verifierBundle).verifyShowdown(proof, inputs), "SingleDraw: invalid showdown"
+            );
         }
 
         emit ShowdownSubmitted(gameId, msg.sender, winnerAddr, isTie);
-        _completeHand(game, winnerAddr, isTie);
-    }
-
-    function resolveShowdown(uint256 gameId, address winnerAddr, bool isTie) external onlyController(gameId) {
-        Game storage game = games[gameId];
-        require(game.hand.handPhase == uint8(HandPhase.ShowdownProofPending), "SingleDraw: no showdown");
-        _completeHand(game, winnerAddr, isTie);
-    }
-
-    function handleTimeout(uint256 gameId, address player) external override onlyController(gameId) {
-        Game storage game = games[gameId];
-        require(game.players[game.currentTurn].addr == player, "SingleDraw: wrong actor");
-        require(block.timestamp > game.hand.deadlineAt, "SingleDraw: active");
-        _completeHand(game, game.players[1 - game.currentTurn].addr, false);
+        _completeHand(gameId, game, winnerAddr, isTie);
     }
 
     function claimTimeout(uint256 gameId) external override {
         Game storage game = games[gameId];
+        require(_isPlayerClockPhase(game.hand.handPhase), "SingleDraw: no timeout");
         require(block.timestamp > game.hand.deadlineAt, "SingleDraw: active");
-        _completeHand(game, game.players[1 - game.currentTurn].addr, false);
+        _completeHand(gameId, game, game.players[1 - game.currentTurn].addr, false);
+    }
+
+    function handleTimeout(uint256 gameId, address player) external override onlyController(gameId) {
+        Game storage game = games[gameId];
+        require(_isPlayerClockPhase(game.hand.handPhase), "SingleDraw: no timeout");
+        require(game.players[game.currentTurn].addr == player, "SingleDraw: wrong actor");
+        require(block.timestamp > game.hand.deadlineAt, "SingleDraw: active");
+        _completeHand(gameId, game, game.players[1 - game.currentTurn].addr, false);
     }
 
     function isGameOver(uint256 gameId) public view override returns (bool isOver) {
         return games[gameId].matchState == MatchState.Completed;
     }
 
-    function getOutcomes(uint256 gameId) external view override returns (address[] memory winners, uint256[] memory payouts) {
+    function getOutcomes(uint256 gameId)
+        external
+        view
+        override
+        returns (address[] memory winners, uint256[] memory payouts)
+    {
         Game storage game = games[gameId];
         require(game.matchState == MatchState.Completed, "SingleDraw: active");
 
@@ -380,40 +406,57 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         return games[gameId].hand.deadlineAt;
     }
 
-    function _advanceAfterAction(uint256 gameId, Game storage game) internal {
-        if (game.players[0].hasActed && game.players[1].hasActed && game.players[0].currentBet == game.players[1].currentBet) {
+    function _advanceAfterBettingAction(Game storage game, bool forcePostDraw) internal {
+        if (
+            game.players[0].hasActed && game.players[1].hasActed
+                && game.players[0].currentBet == game.players[1].currentBet
+        ) {
             game.players[0].currentBet = 0;
             game.players[1].currentBet = 0;
             game.players[0].hasActed = false;
             game.players[1].hasActed = false;
             game.highestBet = 0;
 
-            if (game.hand.handPhase == uint8(HandPhase.PreDraw)) {
-                game.hand.handPhase = uint8(HandPhase.DrawProofPending);
+            if (!forcePostDraw && game.hand.handPhase == uint8(HandPhase.PreDrawBetting)) {
+                game.hand.handPhase = uint8(HandPhase.DrawDeclaration);
                 game.currentTurn = 1 - game.dealerIdx;
+                game.hand.expectedActor = uint8(game.currentTurn);
+                game.hand.deadlineAt = block.timestamp + game.actionWindow;
             } else {
                 game.hand.handPhase = uint8(HandPhase.ShowdownProofPending);
-                game.currentTurn = 1 - game.dealerIdx;
+                game.hand.expectedActor = COORDINATOR_ACTOR;
+                game.hand.deadlineAt = 0;
             }
-            game.hand.expectedActor = uint8(game.currentTurn);
-            game.hand.deadlineAt = block.timestamp + game.actionWindow;
         } else {
             game.currentTurn = 1 - game.currentTurn;
             game.hand.expectedActor = uint8(game.currentTurn);
             game.hand.deadlineAt = block.timestamp + game.actionWindow;
         }
-
-        emit PublicActionTaken(gameId, game.players[1 - game.currentTurn].addr, game.hand.handPhase, 0);
     }
 
-    function _startNextHand(Game storage game) internal {
-        game.hand.handPhase = uint8(HandPhase.PreDraw);
+    function _startNextHand(uint256 gameId, Game storage game) internal {
+        game.hand.handPhase = uint8(HandPhase.AwaitingInitialDeal);
         game.hand.handNumber += 1;
-        game.hand.deadlineAt = block.timestamp + game.actionWindow;
+        game.hand.deadlineAt = 0;
+        game.hand.expectedActor = COORDINATOR_ACTOR;
+        game.hand.deckCommitment = bytes32(0);
+        game.hand.handNonce = bytes32(0);
+        game.hand.handCommitments[0] = bytes32(0);
+        game.hand.handCommitments[1] = bytes32(0);
+        game.hand.encryptionKeyCommitments[0] = bytes32(0);
+        game.hand.encryptionKeyCommitments[1] = bytes32(0);
+        game.hand.ciphertextRefs[0] = bytes32(0);
+        game.hand.ciphertextRefs[1] = bytes32(0);
+        game.hand.proofSequences[0] = 0;
+        game.hand.proofSequences[1] = 0;
+        game.hand.drawResolved[0] = false;
+        game.hand.drawResolved[1] = false;
+        game.hand.drawDeclared[0] = false;
+        game.hand.drawDeclared[1] = false;
+        game.hand.declaredDrawMasks[0] = 0;
+        game.hand.declaredDrawMasks[1] = 0;
         game.players[0].hasActed = false;
         game.players[1].hasActed = false;
-        game.players[0].hasDrawn = false;
-        game.players[1].hasDrawn = false;
         game.players[0].currentBet = 0;
         game.players[1].currentBet = 0;
         game.players[0].hasFolded = false;
@@ -439,16 +482,16 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         game.pot = sbCost + bbCost;
         game.highestBet = bbCost;
         game.currentTurn = sbIdx;
-        game.hand.expectedActor = uint8(game.currentTurn);
+        emit HandAwaitingInitialDeal(gameId, game.hand.handNumber);
     }
 
-    function _completeHand(Game storage game, address winnerAddr, bool isTie) internal {
+    function _completeHand(uint256 gameId, Game storage game, address winnerAddr, bool isTie) internal {
         if (isTie) {
             uint256 half = game.pot / 2;
             game.players[0].stack += half;
-            game.players[1].stack += (game.pot - half);
+            game.players[1].stack += game.pot - half;
         } else {
-            uint256 winnerIndex = game.players[0].addr == winnerAddr ? 0 : 1;
+            uint256 winnerIndex = _playerIndex(game, winnerAddr);
             game.players[winnerIndex].stack += game.pot;
         }
 
@@ -461,7 +504,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         }
 
         game.dealerIdx = 1 - game.dealerIdx;
-        _startNextHand(game);
+        _startNextHand(gameId, game);
     }
 
     function _playerIndex(Game storage game, address player) internal view returns (uint256) {
@@ -472,8 +515,23 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         return 1;
     }
 
+    function _drawMask(uint8[] calldata cardIndices) internal pure returns (uint8 discardMask) {
+        require(cardIndices.length <= 5, "SingleDraw: too many");
+        for (uint256 i = 0; i < cardIndices.length; i++) {
+            require(cardIndices[i] < 5, "SingleDraw: bad draw index");
+            uint8 bit = uint8(1 << cardIndices[i]);
+            require(discardMask & bit == 0, "SingleDraw: duplicate draw index");
+            discardMask |= bit;
+        }
+    }
+
     function _requireUnexpired(Game storage game) internal view {
         require(block.timestamp <= game.hand.deadlineAt, "SingleDraw: expired");
+    }
+
+    function _isPlayerClockPhase(uint8 phase) internal pure returns (bool) {
+        return phase == uint8(HandPhase.PreDrawBetting) || phase == uint8(HandPhase.PostDrawBetting)
+            || phase == uint8(HandPhase.DrawDeclaration);
     }
 
     function _decodeConfig(bytes calldata raw)
@@ -484,14 +542,13 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
             uint256 bigBlind,
             uint256 blindInterval,
             uint256 actionWindow,
-            address drawVerifier,
-            address showdownVerifier,
+            address verifierBundle,
             address handCoordinator
         )
     {
         if (raw.length == 0) {
-            return (10, 20, 180, 60, address(0), address(0), address(0));
+            return (10, 20, 180, 60, address(0), address(0));
         }
-        return abi.decode(raw, (uint256, uint256, uint256, uint256, address, address, address));
+        return abi.decode(raw, (uint256, uint256, uint256, uint256, address, address));
     }
 }

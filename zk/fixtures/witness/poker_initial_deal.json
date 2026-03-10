@@ -1,0 +1,14 @@
+{
+  "gameId": "1",
+  "handNumber": "1",
+  "handNonce": "101",
+  "hand0Cards": ["2", "15", "27", "31", "44"],
+  "hand1Cards": ["5", "16", "28", "32", "45"],
+  "hand0Salt": "9001",
+  "hand1Salt": "9002",
+  "deckSalt": "77",
+  "key0": ["111", "112"],
+  "key1": ["211", "212"],
+  "cipherSalt0": "501",
+  "cipherSalt1": "502"
+}

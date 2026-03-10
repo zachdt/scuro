@@ -1,0 +1,17 @@
+{
+  "gameId": "1",
+  "handNumber": "1",
+  "handNonce": "101",
+  "playerIndex": "1",
+  "initialHand0Cards": ["2", "15", "27", "31", "44"],
+  "initialHand1Cards": ["5", "16", "28", "32", "45"],
+  "oldCards": ["5", "16", "28", "32", "45"],
+  "replacementCards": ["5", "16", "28", "32", "45"],
+  "oldSalt": "9002",
+  "newSalt": "9002",
+  "deckSalt": "77",
+  "key": ["211", "212"],
+  "cipherSalt": "602",
+  "discardMask": "0",
+  "proofSequence": "1"
+}

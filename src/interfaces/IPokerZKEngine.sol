@@ -6,12 +6,12 @@ import {IPokerEngine} from "./IPokerEngine.sol";
 interface IPokerZKEngine is IPokerEngine {
     function submitDrawProof(
         uint256 gameId,
+        address player,
         bytes32 newCommitment,
-        bytes32 nullifier,
+        bytes32 newEncryptionKeyCommitment,
+        bytes32 newCiphertextRef,
         bytes calldata proof
     ) external;
-
-    function finalizeDraw(uint256 gameId, address player) external;
 
     function submitShowdownProof(
         uint256 gameId,

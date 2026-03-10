@@ -1,0 +1,21 @@
+{
+  "sessionId": "1",
+  "handNonce": "701",
+  "playerSlots": ["8", "4", "0", "0", "0", "0", "0", "0"],
+  "dealerSlots": ["10", "7", "0", "0"],
+  "playerSalt": "1001",
+  "dealerSalt": "1002",
+  "deckSalt": "1003",
+  "playerKey": ["311", "312"],
+  "playerCipherSalt": "703",
+  "dealerCipherSalt": "704",
+  "dealerUpValue": "10",
+  "handCount": "1",
+  "activeHandIndex": "0",
+  "payout": "0",
+  "immediateResultCode": "0",
+  "handValues": ["12", "0", "0", "0"],
+  "softMask": "0",
+  "handStatuses": ["0", "0", "0", "0"],
+  "allowedActionMasks": ["15", "0", "0", "0"]
+}

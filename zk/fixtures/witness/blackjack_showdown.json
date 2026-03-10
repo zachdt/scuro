@@ -1,0 +1,14 @@
+{
+  "sessionId": "1",
+  "proofSequence": "2",
+  "playerSlots": ["8", "4", "7", "0", "0", "0", "0", "0"],
+  "dealerSlots": ["10", "7", "4", "0"],
+  "playerSalt": "1004",
+  "dealerSalt": "1005",
+  "wager": "100",
+  "payout": "200",
+  "dealerFinalValue": "18",
+  "handCount": "1",
+  "activeHandIndex": "0",
+  "handStatuses": ["4", "0", "0", "0"]
+}
