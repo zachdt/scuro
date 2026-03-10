@@ -19,6 +19,7 @@ Scuro is a generalized on-chain gaming protocol built around a shared token, sha
 - Engines:
   - `NumberPickerEngine`
   - `SingleDraw2To7Engine`
+  - `SingleDeckBlackjackEngine`
 - Local deployment and smoke tooling:
   - `script/DeployLocal.s.sol`
   - `script/e2e_deploy_smoke.sh`
@@ -174,6 +175,7 @@ graph TB
 ├── script/
 │   ├── DeployLocal.s.sol
 │   └── e2e_deploy_smoke.sh
+├── docs/
 ├── lib/
 └── archive/
 ```
@@ -333,6 +335,7 @@ Current rule:
 
 ### Controllers
 
+- `src/controllers/BlackjackController.sol`
 - `src/controllers/TournamentController.sol`
 - `src/controllers/PvPController.sol`
 - `src/controllers/NumberPickerAdapter.sol`
