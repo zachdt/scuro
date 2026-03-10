@@ -20,7 +20,8 @@ The active local stack includes three example engines:
 
 It also includes the full developer-attribution path:
 
-- `GameEngineRegistry` for engine deployment metadata and `developerRewardBps`
+- `GameCatalog` for module metadata, controller/engine authorization, lifecycle status, and `developerRewardBps`
+- `GameDeploymentFactory` for supported module deployment and registration
 - `DeveloperExpressionRegistry` for developer-owned engine expression NFTs
 - `DeveloperRewards` for epoch-based SCU claims
 
@@ -140,9 +141,9 @@ These cover protocol subsystems in isolation:
 
 These live under `test/e2e` and act as the scenario-completeness gate:
 
-- `SmokeE2E.t.sol`: full-stack wiring, role setup, registry compatibility, expression wiring, and one minimal happy path per major subsystem
+- `SmokeE2E.t.sol`: full-stack wiring, catalog setup, controller-engine authorization, expression wiring, and one minimal happy path per major subsystem
 - `UserFlowsE2E.t.sol`: end-to-end user journeys across solo play, tournament play, PvP play, developer rewards, and governance
-- `AbusePathsE2E.t.sol`: replay protection, unauthorized access, inactive engines, inactive expressions, timing issues, and invalid proof or settlement paths
+- `AbusePathsE2E.t.sol`: replay protection, unauthorized access, retired or disabled modules, inactive expressions, timing issues, and invalid proof or settlement paths
 
 The detailed coverage matrix is maintained in [test/e2e/MATRIX.md](../test/e2e/MATRIX.md).
 
@@ -181,13 +182,18 @@ forge script script/DeployLocal.s.sol:DeployLocal \
 
 The local deploy script wires:
 
-- token, staking, governor, timelock, engine registry, developer expression registry, developer rewards, and settlement
+- token, staking, governor, timelock, game catalog, game deployment factory, developer expression registry, developer rewards, and settlement
 - `TournamentController`, `PvPController`, `NumberPickerAdapter`, and `BlackjackController`
-- `NumberPickerEngine`, `SingleDraw2To7Engine`, and `SingleDeckBlackjackEngine`
+- one `NumberPickerEngine`, two `SingleDraw2To7Engine` module instances (tournament and PvP), and one `SingleDeckBlackjackEngine`
 - poker and blackjack Groth16 verifier bundles
-- settlement/controller/adapter/engine roles
+- catalog and factory governance roles plus module registration
 - example expression NFTs owned by the local solo and poker developer accounts
 - seeded balances for admin, two players, and developer wallets
+
+Current branch note:
+
+- `script/DeployLocal.s.sol` and `./script/e2e_deploy_smoke.sh` target the new catalog/factory flow, but local broadcast currently fails when `forge script --broadcast` tries to deploy `GameDeploymentFactory`.
+- The contract's creation bytecode exceeds the EVM initcode limit, so the smoke path is not yet a passing pre-commit gate on this branch even though the test suites pass.
 
 ## Deploy Smoke
 
@@ -202,7 +208,7 @@ The smoke script performs the highest-signal local verification pass because it 
 - validates committed zk artifacts
 - starts Anvil
 - deploys the full stack
-- verifies role wiring, registry registrations, and expression token ownership
+- verifies catalog/controller wiring, module registration metadata, and expression token ownership
 - checks seeded balances
 - performs a staking interaction
 - executes one real-proof poker flow using a poker expression token
@@ -216,8 +222,8 @@ The main controller entrypoints are:
 
 - `NumberPickerAdapter.play(..., expressionTokenId)`
 - `BlackjackController.startHand(..., expressionTokenId)`
-- `TournamentController.createTournament(..., expressionTokenId)`
-- `PvPController.createSession(..., expressionTokenId)`
+- `TournamentController.createTournament(entryFee, rewardPool, startingStack, expressionTokenId)`
+- `PvPController.createSession(player1, player2, stake, rewardPool, startingStack, expressionTokenId)`
 
 For multi-step flows, controllers persist the token ID and settlement reuses it later:
 
@@ -229,18 +235,18 @@ The important invariants are:
 
 - the expression NFT engine type must match the registered engine type
 - the expression NFT must be active
-- the engine deployment must be active
-- `developerRewardBps` comes from `GameEngineRegistry`
+- the module must be settlable in `GameCatalog`
+- `developerRewardBps` comes from the module metadata stored in `GameCatalog`
 - the reward recipient is the current `ownerOf(expressionTokenId)` at settlement time
 - for tournament, PvP, and blackjack flows, a mid-session expression transfer changes who receives accrual if settlement has not happened yet
 
 When debugging attribution locally:
 
-- inspect engine metadata in `GameEngineRegistry`
+- inspect module metadata in `GameCatalog`
 - inspect token ownership and metadata in `DeveloperExpressionRegistry`
 - inspect epoch accruals in `DeveloperRewards`
 - confirm the controller stored the expected `expressionTokenId`
-- remember that compatibility is enforced when settlement books accrual, so a later expression deactivation or engine deactivation can surface during settlement rather than at session creation
+- remember that compatibility is enforced when settlement books accrual, so a later expression deactivation or module status change can surface during settlement rather than at session creation
 
 ## User Story To Test Mapping
 
@@ -282,13 +288,14 @@ When debugging attribution locally:
 
 ### Abuse and negative-path stories
 
-- bad proofs, replay guards, invalid wagers, inactive engines, inactive expressions, and unauthorized access:
+- bad proofs, replay guards, invalid wagers, retired or disabled modules, inactive expressions, and unauthorized access:
   - `test/e2e/AbusePathsE2E.t.sol`
 
 ## Review Notes
 
 - Poker game initialization is controller-gated so an arbitrary caller cannot pre-seed predictable game IDs and block tournament or PvP session creation.
-- Engine deactivation now blocks both new game creation and developer reward settlement until the engine is reactivated.
+- Module retirement now blocks new game creation while preserving settlement paths for in-flight games; module disablement blocks both launch and settlement.
+- `GameDeploymentFactory` is currently too large to broadcast through `forge script --broadcast` on Anvil because its creation bytecode exceeds the initcode limit.
 - The zk-backed engines still depend on off-chain proof coordination. Current tests cover proof validation and some timeout paths, but there is still no coordinator-timeout recovery path if proof submission stalls.
 
 Next step: consult the [E2E scenario matrix](../test/e2e/MATRIX.md) to map a user story or regression risk to a concrete scenario ID and test name.

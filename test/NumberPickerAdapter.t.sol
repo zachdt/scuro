@@ -4,7 +4,8 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {DeveloperExpressionRegistry} from "../src/DeveloperExpressionRegistry.sol";
 import {DeveloperRewards} from "../src/DeveloperRewards.sol";
-import {GameEngineRegistry} from "../src/GameEngineRegistry.sol";
+import {GameCatalog} from "../src/GameCatalog.sol";
+import {GameDeploymentFactory} from "../src/GameDeploymentFactory.sol";
 import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
 import {ScuroToken} from "../src/ScuroToken.sol";
 import {NumberPickerAdapter} from "../src/controllers/NumberPickerAdapter.sol";
@@ -13,7 +14,8 @@ import {VRFCoordinatorMock} from "../src/mocks/VRFCoordinatorMock.sol";
 
 contract NumberPickerAdapterTest is Test {
     ScuroToken internal token;
-    GameEngineRegistry internal registry;
+    GameCatalog internal catalog;
+    GameDeploymentFactory internal factory;
     DeveloperExpressionRegistry internal expressionRegistry;
     DeveloperRewards internal developerRewards;
     ProtocolSettlement internal settlement;
@@ -28,45 +30,34 @@ contract NumberPickerAdapterTest is Test {
 
     function setUp() public {
         token = new ScuroToken(address(this));
-        registry = new GameEngineRegistry(address(this));
+        catalog = new GameCatalog(address(this));
         expressionRegistry = new DeveloperExpressionRegistry(address(this));
         developerRewards = new DeveloperRewards(address(this), address(token), 7 days);
-        settlement = new ProtocolSettlement(
-            address(this),
-            address(token),
-            address(registry),
-            address(expressionRegistry),
-            address(developerRewards)
-        );
-        vrfCoordinator = new VRFCoordinatorMock();
-        engine = new NumberPickerEngine(address(this), address(vrfCoordinator));
-        adapter = new NumberPickerAdapter(address(this), address(settlement), address(registry), address(engine));
+        settlement = new ProtocolSettlement(address(token), address(catalog), address(expressionRegistry), address(developerRewards));
+        factory = new GameDeploymentFactory(address(this), address(catalog), address(settlement));
+        catalog.grantRole(catalog.REGISTRAR_ROLE(), address(factory));
 
         token.grantRole(token.MINTER_ROLE(), address(settlement));
         token.grantRole(token.MINTER_ROLE(), address(developerRewards));
         developerRewards.grantRole(developerRewards.SETTLEMENT_ROLE(), address(settlement));
 
-        settlement.setControllerAuthorization(address(adapter), true);
-        engine.grantRole(engine.ADAPTER_ROLE(), address(adapter));
-        registry.registerEngine(
-            address(engine),
-            GameEngineRegistry.EngineMetadata({
-                engineType: engine.ENGINE_TYPE(),
-                verifier: address(0),
-                configHash: keccak256("number-picker-auto"),
-                developerRewardBps: 500,
-                active: true,
-                supportsTournament: false,
-                supportsPvP: false,
-                supportsSolo: true
-            })
-        );
+        vrfCoordinator = new VRFCoordinatorMock();
+        GameDeploymentFactory.NumberPickerDeployment memory params = GameDeploymentFactory.NumberPickerDeployment({
+            vrfCoordinator: address(vrfCoordinator),
+            configHash: keccak256("number-picker-auto"),
+            developerRewardBps: 500
+        });
+        address controllerAddress;
+        address engineAddress;
+        (, controllerAddress, engineAddress, ) =
+            factory.deploySoloModule(uint8(GameDeploymentFactory.SoloFamily.NumberPicker), abi.encode(params));
+        adapter = NumberPickerAdapter(controllerAddress);
+        engine = NumberPickerEngine(engineAddress);
 
-        bytes32 engineType = engine.ENGINE_TYPE();
+        bytes32 engineType = engine.engineType();
         vm.prank(developer);
-        expressionTokenId = expressionRegistry.mintExpression(
-            engineType, keccak256("number-picker-auto"), "ipfs://scuro/number-picker-auto"
-        );
+        expressionTokenId =
+            expressionRegistry.mintExpression(engineType, keccak256("number-picker-auto"), "ipfs://scuro/number-picker-auto");
 
         token.mint(alice, 1_000 ether);
         vm.prank(alice);

@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
-import { IPokerEngine } from "../interfaces/IPokerEngine.sol";
-import { IPokerZKEngine } from "../interfaces/IPokerZKEngine.sol";
-import { IPokerVerifierBundle } from "../interfaces/IPokerVerifierBundle.sol";
+import {GameCatalog} from "../GameCatalog.sol";
+import {IPokerEngine} from "../interfaces/IPokerEngine.sol";
+import {IPokerVerifierBundle} from "../interfaces/IPokerVerifierBundle.sol";
+import {IPokerZKEngine} from "../interfaces/IPokerZKEngine.sol";
 
-contract SingleDraw2To7Engine is IPokerZKEngine, AccessControl {
-    bytes32 public constant CONTROLLER_ROLE = keccak256("CONTROLLER_ROLE");
+contract SingleDraw2To7Engine is IPokerZKEngine {
     bytes32 public constant ENGINE_TYPE = keccak256("POKER_2_7_SINGLE_DRAW");
     uint8 internal constant COORDINATOR_ACTOR = type(uint8).max;
 
@@ -58,6 +57,14 @@ contract SingleDraw2To7Engine is IPokerZKEngine, AccessControl {
         HandStateView hand;
     }
 
+    GameCatalog internal immutable CATALOG;
+    uint256 public immutable DEFAULT_SMALL_BLIND;
+    uint256 public immutable DEFAULT_BIG_BLIND;
+    uint256 public immutable BLIND_ESCALATION_INTERVAL;
+    uint256 public immutable ACTION_WINDOW;
+    address public immutable VERIFIER_BUNDLE;
+    address public immutable HAND_COORDINATOR;
+
     mapping(uint256 => Game) public games;
 
     event HandAwaitingInitialDeal(uint256 indexed gameId, uint256 indexed handNumber);
@@ -79,9 +86,26 @@ contract SingleDraw2To7Engine is IPokerZKEngine, AccessControl {
         _;
     }
 
-    constructor(address admin) {
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(CONTROLLER_ROLE, admin);
+    constructor(
+        address catalogAddress,
+        uint256 smallBlind,
+        uint256 bigBlind,
+        uint256 blindInterval,
+        uint256 actionWindow,
+        address verifierBundle,
+        address handCoordinator
+    ) {
+        CATALOG = GameCatalog(catalogAddress);
+        DEFAULT_SMALL_BLIND = smallBlind;
+        DEFAULT_BIG_BLIND = bigBlind;
+        BLIND_ESCALATION_INTERVAL = blindInterval;
+        ACTION_WINDOW = actionWindow;
+        VERIFIER_BUNDLE = verifierBundle;
+        HAND_COORDINATOR = handCoordinator;
+    }
+
+    function catalog() public view returns (GameCatalog) {
+        return CATALOG;
     }
 
     function engineType() external pure override returns (bytes32) {
@@ -93,31 +117,22 @@ contract SingleDraw2To7Engine is IPokerZKEngine, AccessControl {
         address[] calldata players,
         uint256[] calldata startingStacks,
         uint256 buyIn,
-        uint256 reward,
-        bytes calldata engineConfig
-    ) external override onlyRole(CONTROLLER_ROLE) {
+        uint256 reward
+    ) external override {
+        require(CATALOG.isAuthorizedControllerForEngine(msg.sender, address(this)), "SingleDraw: not controller");
         require(players.length == 2, "SingleDraw: two players");
         Game storage game = games[gameId];
         require(game.matchState == MatchState.Inactive, "SingleDraw: exists");
 
-        (
-            uint256 smallBlind,
-            uint256 bigBlind,
-            uint256 blindInterval,
-            uint256 actionWindow,
-            address verifierBundle,
-            address handCoordinator
-        ) = _decodeConfig(engineConfig);
-
         game.matchState = MatchState.Active;
         game.buyIn = buyIn;
         game.reward = reward;
-        game.currentSmallBlind = smallBlind;
-        game.currentBigBlind = bigBlind;
-        game.blindEscalationInterval = blindInterval;
-        game.actionWindow = actionWindow;
-        game.verifierBundle = verifierBundle;
-        game.handCoordinator = handCoordinator;
+        game.currentSmallBlind = DEFAULT_SMALL_BLIND;
+        game.currentBigBlind = DEFAULT_BIG_BLIND;
+        game.blindEscalationInterval = BLIND_ESCALATION_INTERVAL;
+        game.actionWindow = ACTION_WINDOW;
+        game.verifierBundle = VERIFIER_BUNDLE;
+        game.handCoordinator = HAND_COORDINATOR;
         game.gameStartTime = block.timestamp;
         game.tournamentController = msg.sender;
         game.players[0] = PlayerState(players[0], startingStacks[0], 0, false, false);
@@ -127,6 +142,8 @@ contract SingleDraw2To7Engine is IPokerZKEngine, AccessControl {
     }
 
     function bet(uint256 gameId, uint256 amount) external {
+        _requireSettlableModule();
+
         Game storage game = games[gameId];
         require(game.matchState == MatchState.Active, "SingleDraw: inactive");
         require(
@@ -159,6 +176,8 @@ contract SingleDraw2To7Engine is IPokerZKEngine, AccessControl {
     }
 
     function fold(uint256 gameId) external {
+        _requireSettlableModule();
+
         Game storage game = games[gameId];
         require(game.matchState == MatchState.Active, "SingleDraw: inactive");
         require(
@@ -182,6 +201,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine, AccessControl {
         bytes32[2] calldata ciphertextRefs,
         bytes calldata proof
     ) external override onlyCoordinator(gameId) {
+        _requireSettlableModule();
         _submitInitialDealProof(
             gameId, deckCommitment, handNonce, handCommitments, encryptionKeyCommitments, ciphertextRefs, proof
         );
@@ -235,6 +255,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine, AccessControl {
     }
 
     function declareDraw(uint256 gameId, uint8[] calldata cardIndices) external override {
+        _requireSettlableModule();
         _declareDraw(gameId, cardIndices);
     }
 
@@ -272,6 +293,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine, AccessControl {
         bytes32 newCiphertextRef,
         bytes calldata proof
     ) external override onlyCoordinator(gameId) {
+        _requireSettlableModule();
         _submitDrawProof(gameId, player, newCommitment, newEncryptionKeyCommitment, newCiphertextRef, proof);
     }
 
@@ -282,7 +304,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine, AccessControl {
         bytes32 newEncryptionKeyCommitment,
         bytes32 newCiphertextRef,
         bytes memory proof
-    ) internal onlyCoordinator(gameId) {
+    ) internal {
         Game storage game = games[gameId];
         require(game.matchState == MatchState.Active, "SingleDraw: inactive");
         require(game.hand.handPhase == uint8(HandPhase.DrawProofPending), "SingleDraw: no draw");
@@ -335,6 +357,8 @@ contract SingleDraw2To7Engine is IPokerZKEngine, AccessControl {
         override
         onlyCoordinator(gameId)
     {
+        _requireSettlableModule();
+
         Game storage game = games[gameId];
         require(game.matchState == MatchState.Active, "SingleDraw: inactive");
         require(game.hand.handPhase == uint8(HandPhase.ShowdownProofPending), "SingleDraw: no showdown");
@@ -359,6 +383,8 @@ contract SingleDraw2To7Engine is IPokerZKEngine, AccessControl {
     }
 
     function claimTimeout(uint256 gameId) external override {
+        _requireSettlableModule();
+
         Game storage game = games[gameId];
         require(_isPlayerClockPhase(game.hand.handPhase), "SingleDraw: no timeout");
         require(block.timestamp > game.hand.deadlineAt, "SingleDraw: active");
@@ -366,6 +392,8 @@ contract SingleDraw2To7Engine is IPokerZKEngine, AccessControl {
     }
 
     function handleTimeout(uint256 gameId, address player) external override onlyController(gameId) {
+        _requireSettlableModule();
+
         Game storage game = games[gameId];
         require(_isPlayerClockPhase(game.hand.handPhase), "SingleDraw: no timeout");
         require(game.players[game.currentTurn].addr == player, "SingleDraw: wrong actor");
@@ -541,21 +569,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine, AccessControl {
             || phase == uint8(HandPhase.DrawDeclaration);
     }
 
-    function _decodeConfig(bytes calldata raw)
-        internal
-        pure
-        returns (
-            uint256 smallBlind,
-            uint256 bigBlind,
-            uint256 blindInterval,
-            uint256 actionWindow,
-            address verifierBundle,
-            address handCoordinator
-        )
-    {
-        if (raw.length == 0) {
-            return (10, 20, 180, 60, address(0), address(0));
-        }
-        return abi.decode(raw, (uint256, uint256, uint256, uint256, address, address));
+    function _requireSettlableModule() internal view {
+        require(CATALOG.isSettlableEngine(address(this)), "SingleDraw: module inactive");
     }
 }

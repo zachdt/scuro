@@ -3,24 +3,21 @@ pragma solidity ^0.8.24;
 
 import {DeveloperExpressionRegistry} from "../src/DeveloperExpressionRegistry.sol";
 import {DeveloperRewards} from "../src/DeveloperRewards.sol";
-import {GameEngineRegistry} from "../src/GameEngineRegistry.sol";
+import {GameCatalog} from "../src/GameCatalog.sol";
+import {GameDeploymentFactory} from "../src/GameDeploymentFactory.sol";
 import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
 import {ScuroToken} from "../src/ScuroToken.sol";
 import {BlackjackController} from "../src/controllers/BlackjackController.sol";
 import {SingleDeckBlackjackEngine} from "../src/engines/SingleDeckBlackjackEngine.sol";
-import {BlackjackVerifierBundle} from "../src/verifiers/BlackjackVerifierBundle.sol";
-import {BlackjackActionResolveVerifier} from "../src/verifiers/generated/BlackjackActionResolveVerifier.sol";
-import {BlackjackInitialDealVerifier} from "../src/verifiers/generated/BlackjackInitialDealVerifier.sol";
-import {BlackjackShowdownVerifier} from "../src/verifiers/generated/BlackjackShowdownVerifier.sol";
 import {ZkFixtureLoader} from "./helpers/ZkFixtureLoader.sol";
 
 contract BlackjackControllerTest is ZkFixtureLoader {
     ScuroToken internal token;
-    GameEngineRegistry internal registry;
+    GameCatalog internal catalog;
+    GameDeploymentFactory internal factory;
     DeveloperExpressionRegistry internal expressionRegistry;
     DeveloperRewards internal developerRewards;
     ProtocolSettlement internal settlement;
-    BlackjackVerifierBundle internal verifierBundle;
     SingleDeckBlackjackEngine internal engine;
     BlackjackController internal controller;
 
@@ -30,50 +27,34 @@ contract BlackjackControllerTest is ZkFixtureLoader {
 
     function setUp() public {
         token = new ScuroToken(address(this));
-        registry = new GameEngineRegistry(address(this));
+        catalog = new GameCatalog(address(this));
         expressionRegistry = new DeveloperExpressionRegistry(address(this));
         developerRewards = new DeveloperRewards(address(this), address(token), 7 days);
-        settlement = new ProtocolSettlement(
-            address(this),
-            address(token),
-            address(registry),
-            address(expressionRegistry),
-            address(developerRewards)
-        );
-        verifierBundle = new BlackjackVerifierBundle(
-            address(this),
-            address(new BlackjackInitialDealVerifier()),
-            address(new BlackjackActionResolveVerifier()),
-            address(new BlackjackShowdownVerifier())
-        );
-        engine = new SingleDeckBlackjackEngine(address(this), address(verifierBundle), 60);
-        controller = new BlackjackController(address(this), address(settlement), address(registry), address(engine));
+        settlement = new ProtocolSettlement(address(token), address(catalog), address(expressionRegistry), address(developerRewards));
+        factory = new GameDeploymentFactory(address(this), address(catalog), address(settlement));
+        catalog.grantRole(catalog.REGISTRAR_ROLE(), address(factory));
 
         token.grantRole(token.MINTER_ROLE(), address(settlement));
         token.grantRole(token.MINTER_ROLE(), address(developerRewards));
         developerRewards.grantRole(developerRewards.SETTLEMENT_ROLE(), address(settlement));
-        settlement.setControllerAuthorization(address(controller), true);
-        engine.grantRole(engine.CONTROLLER_ROLE(), address(controller));
 
-        registry.registerEngine(
-            address(engine),
-            GameEngineRegistry.EngineMetadata({
-                engineType: engine.ENGINE_TYPE(),
-                verifier: address(verifierBundle),
-                configHash: keccak256("single-deck-blackjack-zk"),
-                developerRewardBps: 500,
-                active: true,
-                supportsTournament: false,
-                supportsPvP: false,
-                supportsSolo: true
-            })
-        );
+        GameDeploymentFactory.BlackjackDeployment memory params = GameDeploymentFactory.BlackjackDeployment({
+            coordinator: address(this),
+            defaultActionWindow: 60,
+            configHash: keccak256("single-deck-blackjack-zk"),
+            developerRewardBps: 500
+        });
+        address controllerAddress;
+        address engineAddress;
+        (, controllerAddress, engineAddress, ) =
+            factory.deploySoloModule(uint8(GameDeploymentFactory.SoloFamily.Blackjack), abi.encode(params));
+        controller = BlackjackController(controllerAddress);
+        engine = SingleDeckBlackjackEngine(engineAddress);
 
-        bytes32 engineType = engine.ENGINE_TYPE();
+        bytes32 engineType = engine.engineType();
         vm.prank(developer);
-        expressionTokenId = expressionRegistry.mintExpression(
-            engineType, keccak256("single-deck-blackjack-zk"), "ipfs://single-deck-blackjack-zk"
-        );
+        expressionTokenId =
+            expressionRegistry.mintExpression(engineType, keccak256("single-deck-blackjack-zk"), "ipfs://single-deck-blackjack-zk");
 
         token.mint(player, 1_000);
         vm.prank(player);
@@ -105,8 +86,7 @@ contract BlackjackControllerTest is ZkFixtureLoader {
 
         assertEq(token.balanceOf(player), 1_100);
         assertEq(developerRewards.epochAccrual(developerRewards.currentEpoch(), developer), 5);
-        (address settledPlayer, uint256 totalBurned, uint256 payout, bool completed) =
-            engine.getSettlementOutcome(sessionId);
+        (address settledPlayer, uint256 totalBurned, uint256 payout, bool completed) = engine.getSettlementOutcome(sessionId);
         assertEq(settledPlayer, player);
         assertEq(totalBurned, 100);
         assertEq(payout, 200);

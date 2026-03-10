@@ -1,20 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
-import {GameEngineRegistry} from "../GameEngineRegistry.sol";
-import {ProtocolSettlement} from "../ProtocolSettlement.sol";
+import {BaseSoloController} from "./BaseSoloController.sol";
 import {SingleDeckBlackjackEngine} from "../engines/SingleDeckBlackjackEngine.sol";
+import {ISoloLifecycleEngine} from "../interfaces/ISoloLifecycleEngine.sol";
 
-contract BlackjackController is AccessControl {
-    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
-
-    ProtocolSettlement internal immutable SETTLEMENT;
-    GameEngineRegistry internal immutable REGISTRY;
+contract BlackjackController is BaseSoloController {
     SingleDeckBlackjackEngine internal immutable ENGINE;
-
-    mapping(uint256 => bool) public sessionSettled;
-    mapping(uint256 => uint256) public sessionExpressionTokenId;
 
     event HandStarted(
         uint256 indexed sessionId,
@@ -31,34 +23,32 @@ contract BlackjackController is AccessControl {
         uint256 totalBurned
     );
 
-    constructor(address admin, address settlementAddress, address registryAddress, address engineAddress) {
-        SETTLEMENT = ProtocolSettlement(settlementAddress);
-        REGISTRY = GameEngineRegistry(registryAddress);
+    constructor(address settlementAddress, address catalogAddress, address engineAddress)
+        BaseSoloController(settlementAddress, catalogAddress, engineAddress)
+    {
         ENGINE = SingleDeckBlackjackEngine(engineAddress);
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(OPERATOR_ROLE, admin);
-    }
-
-    function settlement() public view returns (ProtocolSettlement) {
-        return SETTLEMENT;
-    }
-
-    function registry() public view returns (GameEngineRegistry) {
-        return REGISTRY;
     }
 
     function engine() public view returns (SingleDeckBlackjackEngine) {
         return ENGINE;
     }
 
+    function sessionSettled(uint256 sessionId) public view returns (bool) {
+        return _isSettled(sessionId);
+    }
+
+    function sessionExpressionTokenId(uint256 sessionId) public view returns (uint256) {
+        return _expressionTokenId(sessionId);
+    }
+
     function startHand(uint256 wager, bytes32 playRef, bytes32 playerKeyCommitment, uint256 expressionTokenId)
         external
         returns (uint256 sessionId)
     {
-        require(REGISTRY.isRegisteredForSolo(address(ENGINE)), "BlackjackController: engine inactive");
-        SETTLEMENT.burnPlayerWager(msg.sender, wager);
+        _requireLaunchable("BlackjackController: module inactive");
+        _burnPlayerWager(msg.sender, wager);
         sessionId = ENGINE.openSession(msg.sender, wager, playRef, playerKeyCommitment);
-        sessionExpressionTokenId[sessionId] = expressionTokenId;
+        _recordExpressionTokenId(sessionId, expressionTokenId);
         emit HandStarted(sessionId, msg.sender, expressionTokenId, wager, playRef);
     }
 
@@ -79,28 +69,27 @@ contract BlackjackController is AccessControl {
     }
 
     function claimPlayerTimeout(uint256 sessionId) external {
+        _requireSettlable("BlackjackController: module inactive");
         ENGINE.claimPlayerTimeout(sessionId);
     }
 
     function settle(uint256 sessionId) external {
-        require(!sessionSettled[sessionId], "BlackjackController: settled");
-        (address player, uint256 totalBurned, uint256 payout, bool completed) = ENGINE.getSettlementOutcome(sessionId);
+        _requireSettlable("BlackjackController: module inactive");
+        _markSettled(sessionId, "BlackjackController: settled");
+
+        (address player, uint256 totalBurned, uint256 payout, bool completed) =
+            ISoloLifecycleEngine(address(ENGINE)).getSettlementOutcome(sessionId);
         require(completed, "BlackjackController: active");
 
-        sessionSettled[sessionId] = true;
-        uint256 expressionTokenId = sessionExpressionTokenId[sessionId];
-        if (payout > 0) {
-            SETTLEMENT.mintPlayerReward(player, payout);
-        }
-        SETTLEMENT.accrueDeveloperForExpression(address(ENGINE), expressionTokenId, totalBurned);
+        uint256 expressionTokenId = _expressionTokenId(sessionId);
+        _mintAndAccrue(player, payout, totalBurned, expressionTokenId);
         emit SessionSettled(sessionId, player, expressionTokenId, payout, totalBurned);
     }
 
     function _declareAction(address player, uint256 sessionId, uint8 action) internal {
+        _requireSettlable("BlackjackController: module inactive");
         uint256 additionalBurn = ENGINE.requiredAdditionalBurn(sessionId, action);
-        if (additionalBurn > 0) {
-            SETTLEMENT.burnPlayerWager(player, additionalBurn);
-        }
+        _burnPlayerWager(player, additionalBurn);
         ENGINE.declareAction(sessionId, player, action, additionalBurn);
     }
 }

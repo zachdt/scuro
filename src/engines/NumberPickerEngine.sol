@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import {GameCatalog} from "../GameCatalog.sol";
+import {ISoloLifecycleEngine} from "../interfaces/ISoloLifecycleEngine.sol";
 
-contract NumberPickerEngine is AccessControl {
-    bytes32 public constant ADAPTER_ROLE = keccak256("ADAPTER_ROLE");
+contract NumberPickerEngine is ISoloLifecycleEngine {
     bytes32 public constant ENGINE_TYPE = keccak256("NUMBER_PICKER");
 
     struct PlayRequest {
@@ -18,7 +18,8 @@ contract NumberPickerEngine is AccessControl {
         bool fulfilled;
     }
 
-    address public vrfCoordinator;
+    GameCatalog internal immutable CATALOG;
+    address public immutable vrfCoordinator;
     uint256 public totalGamesPlayed;
     uint256 public totalWagers;
     uint256 public totalPayouts;
@@ -40,27 +41,17 @@ contract NumberPickerEngine is AccessControl {
         bool isWin
     );
 
-    constructor(address admin, address vrfCoordinatorAddress) {
+    constructor(address catalogAddress, address vrfCoordinatorAddress) {
+        CATALOG = GameCatalog(catalogAddress);
         vrfCoordinator = vrfCoordinatorAddress;
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(ADAPTER_ROLE, admin);
+    }
+
+    function catalog() public view returns (GameCatalog) {
+        return CATALOG;
     }
 
     function engineType() external pure returns (bytes32) {
         return ENGINE_TYPE;
-    }
-
-    function setVrfCoordinator(address newCoordinator) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _setVrfCoordinator(newCoordinator);
-    }
-
-    // forge-lint: disable-next-line(mixed-case-function)
-    function setVRFCoordinator(address newCoordinator) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _setVrfCoordinator(newCoordinator);
-    }
-
-    function _setVrfCoordinator(address newCoordinator) internal {
-        vrfCoordinator = newCoordinator;
     }
 
     function requestPlay(
@@ -68,7 +59,8 @@ contract NumberPickerEngine is AccessControl {
         uint256 wager,
         uint256 selection,
         bytes32 playRef
-    ) external onlyRole(ADAPTER_ROLE) returns (uint256 requestId) {
+    ) external returns (uint256 requestId) {
+        require(CATALOG.isAuthorizedControllerForEngine(msg.sender, address(this)), "NumberPicker: not controller");
         require(selection >= 1 && selection <= 99, "NumberPicker: invalid selection");
         require(wager > 0, "NumberPicker: invalid wager");
 
@@ -94,6 +86,7 @@ contract NumberPickerEngine is AccessControl {
     }
 
     function rawFulfillRandomWords(uint256 requestId, uint256[] memory randomWords) external {
+        require(CATALOG.isSettlableEngine(address(this)), "NumberPicker: module inactive");
         require(msg.sender == vrfCoordinator, "NumberPicker: bad coordinator");
         PlayRequest storage playRequest = playRequests[requestId];
         require(playRequest.player != address(0), "NumberPicker: unknown request");
@@ -138,6 +131,15 @@ contract NumberPickerEngine is AccessControl {
             playRequest.isWin,
             playRequest.fulfilled
         );
+    }
+
+    function getSettlementOutcome(uint256 requestId)
+        external
+        view
+        returns (address player, uint256 totalBurned, uint256 payout, bool completed)
+    {
+        PlayRequest memory playRequest = playRequests[requestId];
+        return (playRequest.player, playRequest.wager, playRequest.payout, playRequest.fulfilled);
     }
 
     function _getNextRequestId() internal view returns (uint256) {

@@ -3,26 +3,23 @@ pragma solidity ^0.8.24;
 
 import {DeveloperExpressionRegistry} from "../src/DeveloperExpressionRegistry.sol";
 import {DeveloperRewards} from "../src/DeveloperRewards.sol";
-import {GameEngineRegistry} from "../src/GameEngineRegistry.sol";
+import {GameCatalog} from "../src/GameCatalog.sol";
+import {GameDeploymentFactory} from "../src/GameDeploymentFactory.sol";
 import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
 import {ScuroToken} from "../src/ScuroToken.sol";
 import {TournamentController} from "../src/controllers/TournamentController.sol";
 import {SingleDraw2To7Engine} from "../src/engines/SingleDraw2To7Engine.sol";
-import {PokerVerifierBundle} from "../src/verifiers/PokerVerifierBundle.sol";
-import {PokerDrawResolveVerifier} from "../src/verifiers/generated/PokerDrawResolveVerifier.sol";
-import {PokerInitialDealVerifier} from "../src/verifiers/generated/PokerInitialDealVerifier.sol";
-import {PokerShowdownVerifier} from "../src/verifiers/generated/PokerShowdownVerifier.sol";
 import {ZkFixtureLoader} from "./helpers/ZkFixtureLoader.sol";
 
 contract TournamentControllerTest is ZkFixtureLoader {
     ScuroToken internal token;
-    GameEngineRegistry internal registry;
+    GameCatalog internal catalog;
+    GameDeploymentFactory internal factory;
     DeveloperExpressionRegistry internal expressionRegistry;
     DeveloperRewards internal developerRewards;
     ProtocolSettlement internal settlement;
     TournamentController internal controller;
     SingleDraw2To7Engine internal engine;
-    PokerVerifierBundle internal verifierBundle;
 
     address internal developer = address(0xC0FFEE);
     address internal player1 = address(0x111);
@@ -31,49 +28,36 @@ contract TournamentControllerTest is ZkFixtureLoader {
 
     function setUp() public {
         token = new ScuroToken(address(this));
-        registry = new GameEngineRegistry(address(this));
+        catalog = new GameCatalog(address(this));
         expressionRegistry = new DeveloperExpressionRegistry(address(this));
         developerRewards = new DeveloperRewards(address(this), address(token), 7 days);
-        settlement = new ProtocolSettlement(
-            address(this),
-            address(token),
-            address(registry),
-            address(expressionRegistry),
-            address(developerRewards)
-        );
-        controller = new TournamentController(address(this), address(settlement), address(registry));
-        verifierBundle = new PokerVerifierBundle(
-            address(this),
-            address(new PokerInitialDealVerifier()),
-            address(new PokerDrawResolveVerifier()),
-            address(new PokerShowdownVerifier())
-        );
-        engine = new SingleDraw2To7Engine(address(this));
+        settlement = new ProtocolSettlement(address(token), address(catalog), address(expressionRegistry), address(developerRewards));
+        factory = new GameDeploymentFactory(address(this), address(catalog), address(settlement));
+        catalog.grantRole(catalog.REGISTRAR_ROLE(), address(factory));
 
         token.grantRole(token.MINTER_ROLE(), address(settlement));
         token.grantRole(token.MINTER_ROLE(), address(developerRewards));
         developerRewards.grantRole(developerRewards.SETTLEMENT_ROLE(), address(settlement));
-        settlement.setControllerAuthorization(address(controller), true);
-        engine.grantRole(engine.CONTROLLER_ROLE(), address(controller));
 
-        registry.registerEngine(
-            address(engine),
-            GameEngineRegistry.EngineMetadata({
-                engineType: engine.ENGINE_TYPE(),
-                verifier: address(verifierBundle),
-                configHash: keccak256("2-7"),
-                developerRewardBps: 1_000,
-                active: true,
-                supportsTournament: true,
-                supportsPvP: true,
-                supportsSolo: false
-            })
-        );
+        GameDeploymentFactory.PokerDeployment memory params = GameDeploymentFactory.PokerDeployment({
+            coordinator: address(this),
+            smallBlind: 10,
+            bigBlind: 20,
+            blindEscalationInterval: 180,
+            actionWindow: 60,
+            configHash: keccak256("single-draw-2-7-tournament"),
+            developerRewardBps: 1_000
+        });
+        address controllerAddress;
+        address engineAddress;
+        (, controllerAddress, engineAddress, ) =
+            factory.deployTournamentModule(uint8(GameDeploymentFactory.MatchFamily.PokerSingleDraw2To7), abi.encode(params));
+        controller = TournamentController(controllerAddress);
+        engine = SingleDraw2To7Engine(engineAddress);
 
-        bytes32 engineType = engine.ENGINE_TYPE();
+        bytes32 engineType = engine.engineType();
         vm.prank(developer);
-        expressionTokenId =
-            expressionRegistry.mintExpression(engineType, keccak256("single-draw-2-7"), "ipfs://2-7");
+        expressionTokenId = expressionRegistry.mintExpression(engineType, keccak256("single-draw-2-7"), "ipfs://2-7");
 
         token.mint(player1, 100 ether);
         token.mint(player2, 100 ether);
@@ -113,15 +97,8 @@ contract TournamentControllerTest is ZkFixtureLoader {
     }
 
     function test_ZkInterfacesSmokeForGenericPokerFlow() public {
-        address[] memory players = new address[](2);
-        players[0] = player1;
-        players[1] = player2;
-
-        uint256[] memory stacks = new uint256[](2);
-        stacks[0] = 100;
-        stacks[1] = 100;
-
-        engine.initializeGame(1, players, stacks, 0, 50 ether, _defaultPokerConfig());
+        controller.createTournament(0, 50 ether, 100, expressionTokenId);
+        controller.startGameForPlayers(1, player1, player2);
         _submitInitialDealProof(1);
 
         vm.prank(player1);
@@ -136,8 +113,7 @@ contract TournamentControllerTest is ZkFixtureLoader {
     }
 
     function _createTournamentGame() internal returns (uint256 gameId) {
-        uint256 tournamentId =
-            controller.createTournament(10 ether, 20 ether, address(engine), 1_000, _defaultPokerConfig(), expressionTokenId);
+        uint256 tournamentId = controller.createTournament(10 ether, 20 ether, 1_000, expressionTokenId);
         gameId = controller.startGameForPlayers(tournamentId, player1, player2);
         _submitInitialDealProof(gameId);
     }
@@ -180,9 +156,5 @@ contract TournamentControllerTest is ZkFixtureLoader {
             player1Draw.newCiphertextRef,
             player1Draw.proof
         );
-    }
-
-    function _defaultPokerConfig() internal view returns (bytes memory) {
-        return abi.encode(uint256(10), uint256(20), uint256(180), uint256(60), address(verifierBundle), address(this));
     }
 }

@@ -1,20 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
-import {GameEngineRegistry} from "../GameEngineRegistry.sol";
-import {ProtocolSettlement} from "../ProtocolSettlement.sol";
+import {BaseSoloController} from "./BaseSoloController.sol";
 import {NumberPickerEngine} from "../engines/NumberPickerEngine.sol";
+import {ISoloLifecycleEngine} from "../interfaces/ISoloLifecycleEngine.sol";
 
-contract NumberPickerAdapter is AccessControl {
-    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
-
-    ProtocolSettlement internal immutable SETTLEMENT;
-    GameEngineRegistry internal immutable REGISTRY;
+contract NumberPickerAdapter is BaseSoloController {
     NumberPickerEngine internal immutable ENGINE;
-
-    mapping(uint256 => bool) public requestSettled;
-    mapping(uint256 => uint256) public requestExpressionTokenId;
 
     event PlayFinalized(
         uint256 indexed requestId,
@@ -25,35 +17,32 @@ contract NumberPickerAdapter is AccessControl {
         bool isWin
     );
 
-    constructor(address admin, address settlementAddress, address registryAddress, address engineAddress) {
-        SETTLEMENT = ProtocolSettlement(settlementAddress);
-        REGISTRY = GameEngineRegistry(registryAddress);
+    constructor(address settlementAddress, address catalogAddress, address engineAddress)
+        BaseSoloController(settlementAddress, catalogAddress, engineAddress)
+    {
         ENGINE = NumberPickerEngine(engineAddress);
-
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(OPERATOR_ROLE, admin);
-    }
-
-    function settlement() public view returns (ProtocolSettlement) {
-        return SETTLEMENT;
-    }
-
-    function registry() public view returns (GameEngineRegistry) {
-        return REGISTRY;
     }
 
     function engine() public view returns (NumberPickerEngine) {
         return ENGINE;
     }
 
+    function requestSettled(uint256 requestId) public view returns (bool) {
+        return _isSettled(requestId);
+    }
+
+    function requestExpressionTokenId(uint256 requestId) public view returns (uint256) {
+        return _expressionTokenId(requestId);
+    }
+
     function play(uint256 wager, uint256 selection, bytes32 playRef, uint256 expressionTokenId)
         external
         returns (uint256 requestId)
     {
-        require(REGISTRY.isRegisteredForSolo(address(ENGINE)), "NumberPickerAdapter: engine inactive");
-        SETTLEMENT.burnPlayerWager(msg.sender, wager);
+        _requireLaunchable("NumberPickerAdapter: module inactive");
+        _burnPlayerWager(msg.sender, wager);
         requestId = ENGINE.requestPlay(msg.sender, wager, selection, playRef);
-        requestExpressionTokenId[requestId] = expressionTokenId;
+        _recordExpressionTokenId(requestId, expressionTokenId);
         _finalize(requestId);
     }
 
@@ -62,24 +51,20 @@ contract NumberPickerAdapter is AccessControl {
     }
 
     function _finalize(uint256 requestId) internal {
-        require(!requestSettled[requestId], "NumberPickerAdapter: settled");
-        (
-            address player,
-            uint256 wager,
-            ,
-            ,
-            uint256 payout,
-            bool isWin,
-            bool fulfilled
-        ) = ENGINE.getOutcome(requestId);
-        require(fulfilled, "NumberPickerAdapter: pending");
+        _requireSettlable("NumberPickerAdapter: module inactive");
+        _markSettled(requestId, "NumberPickerAdapter: settled");
 
-        requestSettled[requestId] = true;
-        uint256 expressionTokenId = requestExpressionTokenId[requestId];
-        if (payout > 0) {
-            SETTLEMENT.mintPlayerReward(player, payout);
+        (address player, uint256 wager, uint256 payout, bool completed) =
+            ISoloLifecycleEngine(address(ENGINE)).getSettlementOutcome(requestId);
+        require(completed, "NumberPickerAdapter: pending");
+
+        (, , , , uint256 enginePayout, bool isWin, ) = ENGINE.getOutcome(requestId);
+        if (enginePayout != payout) {
+            revert("NumberPickerAdapter: payout mismatch");
         }
-        SETTLEMENT.accrueDeveloperForExpression(address(ENGINE), expressionTokenId, wager);
+
+        uint256 expressionTokenId = _expressionTokenId(requestId);
+        _mintAndAccrue(player, payout, wager, expressionTokenId);
         emit PlayFinalized(requestId, player, expressionTokenId, wager, payout, isWin);
     }
 }

@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
-import {GameEngineRegistry} from "../GameEngineRegistry.sol";
+import {GameCatalog} from "../GameCatalog.sol";
 import {ProtocolSettlement} from "../ProtocolSettlement.sol";
 import {ITournamentGameEngine} from "../interfaces/ITournamentGameEngine.sol";
 
@@ -12,18 +12,17 @@ contract PvPController is AccessControl, ReentrancyGuard {
 
     struct Session {
         bool active;
-        address gameEngine;
         address player1;
         address player2;
         uint256 stake;
         uint256 rewardPool;
         uint256 startingStack;
         uint256 expressionTokenId;
-        bytes engineConfig;
     }
 
     ProtocolSettlement internal immutable SETTLEMENT;
-    GameEngineRegistry internal immutable REGISTRY;
+    GameCatalog internal immutable CATALOG;
+    ITournamentGameEngine internal immutable ENGINE;
     uint256 public nextSessionId = 1;
     mapping(uint256 => Session) public sessions;
     mapping(uint256 => bool) public sessionSettled;
@@ -37,9 +36,10 @@ contract PvPController is AccessControl, ReentrancyGuard {
     );
     event SessionSettled(uint256 indexed sessionId, address indexed engine, uint256 indexed expressionTokenId);
 
-    constructor(address admin, address settlementAddress, address registryAddress) {
+    constructor(address admin, address settlementAddress, address catalogAddress, address engineAddress) {
         SETTLEMENT = ProtocolSettlement(settlementAddress);
-        REGISTRY = GameEngineRegistry(registryAddress);
+        CATALOG = GameCatalog(catalogAddress);
+        ENGINE = ITournamentGameEngine(engineAddress);
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(OPERATOR_ROLE, admin);
     }
@@ -48,21 +48,23 @@ contract PvPController is AccessControl, ReentrancyGuard {
         return SETTLEMENT;
     }
 
-    function registry() public view returns (GameEngineRegistry) {
-        return REGISTRY;
+    function catalog() public view returns (GameCatalog) {
+        return CATALOG;
+    }
+
+    function engine() public view returns (ITournamentGameEngine) {
+        return ENGINE;
     }
 
     function createSession(
-        address gameEngine,
         address player1,
         address player2,
         uint256 stake,
         uint256 rewardPool,
         uint256 startingStack,
-        bytes calldata engineConfig,
         uint256 expressionTokenId
     ) external onlyRole(OPERATOR_ROLE) returns (uint256 sessionId) {
-        require(REGISTRY.isRegisteredForPvP(gameEngine), "PvPController: engine inactive");
+        require(CATALOG.isLaunchableController(address(this)), "PvPController: module inactive");
         if (stake > 0) {
             SETTLEMENT.burnPlayerWager(player1, stake);
             SETTLEMENT.burnPlayerWager(player2, stake);
@@ -71,14 +73,12 @@ contract PvPController is AccessControl, ReentrancyGuard {
         sessionId = nextSessionId++;
         sessions[sessionId] = Session({
             active: true,
-            gameEngine: gameEngine,
             player1: player1,
             player2: player2,
             stake: stake,
             rewardPool: rewardPool,
             startingStack: startingStack,
-            expressionTokenId: expressionTokenId,
-            engineConfig: engineConfig
+            expressionTokenId: expressionTokenId
         });
 
         address[] memory players = new address[](2);
@@ -89,33 +89,25 @@ contract PvPController is AccessControl, ReentrancyGuard {
         stacks[0] = startingStack;
         stacks[1] = startingStack;
 
-        ITournamentGameEngine(gameEngine).initializeGame(
-            sessionId,
-            players,
-            stacks,
-            stake,
-            rewardPool,
-            engineConfig
-        );
+        ENGINE.initializeGame(sessionId, players, stacks, stake, rewardPool);
 
-        emit SessionCreated(sessionId, gameEngine, expressionTokenId, player1, player2);
+        emit SessionCreated(sessionId, address(ENGINE), expressionTokenId, player1, player2);
     }
 
     function settleSession(uint256 sessionId) external nonReentrant {
+        require(CATALOG.isSettlableController(address(this)), "PvPController: module inactive");
         require(!sessionSettled[sessionId], "PvPController: settled");
         Session memory session = sessions[sessionId];
         require(session.active, "PvPController: inactive");
-        require(ITournamentGameEngine(session.gameEngine).isGameOver(sessionId), "PvPController: game active");
+        require(ENGINE.isGameOver(sessionId), "PvPController: game active");
 
         sessionSettled[sessionId] = true;
-        (address[] memory winners, uint256[] memory payouts) = ITournamentGameEngine(session.gameEngine).getOutcomes(sessionId);
+        (address[] memory winners, uint256[] memory payouts) = ENGINE.getOutcomes(sessionId);
         for (uint256 i = 0; i < winners.length; i++) {
             SETTLEMENT.mintPlayerReward(winners[i], payouts[i]);
         }
 
-        SETTLEMENT.accrueDeveloperForExpression(
-            session.gameEngine, session.expressionTokenId, session.rewardPool + (session.stake * 2)
-        );
-        emit SessionSettled(sessionId, session.gameEngine, session.expressionTokenId);
+        SETTLEMENT.accrueDeveloperForExpression(session.expressionTokenId, session.rewardPool + (session.stake * 2));
+        emit SessionSettled(sessionId, address(ENGINE), session.expressionTokenId);
     }
 }

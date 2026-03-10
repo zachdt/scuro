@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { Script } from "forge-std/Script.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 import { DeveloperRewards } from "../src/DeveloperRewards.sol";
-import { GameEngineRegistry } from "../src/GameEngineRegistry.sol";
+import { GameCatalog } from "../src/GameCatalog.sol";
 import { ScuroToken } from "../src/ScuroToken.sol";
 import { BlackjackController } from "../src/controllers/BlackjackController.sol";
 import { TournamentController } from "../src/controllers/TournamentController.sol";
@@ -104,13 +104,13 @@ contract SmokeRealProofHands is Script {
 
         ScuroToken token = ScuroToken(vm.envAddress("SCURO_TOKEN"));
         DeveloperRewards developerRewards = DeveloperRewards(vm.envAddress("DEVELOPER_REWARDS"));
-        GameEngineRegistry registry = GameEngineRegistry(vm.envAddress("REGISTRY"));
+        GameCatalog catalog = GameCatalog(vm.envAddress("GAME_CATALOG"));
         TournamentController tournamentController = TournamentController(vm.envAddress("TOURNAMENT_CONTROLLER"));
-        SingleDraw2To7Engine pokerEngine = SingleDraw2To7Engine(vm.envAddress("POKER_ENGINE"));
+        SingleDraw2To7Engine pokerEngine = SingleDraw2To7Engine(vm.envAddress("TOURNAMENT_POKER_ENGINE"));
         BlackjackController blackjackController = BlackjackController(vm.envAddress("BLACKJACK_CONTROLLER"));
         SingleDeckBlackjackEngine blackjackEngine = SingleDeckBlackjackEngine(vm.envAddress("BLACKJACK_ENGINE"));
 
-        address pokerVerifierBundle = vm.envAddress("POKER_VERIFIER_BUNDLE");
+        address pokerVerifierBundle = vm.envAddress("TOURNAMENT_POKER_VERIFIER_BUNDLE");
         address blackjackVerifierBundle = vm.envAddress("BLACKJACK_VERIFIER_BUNDLE");
         address pokerDeveloper = vm.envAddress("POKER_DEVELOPER");
         address soloDeveloper = vm.envAddress("SOLO_DEVELOPER");
@@ -118,7 +118,7 @@ contract SmokeRealProofHands is Script {
         uint256 blackjackExpressionTokenId = vm.envUint("BLACKJACK_EXPRESSION_TOKEN_ID");
 
         _assertVerifierMetadata(
-            registry, address(pokerEngine), pokerVerifierBundle, address(blackjackEngine), blackjackVerifierBundle
+            catalog, address(pokerEngine), pokerVerifierBundle, address(blackjackEngine), blackjackVerifierBundle
         );
 
         vm.startBroadcast(player1Key);
@@ -133,14 +133,7 @@ contract SmokeRealProofHands is Script {
         uint256 tournamentId;
         uint256 gameId;
         vm.startBroadcast(adminKey);
-        tournamentId = tournamentController.createTournament(
-            ENTRY_FEE,
-            REWARD_POOL,
-            address(pokerEngine),
-            STARTING_STACK,
-            abi.encode(uint256(10), uint256(20), uint256(180), uint256(60), pokerVerifierBundle, admin),
-            pokerExpressionTokenId
-        );
+        tournamentId = tournamentController.createTournament(ENTRY_FEE, REWARD_POOL, STARTING_STACK, pokerExpressionTokenId);
         gameId = tournamentController.startGameForPlayers(tournamentId, player1, player2);
         vm.stopBroadcast();
 
@@ -208,19 +201,19 @@ contract SmokeRealProofHands is Script {
             developerRewards.epochAccrual(developerRewards.currentEpoch(), soloDeveloper) == BLACKJACK_DEVELOPER_ACCRUAL,
             "Smoke: blackjack accrual"
         );
-        require(registry.isRegisteredForTournament(address(pokerEngine)), "Smoke: poker inactive");
-        require(registry.isRegisteredForSolo(address(blackjackEngine)), "Smoke: blackjack inactive");
+        require(catalog.isLaunchableEngine(address(pokerEngine)), "Smoke: poker inactive");
+        require(catalog.isLaunchableEngine(address(blackjackEngine)), "Smoke: blackjack inactive");
     }
 
     function _assertVerifierMetadata(
-        GameEngineRegistry registry,
+        GameCatalog catalog,
         address pokerEngine,
         address pokerVerifierBundle,
         address blackjackEngine,
         address blackjackVerifierBundle
     ) internal view {
-        GameEngineRegistry.EngineMetadata memory pokerMetadata = registry.getEngineMetadata(pokerEngine);
-        GameEngineRegistry.EngineMetadata memory blackjackMetadata = registry.getEngineMetadata(blackjackEngine);
+        GameCatalog.Module memory pokerMetadata = catalog.getModuleByEngine(pokerEngine);
+        GameCatalog.Module memory blackjackMetadata = catalog.getModuleByEngine(blackjackEngine);
 
         require(pokerMetadata.verifier == pokerVerifierBundle, "Smoke: poker verifier");
         require(blackjackMetadata.verifier == blackjackVerifierBundle, "Smoke: blackjack verifier");

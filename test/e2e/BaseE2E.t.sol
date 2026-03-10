@@ -1,34 +1,27 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import { Test } from "forge-std/Test.sol";
-import { TimelockController } from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
-import { DeveloperExpressionRegistry } from "../../src/DeveloperExpressionRegistry.sol";
-import { DeveloperRewards } from "../../src/DeveloperRewards.sol";
-import { GameEngineRegistry } from "../../src/GameEngineRegistry.sol";
-import { ProtocolSettlement } from "../../src/ProtocolSettlement.sol";
-import { ScuroGovernor } from "../../src/ScuroGovernor.sol";
-import { ScuroStakingToken } from "../../src/ScuroStakingToken.sol";
-import { ScuroToken } from "../../src/ScuroToken.sol";
-import { BlackjackController } from "../../src/controllers/BlackjackController.sol";
-import { NumberPickerAdapter } from "../../src/controllers/NumberPickerAdapter.sol";
-import { PvPController } from "../../src/controllers/PvPController.sol";
-import { TournamentController } from "../../src/controllers/TournamentController.sol";
-import { NumberPickerEngine } from "../../src/engines/NumberPickerEngine.sol";
-import { SingleDeckBlackjackEngine } from "../../src/engines/SingleDeckBlackjackEngine.sol";
-import { SingleDraw2To7Engine } from "../../src/engines/SingleDraw2To7Engine.sol";
-import { VRFCoordinatorMock } from "../../src/mocks/VRFCoordinatorMock.sol";
-import { BlackjackVerifierBundle } from "../../src/verifiers/BlackjackVerifierBundle.sol";
-import { PokerVerifierBundle } from "../../src/verifiers/PokerVerifierBundle.sol";
-import { BlackjackActionResolveVerifier } from "../../src/verifiers/generated/BlackjackActionResolveVerifier.sol";
-import { BlackjackInitialDealVerifier } from "../../src/verifiers/generated/BlackjackInitialDealVerifier.sol";
-import { BlackjackShowdownVerifier } from "../../src/verifiers/generated/BlackjackShowdownVerifier.sol";
-import { PokerDrawResolveVerifier } from "../../src/verifiers/generated/PokerDrawResolveVerifier.sol";
-import { PokerInitialDealVerifier } from "../../src/verifiers/generated/PokerInitialDealVerifier.sol";
-import { PokerShowdownVerifier } from "../../src/verifiers/generated/PokerShowdownVerifier.sol";
-import { ManualVRFCoordinatorMock } from "./helpers/ManualVRFCoordinatorMock.sol";
-import { NumberPickerAdapterHarness } from "./helpers/NumberPickerAdapterHarness.sol";
-import { ZkFixtureLoader } from "../helpers/ZkFixtureLoader.sol";
+import {Test} from "forge-std/Test.sol";
+import {TimelockController} from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
+import {DeveloperExpressionRegistry} from "../../src/DeveloperExpressionRegistry.sol";
+import {DeveloperRewards} from "../../src/DeveloperRewards.sol";
+import {GameCatalog} from "../../src/GameCatalog.sol";
+import {GameDeploymentFactory} from "../../src/GameDeploymentFactory.sol";
+import {ProtocolSettlement} from "../../src/ProtocolSettlement.sol";
+import {ScuroGovernor} from "../../src/ScuroGovernor.sol";
+import {ScuroStakingToken} from "../../src/ScuroStakingToken.sol";
+import {ScuroToken} from "../../src/ScuroToken.sol";
+import {BlackjackController} from "../../src/controllers/BlackjackController.sol";
+import {NumberPickerAdapter} from "../../src/controllers/NumberPickerAdapter.sol";
+import {PvPController} from "../../src/controllers/PvPController.sol";
+import {TournamentController} from "../../src/controllers/TournamentController.sol";
+import {NumberPickerEngine} from "../../src/engines/NumberPickerEngine.sol";
+import {SingleDeckBlackjackEngine} from "../../src/engines/SingleDeckBlackjackEngine.sol";
+import {SingleDraw2To7Engine} from "../../src/engines/SingleDraw2To7Engine.sol";
+import {VRFCoordinatorMock} from "../../src/mocks/VRFCoordinatorMock.sol";
+import {ManualVRFCoordinatorMock} from "./helpers/ManualVRFCoordinatorMock.sol";
+import {NumberPickerAdapterHarness} from "./helpers/NumberPickerAdapterHarness.sol";
+import {ZkFixtureLoader} from "../helpers/ZkFixtureLoader.sol";
 
 abstract contract BaseE2ETest is ZkFixtureLoader {
     struct Actor {
@@ -51,7 +44,8 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
     ScuroStakingToken internal stakingToken;
     TimelockController internal timelock;
     ScuroGovernor internal governor;
-    GameEngineRegistry internal registry;
+    GameCatalog internal catalog;
+    GameDeploymentFactory internal factory;
     DeveloperExpressionRegistry internal expressionRegistry;
     DeveloperRewards internal developerRewards;
     ProtocolSettlement internal settlement;
@@ -63,11 +57,16 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
     NumberPickerEngine internal delayedNumberPickerEngine;
     NumberPickerAdapter internal numberPickerAdapter;
     NumberPickerAdapterHarness internal delayedNumberPickerAdapter;
-    SingleDraw2To7Engine internal pokerEngine;
-    PokerVerifierBundle internal pokerVerifierBundle;
+    SingleDraw2To7Engine internal tournamentPokerEngine;
+    SingleDraw2To7Engine internal pvpPokerEngine;
     SingleDeckBlackjackEngine internal blackjackEngine;
-    BlackjackVerifierBundle internal blackjackVerifierBundle;
     BlackjackController internal blackjackController;
+
+    uint256 internal numberPickerModuleId;
+    uint256 internal delayedNumberPickerModuleId;
+    uint256 internal tournamentPokerModuleId;
+    uint256 internal pvpPokerModuleId;
+    uint256 internal blackjackModuleId;
 
     uint256 internal numberPickerExpressionTokenId;
     uint256 internal delayedNumberPickerExpressionTokenId;
@@ -83,8 +82,8 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
 
         _deployCore();
         _wireRoles();
+        _deployModules();
         _mintExpressions();
-        _registerEngines();
         _seedActors();
     }
 
@@ -102,53 +101,14 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         timelock = new TimelockController(1, proposers, executors, address(this));
         governor = new ScuroGovernor(stakingToken, timelock, 1, 5, 1 ether);
 
-        registry = new GameEngineRegistry(address(this));
+        catalog = new GameCatalog(address(this));
         expressionRegistry = new DeveloperExpressionRegistry(address(this));
         developerRewards = new DeveloperRewards(address(this), address(token), 7 days);
-        settlement = new ProtocolSettlement(
-            address(this),
-            address(token),
-            address(registry),
-            address(expressionRegistry),
-            address(developerRewards)
-        );
-
-        tournamentController = new TournamentController(address(this), address(settlement), address(registry));
-        pvpController = new PvPController(address(this), address(settlement), address(registry));
+        settlement = new ProtocolSettlement(address(token), address(catalog), address(expressionRegistry), address(developerRewards));
+        factory = new GameDeploymentFactory(address(this), address(catalog), address(settlement));
 
         autoVrfCoordinator = new VRFCoordinatorMock();
         manualVrfCoordinator = new ManualVRFCoordinatorMock();
-        numberPickerEngine = new NumberPickerEngine(address(this), address(autoVrfCoordinator));
-        delayedNumberPickerEngine = new NumberPickerEngine(address(this), address(manualVrfCoordinator));
-        numberPickerAdapter =
-            new NumberPickerAdapter(address(this), address(settlement), address(registry), address(numberPickerEngine));
-        delayedNumberPickerAdapter = new NumberPickerAdapterHarness(
-            address(this), address(settlement), address(registry), address(delayedNumberPickerEngine)
-        );
-
-        PokerInitialDealVerifier pokerInitialDealVerifier = new PokerInitialDealVerifier();
-        PokerDrawResolveVerifier pokerDrawResolveVerifier = new PokerDrawResolveVerifier();
-        PokerShowdownVerifier pokerShowdownVerifier = new PokerShowdownVerifier();
-        pokerVerifierBundle = new PokerVerifierBundle(
-            address(this),
-            address(pokerInitialDealVerifier),
-            address(pokerDrawResolveVerifier),
-            address(pokerShowdownVerifier)
-        );
-        pokerEngine = new SingleDraw2To7Engine(address(this));
-
-        BlackjackInitialDealVerifier blackjackInitialDealVerifier = new BlackjackInitialDealVerifier();
-        BlackjackActionResolveVerifier blackjackActionResolveVerifier = new BlackjackActionResolveVerifier();
-        BlackjackShowdownVerifier blackjackShowdownVerifier = new BlackjackShowdownVerifier();
-        blackjackVerifierBundle = new BlackjackVerifierBundle(
-            address(this),
-            address(blackjackInitialDealVerifier),
-            address(blackjackActionResolveVerifier),
-            address(blackjackShowdownVerifier)
-        );
-        blackjackEngine = new SingleDeckBlackjackEngine(address(this), address(blackjackVerifierBundle), 60);
-        blackjackController =
-            new BlackjackController(address(this), address(settlement), address(registry), address(blackjackEngine));
     }
 
     function _wireRoles() internal {
@@ -158,114 +118,117 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         developerRewards.grantRole(developerRewards.SETTLEMENT_ROLE(), address(settlement));
         developerRewards.grantRole(developerRewards.EPOCH_MANAGER_ROLE(), address(timelock));
 
-        settlement.setControllerAuthorization(address(tournamentController), true);
-        settlement.setControllerAuthorization(address(pvpController), true);
-        settlement.setControllerAuthorization(address(numberPickerAdapter), true);
-        settlement.setControllerAuthorization(address(delayedNumberPickerAdapter), true);
-        settlement.setControllerAuthorization(address(blackjackController), true);
-
-        numberPickerEngine.grantRole(numberPickerEngine.ADAPTER_ROLE(), address(numberPickerAdapter));
-        delayedNumberPickerEngine.grantRole(
-            delayedNumberPickerEngine.ADAPTER_ROLE(), address(delayedNumberPickerAdapter)
-        );
-        pokerEngine.grantRole(pokerEngine.CONTROLLER_ROLE(), address(tournamentController));
-        pokerEngine.grantRole(pokerEngine.CONTROLLER_ROLE(), address(pvpController));
-        blackjackEngine.grantRole(blackjackEngine.CONTROLLER_ROLE(), address(blackjackController));
+        catalog.grantRole(catalog.DEFAULT_ADMIN_ROLE(), address(timelock));
+        catalog.grantRole(catalog.REGISTRAR_ROLE(), address(timelock));
+        catalog.grantRole(catalog.REGISTRAR_ROLE(), address(factory));
+        factory.grantRole(factory.DEFAULT_ADMIN_ROLE(), address(timelock));
+        factory.grantRole(factory.DEPLOYER_ROLE(), address(timelock));
 
         timelock.grantRole(timelock.PROPOSER_ROLE(), address(governor));
         timelock.grantRole(timelock.EXECUTOR_ROLE(), address(0));
     }
 
+    function _deployModules() internal {
+        GameDeploymentFactory.NumberPickerDeployment memory numberPickerParams = GameDeploymentFactory.NumberPickerDeployment({
+            vrfCoordinator: address(autoVrfCoordinator),
+            configHash: keccak256("number-picker-auto"),
+            developerRewardBps: SOLO_DEVELOPER_BPS
+        });
+        address numberPickerControllerAddress;
+        address numberPickerEngineAddress;
+        (numberPickerModuleId, numberPickerControllerAddress, numberPickerEngineAddress, ) =
+            factory.deploySoloModule(uint8(GameDeploymentFactory.SoloFamily.NumberPicker), abi.encode(numberPickerParams));
+        numberPickerAdapter = NumberPickerAdapter(numberPickerControllerAddress);
+        numberPickerEngine = NumberPickerEngine(numberPickerEngineAddress);
+
+        delayedNumberPickerEngine = new NumberPickerEngine(address(catalog), address(manualVrfCoordinator));
+        delayedNumberPickerAdapter =
+            new NumberPickerAdapterHarness(address(settlement), address(catalog), address(delayedNumberPickerEngine));
+        delayedNumberPickerModuleId = catalog.registerModule(
+            GameCatalog.Module({
+                mode: GameCatalog.GameMode.Solo,
+                controller: address(delayedNumberPickerAdapter),
+                engine: address(delayedNumberPickerEngine),
+                engineType: delayedNumberPickerEngine.engineType(),
+                verifier: address(0),
+                configHash: keccak256("number-picker-manual"),
+                developerRewardBps: SOLO_DEVELOPER_BPS,
+                status: GameCatalog.ModuleStatus.LIVE
+            })
+        );
+
+        GameDeploymentFactory.PokerDeployment memory tournamentPokerParams = GameDeploymentFactory.PokerDeployment({
+            coordinator: address(this),
+            smallBlind: 10,
+            bigBlind: 20,
+            blindEscalationInterval: 180,
+            actionWindow: 60,
+            configHash: keccak256("single-draw-2-7-tournament"),
+            developerRewardBps: POKER_DEVELOPER_BPS
+        });
+        address tournamentControllerAddress;
+        address tournamentPokerEngineAddress;
+        (tournamentPokerModuleId, tournamentControllerAddress, tournamentPokerEngineAddress, ) = factory.deployTournamentModule(
+            uint8(GameDeploymentFactory.MatchFamily.PokerSingleDraw2To7), abi.encode(tournamentPokerParams)
+        );
+        tournamentController = TournamentController(tournamentControllerAddress);
+        tournamentPokerEngine = SingleDraw2To7Engine(tournamentPokerEngineAddress);
+
+        GameDeploymentFactory.PokerDeployment memory pvpPokerParams = GameDeploymentFactory.PokerDeployment({
+            coordinator: address(this),
+            smallBlind: 10,
+            bigBlind: 20,
+            blindEscalationInterval: 180,
+            actionWindow: 60,
+            configHash: keccak256("single-draw-2-7-pvp"),
+            developerRewardBps: POKER_DEVELOPER_BPS
+        });
+        address pvpControllerAddress;
+        address pvpPokerEngineAddress;
+        (pvpPokerModuleId, pvpControllerAddress, pvpPokerEngineAddress, ) = factory.deployPvPModule(
+            uint8(GameDeploymentFactory.MatchFamily.PokerSingleDraw2To7), abi.encode(pvpPokerParams)
+        );
+        pvpController = PvPController(pvpControllerAddress);
+        pvpPokerEngine = SingleDraw2To7Engine(pvpPokerEngineAddress);
+
+        GameDeploymentFactory.BlackjackDeployment memory blackjackParams = GameDeploymentFactory.BlackjackDeployment({
+            coordinator: address(this),
+            defaultActionWindow: 60,
+            configHash: keccak256("single-deck-blackjack-zk"),
+            developerRewardBps: SOLO_DEVELOPER_BPS
+        });
+        address blackjackControllerAddress;
+        address blackjackEngineAddress;
+        (blackjackModuleId, blackjackControllerAddress, blackjackEngineAddress, ) =
+            factory.deploySoloModule(uint8(GameDeploymentFactory.SoloFamily.Blackjack), abi.encode(blackjackParams));
+        blackjackController = BlackjackController(blackjackControllerAddress);
+        blackjackEngine = SingleDeckBlackjackEngine(blackjackEngineAddress);
+    }
+
     function _mintExpressions() internal {
-        bytes32 numberPickerType = numberPickerEngine.ENGINE_TYPE();
-        bytes32 delayedNumberPickerType = delayedNumberPickerEngine.ENGINE_TYPE();
-        bytes32 pokerType = pokerEngine.ENGINE_TYPE();
-        bytes32 blackjackType = blackjackEngine.ENGINE_TYPE();
+        bytes32 numberPickerEngineType = numberPickerEngine.engineType();
+        bytes32 delayedNumberPickerEngineType = delayedNumberPickerEngine.engineType();
+        bytes32 tournamentPokerEngineType = tournamentPokerEngine.engineType();
+        bytes32 blackjackEngineType = blackjackEngine.engineType();
 
         vm.prank(soloDeveloper.addr);
         numberPickerExpressionTokenId = expressionRegistry.mintExpression(
-            numberPickerType,
-            keccak256("number-picker-auto"),
-            "ipfs://scuro/number-picker-auto"
+            numberPickerEngineType, keccak256("number-picker-auto"), "ipfs://scuro/number-picker-auto"
         );
 
         vm.prank(soloDeveloper.addr);
         delayedNumberPickerExpressionTokenId = expressionRegistry.mintExpression(
-            delayedNumberPickerType,
-            keccak256("number-picker-manual"),
-            "ipfs://scuro/number-picker-manual"
+            delayedNumberPickerEngineType, keccak256("number-picker-manual"), "ipfs://scuro/number-picker-manual"
         );
 
         vm.prank(pokerDeveloper.addr);
         pokerExpressionTokenId = expressionRegistry.mintExpression(
-            pokerType,
-            keccak256("single-draw-2-7"),
-            "ipfs://scuro/single-draw-2-7"
+            tournamentPokerEngineType, keccak256("single-draw-2-7"), "ipfs://scuro/single-draw-2-7"
         );
 
         vm.prank(soloDeveloper.addr);
         blackjackExpressionTokenId = expressionRegistry.mintExpression(
-            blackjackType,
-            keccak256("single-deck-blackjack-zk"),
-            "ipfs://scuro/single-deck-blackjack-zk"
-        );
-    }
-
-    function _registerEngines() internal {
-        registry.registerEngine(
-            address(numberPickerEngine),
-            GameEngineRegistry.EngineMetadata({
-                engineType: numberPickerEngine.ENGINE_TYPE(),
-                verifier: address(0),
-                configHash: keccak256("number-picker-auto"),
-                developerRewardBps: SOLO_DEVELOPER_BPS,
-                active: true,
-                supportsTournament: false,
-                supportsPvP: false,
-                supportsSolo: true
-            })
-        );
-
-        registry.registerEngine(
-            address(delayedNumberPickerEngine),
-            GameEngineRegistry.EngineMetadata({
-                engineType: delayedNumberPickerEngine.ENGINE_TYPE(),
-                verifier: address(0),
-                configHash: keccak256("number-picker-manual"),
-                developerRewardBps: SOLO_DEVELOPER_BPS,
-                active: true,
-                supportsTournament: false,
-                supportsPvP: false,
-                supportsSolo: true
-            })
-        );
-
-        registry.registerEngine(
-            address(pokerEngine),
-            GameEngineRegistry.EngineMetadata({
-                engineType: pokerEngine.ENGINE_TYPE(),
-                verifier: address(pokerVerifierBundle),
-                configHash: keccak256("single-draw-2-7"),
-                developerRewardBps: POKER_DEVELOPER_BPS,
-                active: true,
-                supportsTournament: true,
-                supportsPvP: true,
-                supportsSolo: false
-            })
-        );
-
-        registry.registerEngine(
-            address(blackjackEngine),
-            GameEngineRegistry.EngineMetadata({
-                engineType: blackjackEngine.ENGINE_TYPE(),
-                verifier: address(blackjackVerifierBundle),
-                configHash: keccak256("single-deck-blackjack-zk"),
-                developerRewardBps: SOLO_DEVELOPER_BPS,
-                active: true,
-                supportsTournament: false,
-                supportsPvP: false,
-                supportsSolo: true
-            })
+            blackjackEngineType, keccak256("single-deck-blackjack-zk"), "ipfs://scuro/single-deck-blackjack-zk"
         );
     }
 
@@ -294,23 +257,11 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         vm.stopPrank();
     }
 
-    function _defaultPokerConfig(address coordinator) internal view returns (bytes memory) {
-        return
-            abi.encode(uint256(10), uint256(20), uint256(180), uint256(60), address(pokerVerifierBundle), coordinator);
-    }
-
     function _createTournament(uint256 entryFee, uint256 rewardPool, uint256 startingStack)
         internal
         returns (uint256 tournamentId, uint256 gameId)
     {
-        tournamentId = tournamentController.createTournament(
-            entryFee,
-            rewardPool,
-            address(pokerEngine),
-            startingStack,
-            _defaultPokerConfig(address(this)),
-            pokerExpressionTokenId
-        );
+        tournamentId = tournamentController.createTournament(entryFee, rewardPool, startingStack, pokerExpressionTokenId);
         gameId = tournamentController.startGameForPlayers(tournamentId, player1.addr, player2.addr);
     }
 
@@ -319,54 +270,55 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         returns (uint256 sessionId)
     {
         sessionId = pvpController.createSession(
-            address(pokerEngine),
-            player1.addr,
-            player2.addr,
-            stake,
-            rewardPool,
-            startingStack,
-            _defaultPokerConfig(address(this)),
-            pokerExpressionTokenId
+            player1.addr, player2.addr, stake, rewardPool, startingStack, pokerExpressionTokenId
         );
     }
 
-    function _playAllInSingleDraw(uint256 gameId, address winner) internal {
-        _submitPokerInitialDealProof(gameId);
-
-        vm.prank(player1.addr);
-        pokerEngine.bet(gameId, 990);
-        vm.prank(player2.addr);
-        pokerEngine.bet(gameId, 980);
-
-        _resolvePokerDrawPhase(gameId);
-
-        vm.prank(player2.addr);
-        pokerEngine.bet(gameId, 0);
-        vm.prank(player1.addr);
-        pokerEngine.bet(gameId, 0);
-
-        _submitPokerWinnerShowdown(gameId, winner);
+    function _playTournamentAllInSingleDraw(uint256 gameId, address winner) internal {
+        _playAllInSingleDraw(tournamentPokerEngine, gameId, winner);
     }
 
-    function _advanceToShowdown(uint256 gameId) internal {
-        _submitPokerInitialDealProof(gameId);
-
-        vm.prank(player1.addr);
-        pokerEngine.bet(gameId, 10);
-        vm.prank(player2.addr);
-        pokerEngine.bet(gameId, 0);
-
-        _resolvePokerDrawPhase(gameId);
-
-        vm.prank(player2.addr);
-        pokerEngine.bet(gameId, 0);
-        vm.prank(player1.addr);
-        pokerEngine.bet(gameId, 0);
+    function _playPvPAllInSingleDraw(uint256 sessionId, address winner) internal {
+        _playAllInSingleDraw(pvpPokerEngine, sessionId, winner);
     }
 
-    function _submitPokerInitialDealProof(uint256 gameId) internal {
+    function _playAllInSingleDraw(SingleDraw2To7Engine engine, uint256 gameId, address winner) internal {
+        _submitPokerInitialDealProof(engine, gameId);
+
+        vm.prank(player1.addr);
+        engine.bet(gameId, 990);
+        vm.prank(player2.addr);
+        engine.bet(gameId, 980);
+
+        _resolvePokerDrawPhase(engine, gameId);
+
+        vm.prank(player2.addr);
+        engine.bet(gameId, 0);
+        vm.prank(player1.addr);
+        engine.bet(gameId, 0);
+
+        _submitPokerWinnerShowdown(engine, gameId, winner);
+    }
+
+    function _advanceToShowdown(SingleDraw2To7Engine engine, uint256 gameId) internal {
+        _submitPokerInitialDealProof(engine, gameId);
+
+        vm.prank(player1.addr);
+        engine.bet(gameId, 10);
+        vm.prank(player2.addr);
+        engine.bet(gameId, 0);
+
+        _resolvePokerDrawPhase(engine, gameId);
+
+        vm.prank(player2.addr);
+        engine.bet(gameId, 0);
+        vm.prank(player1.addr);
+        engine.bet(gameId, 0);
+    }
+
+    function _submitPokerInitialDealProof(SingleDraw2To7Engine engine, uint256 gameId) internal {
         PokerInitialDealFixture memory fixture = _loadPokerInitialDealFixture();
-        pokerEngine.submitInitialDealProof(
+        engine.submitInitialDealProof(
             gameId,
             fixture.deckCommitment,
             fixture.handNonce,
@@ -377,16 +329,16 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         );
     }
 
-    function _resolvePokerDrawPhase(uint256 gameId) internal {
+    function _resolvePokerDrawPhase(SingleDraw2To7Engine engine, uint256 gameId) internal {
         uint8[] memory empty = new uint8[](0);
         vm.prank(player2.addr);
-        pokerEngine.declareDraw(gameId, empty);
+        engine.declareDraw(gameId, empty);
         vm.prank(player1.addr);
-        pokerEngine.declareDraw(gameId, empty);
+        engine.declareDraw(gameId, empty);
 
         PokerDrawFixture memory player1Draw = _loadPokerDrawFixture("poker_draw_resolve");
         PokerDrawFixture memory player2Draw = _loadPokerDrawFixture("poker_draw_resolve_player1");
-        pokerEngine.submitDrawProof(
+        engine.submitDrawProof(
             gameId,
             player1.addr,
             player1Draw.newCommitment,
@@ -394,7 +346,7 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
             player1Draw.newCiphertextRef,
             player1Draw.proof
         );
-        pokerEngine.submitDrawProof(
+        engine.submitDrawProof(
             gameId,
             player2.addr,
             player2Draw.newCommitment,
@@ -404,14 +356,14 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         );
     }
 
-    function _submitPokerWinnerShowdown(uint256 gameId, address winner) internal {
+    function _submitPokerWinnerShowdown(SingleDraw2To7Engine engine, uint256 gameId, address winner) internal {
         PokerShowdownFixture memory fixture = _loadPokerShowdownFixture("poker_showdown");
-        pokerEngine.submitShowdownProof(gameId, winner, fixture.isTie, fixture.proof);
+        engine.submitShowdownProof(gameId, winner, fixture.isTie, fixture.proof);
     }
 
-    function _submitPokerTieShowdown(uint256 gameId) internal {
+    function _submitPokerTieShowdown(SingleDraw2To7Engine engine, uint256 gameId) internal {
         PokerShowdownFixture memory fixture = _loadPokerShowdownFixture("poker_showdown_tie");
-        pokerEngine.submitShowdownProof(gameId, address(0), fixture.isTie, fixture.proof);
+        engine.submitShowdownProof(gameId, address(0), fixture.isTie, fixture.proof);
     }
 
     function _closeEpoch() internal returns (uint256 closedEpoch) {

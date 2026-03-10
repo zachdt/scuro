@@ -5,22 +5,18 @@ import {DeveloperRewards} from "../../src/DeveloperRewards.sol";
 import {BaseE2ETest} from "./BaseE2E.t.sol";
 
 contract SmokeE2ETest is BaseE2ETest {
-    function test_WiringAndRegistryBootstrap() public view {
+    function test_WiringAndCatalogBootstrap() public view {
         assertTrue(token.hasRole(token.MINTER_ROLE(), address(settlement)));
         assertTrue(token.hasRole(token.MINTER_ROLE(), address(developerRewards)));
         assertTrue(developerRewards.hasRole(developerRewards.SETTLEMENT_ROLE(), address(settlement)));
-        assertTrue(settlement.hasRole(settlement.CONTROLLER_ROLE(), address(tournamentController)));
-        assertTrue(settlement.hasRole(settlement.CONTROLLER_ROLE(), address(pvpController)));
-        assertTrue(settlement.hasRole(settlement.CONTROLLER_ROLE(), address(numberPickerAdapter)));
-        assertTrue(settlement.hasRole(settlement.CONTROLLER_ROLE(), address(blackjackController)));
-        assertTrue(numberPickerEngine.hasRole(numberPickerEngine.ADAPTER_ROLE(), address(numberPickerAdapter)));
-        assertTrue(pokerEngine.hasRole(pokerEngine.CONTROLLER_ROLE(), address(tournamentController)));
-        assertTrue(pokerEngine.hasRole(pokerEngine.CONTROLLER_ROLE(), address(pvpController)));
-        assertTrue(blackjackEngine.hasRole(blackjackEngine.CONTROLLER_ROLE(), address(blackjackController)));
-        assertTrue(registry.isRegisteredForSolo(address(numberPickerEngine)));
-        assertTrue(registry.isRegisteredForSolo(address(blackjackEngine)));
-        assertTrue(registry.isRegisteredForTournament(address(pokerEngine)));
-        assertTrue(registry.isRegisteredForPvP(address(pokerEngine)));
+        assertTrue(catalog.isLaunchableController(address(tournamentController)));
+        assertTrue(catalog.isLaunchableController(address(pvpController)));
+        assertTrue(catalog.isLaunchableController(address(numberPickerAdapter)));
+        assertTrue(catalog.isLaunchableController(address(blackjackController)));
+        assertTrue(catalog.isAuthorizedControllerForEngine(address(numberPickerAdapter), address(numberPickerEngine)));
+        assertTrue(catalog.isAuthorizedControllerForEngine(address(tournamentController), address(tournamentPokerEngine)));
+        assertTrue(catalog.isAuthorizedControllerForEngine(address(pvpController), address(pvpPokerEngine)));
+        assertTrue(catalog.isAuthorizedControllerForEngine(address(blackjackController), address(blackjackEngine)));
         assertEq(expressionRegistry.ownerOf(numberPickerExpressionTokenId), soloDeveloper.addr);
         assertEq(expressionRegistry.ownerOf(pokerExpressionTokenId), pokerDeveloper.addr);
         assertEq(expressionRegistry.ownerOf(blackjackExpressionTokenId), soloDeveloper.addr);
@@ -56,12 +52,12 @@ contract SmokeE2ETest is BaseE2ETest {
         _approveSettlement(player2, type(uint256).max);
 
         (uint256 tournamentId, uint256 gameId) = _createTournament(10 ether, 20 ether, 1_000);
-        _playAllInSingleDraw(gameId, player1.addr);
+        _playTournamentAllInSingleDraw(gameId, player1.addr);
         tournamentController.reportOutcome(gameId);
 
         _assertPlayerBalances(10_010 ether, 9_990 ether);
         _assertDeveloperAccrual(pokerDeveloper.addr, 1, 4 ether);
-        (, , , , , uint256 expressionTokenId, ) = tournamentController.tournaments(tournamentId);
+        (, , , , uint256 expressionTokenId) = tournamentController.tournaments(tournamentId);
         assertEq(expressionTokenId, pokerExpressionTokenId);
     }
 
@@ -70,13 +66,12 @@ contract SmokeE2ETest is BaseE2ETest {
         _approveSettlement(player2, type(uint256).max);
 
         uint256 sessionId = _createPvPSession(10 ether, 20 ether, 1_000);
-        _playAllInSingleDraw(sessionId, player1.addr);
+        _playPvPAllInSingleDraw(sessionId, player1.addr);
         pvpController.settleSession(sessionId);
 
         _assertPlayerBalances(10_010 ether, 9_990 ether);
         _assertDeveloperAccrual(pokerDeveloper.addr, 1, 4 ether);
-        (, , , , , , , uint256 expressionTokenId, bytes memory engineConfig) = pvpController.sessions(sessionId);
-        engineConfig;
+        (, , , , , , uint256 expressionTokenId) = pvpController.sessions(sessionId);
         assertEq(expressionTokenId, pokerExpressionTokenId);
     }
 }

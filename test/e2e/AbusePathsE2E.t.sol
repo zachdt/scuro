@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {DeveloperRewards} from "../../src/DeveloperRewards.sol";
-import {GameEngineRegistry} from "../../src/GameEngineRegistry.sol";
+import {GameCatalog} from "../../src/GameCatalog.sol";
 import {BaseE2ETest} from "./BaseE2E.t.sol";
 
 contract AbusePathsE2ETest is BaseE2ETest {
@@ -22,15 +22,15 @@ contract AbusePathsE2ETest is BaseE2ETest {
         numberPickerAdapter.play(100 ether, 25, keccak256("missing-approval"), numberPickerExpressionTokenId);
     }
 
-    function test_NumberPickerRejectsInactiveEngineAndDuplicateFinalize() public {
+    function test_NumberPickerRejectsRetiredModuleAndDuplicateFinalize() public {
         _approveSettlement(player1, 100 ether);
 
-        registry.setEngineActive(address(numberPickerEngine), false);
+        catalog.setModuleStatus(numberPickerModuleId, GameCatalog.ModuleStatus.RETIRED);
         vm.prank(player1.addr);
-        vm.expectRevert("NumberPickerAdapter: engine inactive");
+        vm.expectRevert("NumberPickerAdapter: module inactive");
         numberPickerAdapter.play(100 ether, 25, keccak256("inactive-engine"), numberPickerExpressionTokenId);
 
-        registry.setEngineActive(address(numberPickerEngine), true);
+        catalog.setModuleStatus(numberPickerModuleId, GameCatalog.ModuleStatus.LIVE);
 
         vm.prank(player1.addr);
         uint256 requestId = delayedNumberPickerAdapter.playWithoutFinalize(
@@ -47,7 +47,7 @@ contract AbusePathsE2ETest is BaseE2ETest {
         delayedNumberPickerAdapter.finalizeForTest(requestId);
     }
 
-    function test_TournamentAndPvPRejectInactiveEnginesPrematureSettlementAndReplay() public {
+    function test_TournamentAndPvPRespectRetiredAndDisabledModules() public {
         _approveSettlement(player1, type(uint256).max);
         _approveSettlement(player2, type(uint256).max);
 
@@ -55,29 +55,30 @@ contract AbusePathsE2ETest is BaseE2ETest {
         vm.expectRevert("TournamentController: game active");
         tournamentController.reportOutcome(gameId);
 
-        registry.setEngineActive(address(pokerEngine), false);
-        vm.expectRevert("TournamentController: engine inactive");
-        tournamentController.createTournament(
-            10 ether,
-            20 ether,
-            address(pokerEngine),
-            1_000,
-            _defaultPokerConfig(address(this)),
-            pokerExpressionTokenId
-        );
-        vm.expectRevert("TournamentController: engine inactive");
+        catalog.setModuleStatus(tournamentPokerModuleId, GameCatalog.ModuleStatus.RETIRED);
+        vm.expectRevert("TournamentController: module inactive");
+        tournamentController.createTournament(10 ether, 20 ether, 1_000, pokerExpressionTokenId);
+        vm.expectRevert("TournamentController: module inactive");
         tournamentController.startGameForPlayers(tournamentId, player1.addr, player2.addr);
 
-        vm.expectRevert("PvPController: engine inactive");
+        catalog.setModuleStatus(pvpPokerModuleId, GameCatalog.ModuleStatus.RETIRED);
+        vm.expectRevert("PvPController: module inactive");
         _createPvPSession(10 ether, 20 ether, 1_000);
 
-        _playAllInSingleDraw(gameId, player1.addr);
-        vm.expectRevert("Settlement: engine inactive");
-        tournamentController.reportOutcome(gameId);
-
-        registry.setEngineActive(address(pokerEngine), true);
+        _playTournamentAllInSingleDraw(gameId, player1.addr);
         tournamentController.reportOutcome(gameId);
         _assertPlayerBalances(10_010 ether, 9_990 ether);
+
+        catalog.setModuleStatus(pvpPokerModuleId, GameCatalog.ModuleStatus.LIVE);
+        uint256 sessionId = _createPvPSession(10 ether, 20 ether, 1_000);
+        _playPvPAllInSingleDraw(sessionId, player1.addr);
+        catalog.setModuleStatus(pvpPokerModuleId, GameCatalog.ModuleStatus.DISABLED);
+        vm.expectRevert("PvPController: module inactive");
+        pvpController.settleSession(sessionId);
+
+        catalog.setModuleStatus(pvpPokerModuleId, GameCatalog.ModuleStatus.LIVE);
+        pvpController.settleSession(sessionId);
+        _assertPlayerBalances(10_020 ether, 9_980 ether);
     }
 
     function test_PokerEngineRejectsUnauthorizedGameInitialization() public {
@@ -90,8 +91,8 @@ contract AbusePathsE2ETest is BaseE2ETest {
         stacks[1] = 1_000;
 
         vm.prank(outsider.addr);
-        vm.expectRevert();
-        pokerEngine.initializeGame(1, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
+        vm.expectRevert("SingleDraw: not controller");
+        tournamentPokerEngine.initializeGame(1, players, stacks, 0, 20 ether);
     }
 
     function test_DeveloperRewardsRejectEarlyCloseClaimBeforeCloseDuplicateClaimAndZeroAccrualMint() public {
@@ -162,11 +163,12 @@ contract AbusePathsE2ETest is BaseE2ETest {
         stacks[1] = 1_000;
 
         uint256 invalidPhaseGameId = 700;
-        pokerEngine.initializeGame(invalidPhaseGameId, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
+        vm.prank(address(tournamentController));
+        tournamentPokerEngine.initializeGame(invalidPhaseGameId, players, stacks, 0, 20 ether);
 
         PokerDrawFixture memory player0Draw = _loadPokerDrawFixture("poker_draw_resolve");
         vm.expectRevert("SingleDraw: no draw");
-        pokerEngine.submitDrawProof(
+        tournamentPokerEngine.submitDrawProof(
             invalidPhaseGameId,
             player1.addr,
             player0Draw.newCommitment,
@@ -185,23 +187,24 @@ contract AbusePathsE2ETest is BaseE2ETest {
         stacks[0] = 1_000;
         stacks[1] = 1_000;
 
-        pokerEngine.initializeGame(1, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
-        _submitPokerInitialDealProof(1);
+        vm.prank(address(tournamentController));
+        tournamentPokerEngine.initializeGame(1, players, stacks, 0, 20 ether);
+        _submitPokerInitialDealProof(tournamentPokerEngine, 1);
 
         vm.prank(player1.addr);
-        pokerEngine.bet(1, 10);
+        tournamentPokerEngine.bet(1, 10);
         vm.prank(player2.addr);
-        pokerEngine.bet(1, 0);
+        tournamentPokerEngine.bet(1, 0);
 
         uint8[] memory empty = new uint8[](0);
         vm.prank(player2.addr);
-        pokerEngine.declareDraw(1, empty);
+        tournamentPokerEngine.declareDraw(1, empty);
         vm.prank(player1.addr);
-        pokerEngine.declareDraw(1, empty);
+        tournamentPokerEngine.declareDraw(1, empty);
 
         PokerDrawFixture memory player0Draw = _loadPokerDrawFixture("poker_draw_resolve");
         vm.expectRevert("SingleDraw: invalid draw proof");
-        pokerEngine.submitDrawProof(
+        tournamentPokerEngine.submitDrawProof(
             1,
             player1.addr,
             bytes32(uint256(player0Draw.newCommitment) + 1),
@@ -211,7 +214,7 @@ contract AbusePathsE2ETest is BaseE2ETest {
         );
 
         PokerDrawFixture memory player1Draw = _loadPokerDrawFixture("poker_draw_resolve_player1");
-        pokerEngine.submitDrawProof(
+        tournamentPokerEngine.submitDrawProof(
             1,
             player1.addr,
             player0Draw.newCommitment,
@@ -219,7 +222,7 @@ contract AbusePathsE2ETest is BaseE2ETest {
             player0Draw.newCiphertextRef,
             player0Draw.proof
         );
-        pokerEngine.submitDrawProof(
+        tournamentPokerEngine.submitDrawProof(
             1,
             player2.addr,
             player1Draw.newCommitment,
@@ -229,13 +232,13 @@ contract AbusePathsE2ETest is BaseE2ETest {
         );
 
         vm.prank(player2.addr);
-        pokerEngine.bet(1, 0);
+        tournamentPokerEngine.bet(1, 0);
         vm.prank(player1.addr);
-        pokerEngine.bet(1, 0);
+        tournamentPokerEngine.bet(1, 0);
 
         PokerShowdownFixture memory showdown = _loadPokerShowdownFixture("poker_showdown");
         vm.expectRevert("SingleDraw: invalid showdown");
-        pokerEngine.submitShowdownProof(1, player2.addr, showdown.isTie, showdown.proof);
+        tournamentPokerEngine.submitShowdownProof(1, player2.addr, showdown.isTie, showdown.proof);
     }
 
     function test_PokerTimeoutClaimsTheCurrentHand() public {
@@ -247,14 +250,15 @@ contract AbusePathsE2ETest is BaseE2ETest {
         stacks[0] = 1_000;
         stacks[1] = 1_000;
 
-        pokerEngine.initializeGame(1, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
-        _submitPokerInitialDealProof(1);
+        vm.prank(address(tournamentController));
+        tournamentPokerEngine.initializeGame(1, players, stacks, 0, 20 ether);
+        _submitPokerInitialDealProof(tournamentPokerEngine, 1);
         vm.expectRevert("SingleDraw: active");
-        pokerEngine.claimTimeout(1);
+        tournamentPokerEngine.claimTimeout(1);
 
         vm.warp(block.timestamp + 61);
-        pokerEngine.claimTimeout(1);
-        assertFalse(pokerEngine.isGameOver(1));
+        tournamentPokerEngine.claimTimeout(1);
+        assertFalse(tournamentPokerEngine.isGameOver(1));
     }
 
     function test_PokerFoldEndsTheCurrentHand() public {
@@ -266,11 +270,12 @@ contract AbusePathsE2ETest is BaseE2ETest {
         stacks[0] = 1_000;
         stacks[1] = 1_000;
 
-        pokerEngine.initializeGame(1, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
-        _submitPokerInitialDealProof(1);
+        vm.prank(address(tournamentController));
+        tournamentPokerEngine.initializeGame(1, players, stacks, 0, 20 ether);
+        _submitPokerInitialDealProof(tournamentPokerEngine, 1);
         vm.prank(player1.addr);
-        pokerEngine.fold(1);
-        assertFalse(pokerEngine.isGameOver(1));
+        tournamentPokerEngine.fold(1);
+        assertFalse(tournamentPokerEngine.isGameOver(1));
     }
 
     function test_PokerTieProofAdvancesToNextHand() public {
@@ -282,49 +287,45 @@ contract AbusePathsE2ETest is BaseE2ETest {
         stacks[0] = 1_000;
         stacks[1] = 1_000;
 
-        pokerEngine.initializeGame(1, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
-        _advanceToShowdown(1);
-        _submitPokerTieShowdown(1);
-        assertFalse(pokerEngine.isGameOver(1));
-        assertEq(pokerEngine.getHandState(1).handNumber, 2);
+        vm.prank(address(tournamentController));
+        tournamentPokerEngine.initializeGame(1, players, stacks, 0, 20 ether);
+        _advanceToShowdown(tournamentPokerEngine, 1);
+        _submitPokerTieShowdown(tournamentPokerEngine, 1);
+        assertFalse(tournamentPokerEngine.isGameOver(1));
+        assertEq(tournamentPokerEngine.getHandState(1).handNumber, 2);
     }
 
-    function test_RegistryAndSettlementRejectUnauthorizedCallers() public {
+    function test_CatalogAndSettlementRejectUnauthorizedCallers() public {
         vm.prank(outsider.addr);
         vm.expectRevert();
-        registry.registerEngine(
-            outsider.addr,
-            GameEngineRegistry.EngineMetadata({
+        catalog.registerModule(
+            GameCatalog.Module({
+                mode: GameCatalog.GameMode.Solo,
+                controller: outsider.addr,
+                engine: address(0x1234),
                 engineType: keccak256("fake"),
                 verifier: address(0),
                 configHash: bytes32(0),
                 developerRewardBps: 100,
-                active: true,
-                supportsTournament: false,
-                supportsPvP: false,
-                supportsSolo: true
+                status: GameCatalog.ModuleStatus.LIVE
             })
         );
 
         vm.prank(outsider.addr);
         vm.expectRevert();
-        registry.setEngineActive(address(numberPickerEngine), false);
+        catalog.setModuleStatus(numberPickerModuleId, GameCatalog.ModuleStatus.DISABLED);
 
         vm.prank(outsider.addr);
-        vm.expectRevert();
-        settlement.setControllerAuthorization(outsider.addr, true);
-
-        vm.prank(outsider.addr);
-        vm.expectRevert();
+        vm.expectRevert("Settlement: unauthorized controller");
         settlement.burnPlayerWager(player1.addr, 1 ether);
 
         vm.prank(outsider.addr);
-        vm.expectRevert();
+        vm.expectRevert("Settlement: unauthorized controller");
         settlement.mintPlayerReward(player1.addr, 1 ether);
 
         vm.prank(outsider.addr);
-        vm.expectRevert();
-        settlement.accrueDeveloperForExpression(address(numberPickerEngine), numberPickerExpressionTokenId, 1 ether);
+        vm.expectRevert("Settlement: unauthorized controller");
+        settlement.accrueDeveloperForExpression(numberPickerExpressionTokenId, 1 ether);
     }
 
     function test_SettlementRejectsInactiveOrMismatchedExpressions() public {

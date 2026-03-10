@@ -1,19 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
 import {DeveloperExpressionRegistry} from "./DeveloperExpressionRegistry.sol";
 import {DeveloperRewards} from "./DeveloperRewards.sol";
-import {GameEngineRegistry} from "./GameEngineRegistry.sol";
+import {GameCatalog} from "./GameCatalog.sol";
 import {ScuroToken} from "./ScuroToken.sol";
 
-contract ProtocolSettlement is AccessControl {
-    bytes32 public constant CONTROLLER_ROLE = keccak256("CONTROLLER_ROLE");
-
+contract ProtocolSettlement {
     ScuroToken internal immutable TOKEN;
     DeveloperRewards internal immutable DEVELOPER_REWARDS;
     DeveloperExpressionRegistry internal immutable EXPRESSION_REGISTRY;
-    GameEngineRegistry internal immutable REGISTRY;
+    GameCatalog internal immutable CATALOG;
 
     event PlayerWagerBurned(address indexed player, uint256 amount, address indexed caller);
     event PlayerRewardMinted(address indexed player, uint256 amount, address indexed caller);
@@ -25,20 +22,11 @@ contract ProtocolSettlement is AccessControl {
         uint256 accrual
     );
 
-    constructor(
-        address admin,
-        address tokenAddress,
-        address registryAddress,
-        address expressionRegistryAddress,
-        address developerRewardsAddress
-    ) {
+    constructor(address tokenAddress, address catalogAddress, address expressionRegistryAddress, address developerRewardsAddress) {
         TOKEN = ScuroToken(tokenAddress);
-        REGISTRY = GameEngineRegistry(registryAddress);
+        CATALOG = GameCatalog(catalogAddress);
         EXPRESSION_REGISTRY = DeveloperExpressionRegistry(expressionRegistryAddress);
         DEVELOPER_REWARDS = DeveloperRewards(developerRewardsAddress);
-
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(CONTROLLER_ROLE, admin);
     }
 
     function token() public view returns (ScuroToken) {
@@ -53,24 +41,18 @@ contract ProtocolSettlement is AccessControl {
         return EXPRESSION_REGISTRY;
     }
 
-    function registry() public view returns (GameEngineRegistry) {
-        return REGISTRY;
+    function catalog() public view returns (GameCatalog) {
+        return CATALOG;
     }
 
-    function setControllerAuthorization(address controller, bool authorized) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (authorized) {
-            _grantRole(CONTROLLER_ROLE, controller);
-        } else {
-            _revokeRole(CONTROLLER_ROLE, controller);
-        }
-    }
-
-    function burnPlayerWager(address player, uint256 amount) external onlyRole(CONTROLLER_ROLE) {
+    function burnPlayerWager(address player, uint256 amount) external {
+        _requireAuthorizedController();
         TOKEN.burnFrom(player, amount);
         emit PlayerWagerBurned(player, amount, msg.sender);
     }
 
-    function mintPlayerReward(address player, uint256 amount) external onlyRole(CONTROLLER_ROLE) {
+    function mintPlayerReward(address player, uint256 amount) external {
+        _requireAuthorizedController();
         if (amount == 0) {
             return;
         }
@@ -79,24 +61,21 @@ contract ProtocolSettlement is AccessControl {
         emit PlayerRewardMinted(player, amount, msg.sender);
     }
 
-    function accrueDeveloperForExpression(address engine, uint256 expressionTokenId, uint256 activityAmount)
+    function accrueDeveloperForExpression(uint256 expressionTokenId, uint256 activityAmount)
         external
-        onlyRole(CONTROLLER_ROLE)
         returns (uint256 accrual)
     {
+        GameCatalog.Module memory moduleData = _requireAuthorizedController();
         if (activityAmount == 0) {
             return 0;
         }
 
-        GameEngineRegistry.EngineMetadata memory engineMetadata = REGISTRY.getEngineMetadata(engine);
-        require(engineMetadata.active, "Settlement: engine inactive");
-
         DeveloperExpressionRegistry.ExpressionMetadata memory expressionMetadata =
             EXPRESSION_REGISTRY.getExpressionMetadata(expressionTokenId);
         require(expressionMetadata.active, "Settlement: expression inactive");
-        require(expressionMetadata.engineType == engineMetadata.engineType, "Settlement: expression mismatch");
+        require(expressionMetadata.engineType == moduleData.engineType, "Settlement: expression mismatch");
 
-        uint16 developerRewardBps = engineMetadata.developerRewardBps;
+        uint16 developerRewardBps = moduleData.developerRewardBps;
         if (developerRewardBps == 0) {
             return 0;
         }
@@ -104,6 +83,11 @@ contract ProtocolSettlement is AccessControl {
         address developer = EXPRESSION_REGISTRY.ownerOf(expressionTokenId);
         accrual = (activityAmount * developerRewardBps) / 10_000;
         DEVELOPER_REWARDS.accrue(developer, accrual);
-        emit DeveloperAccrualRecorded(engine, expressionTokenId, developer, activityAmount, accrual);
+        emit DeveloperAccrualRecorded(moduleData.engine, expressionTokenId, developer, activityAmount, accrual);
+    }
+
+    function _requireAuthorizedController() internal view returns (GameCatalog.Module memory moduleData) {
+        require(CATALOG.isSettlableController(msg.sender), "Settlement: unauthorized controller");
+        moduleData = CATALOG.getModuleByController(msg.sender);
     }
 }

@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import {GameCatalog} from "../GameCatalog.sol";
 import {IBlackjackVerifierBundle} from "../interfaces/IBlackjackVerifierBundle.sol";
+import {ISoloLifecycleEngine} from "../interfaces/ISoloLifecycleEngine.sol";
 
-contract SingleDeckBlackjackEngine is AccessControl {
-    bytes32 public constant CONTROLLER_ROLE = keccak256("CONTROLLER_ROLE");
-    bytes32 public constant COORDINATOR_ROLE = keccak256("COORDINATOR_ROLE");
+contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
     bytes32 public constant ENGINE_TYPE = keccak256("BLACKJACK_SINGLE_DECK_ZK");
 
     uint8 public constant ACTION_HIT = 1;
@@ -87,6 +86,8 @@ contract SingleDeckBlackjackEngine is AccessControl {
         HandView[4] hands;
     }
 
+    GameCatalog internal immutable CATALOG;
+    address public immutable COORDINATOR;
     uint256 public immutable DEFAULT_ACTION_WINDOW;
     IBlackjackVerifierBundle public immutable VERIFIER_BUNDLE;
     uint256 public nextSessionId = 1;
@@ -100,12 +101,15 @@ contract SingleDeckBlackjackEngine is AccessControl {
     event PlayerTimeoutClaimed(uint256 indexed sessionId);
     event ShowdownResolved(uint256 indexed sessionId, uint256 payout);
 
-    constructor(address admin, address verifierBundleAddress, uint256 defaultActionWindow) {
+    constructor(address catalogAddress, address verifierBundleAddress, address coordinatorAddress, uint256 defaultActionWindow) {
+        CATALOG = GameCatalog(catalogAddress);
+        COORDINATOR = coordinatorAddress;
         DEFAULT_ACTION_WINDOW = defaultActionWindow;
         VERIFIER_BUNDLE = IBlackjackVerifierBundle(verifierBundleAddress);
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(CONTROLLER_ROLE, admin);
-        _grantRole(COORDINATOR_ROLE, admin);
+    }
+
+    function catalog() public view returns (GameCatalog) {
+        return CATALOG;
     }
 
     function engineType() external pure returns (bytes32) {
@@ -114,9 +118,10 @@ contract SingleDeckBlackjackEngine is AccessControl {
 
     function openSession(address player, uint256 wager, bytes32 playRef, bytes32 playerKeyCommitment)
         external
-        onlyRole(CONTROLLER_ROLE)
         returns (uint256 sessionId)
     {
+        _requireAuthorizedController();
+
         sessionId = nextSessionId++;
         Session storage session = sessions[sessionId];
         session.player = player;
@@ -149,7 +154,10 @@ contract SingleDeckBlackjackEngine is AccessControl {
         uint8[4] calldata allowedActionMasks,
         uint256 softMask,
         bytes calldata proof
-    ) external onlyRole(COORDINATOR_ROLE) {
+    ) external {
+        _requireSettlableModule();
+        _requireCoordinator();
+
         Session storage session = sessions[sessionId];
         require(session.phase == SessionPhase.AwaitingInitialDeal, "Blackjack: bad init phase");
         require(session.handCount == 1, "Blackjack: session initialized");
@@ -223,10 +231,9 @@ contract SingleDeckBlackjackEngine is AccessControl {
         return 0;
     }
 
-    function declareAction(uint256 sessionId, address player, uint8 action, uint256 additionalBurn)
-        external
-        onlyRole(CONTROLLER_ROLE)
-    {
+    function declareAction(uint256 sessionId, address player, uint8 action, uint256 additionalBurn) external {
+        _requireAuthorizedController();
+
         Session storage session = sessions[sessionId];
         require(session.phase == SessionPhase.AwaitingPlayerAction, "Blackjack: no player action");
         require(session.player == player, "Blackjack: not player");
@@ -248,7 +255,9 @@ contract SingleDeckBlackjackEngine is AccessControl {
         emit ActionDeclared(sessionId, player, action, additionalBurn);
     }
 
-    function claimPlayerTimeout(uint256 sessionId) external onlyRole(CONTROLLER_ROLE) {
+    function claimPlayerTimeout(uint256 sessionId) external {
+        _requireAuthorizedController();
+
         Session storage session = sessions[sessionId];
         require(session.phase == SessionPhase.AwaitingPlayerAction, "Blackjack: no timeout");
         require(block.timestamp > session.deadlineAt, "Blackjack: active");
@@ -276,7 +285,10 @@ contract SingleDeckBlackjackEngine is AccessControl {
         uint8[4] calldata allowedActionMasks,
         uint256 softMask,
         bytes calldata proof
-    ) external onlyRole(COORDINATOR_ROLE) {
+    ) external {
+        _requireSettlableModule();
+        _requireCoordinator();
+
         Session storage session = sessions[sessionId];
         require(session.phase == SessionPhase.AwaitingCoordinator, "Blackjack: no coordinator action");
         require(session.pendingAction != 0, "Blackjack: no pending action");
@@ -344,7 +356,10 @@ contract SingleDeckBlackjackEngine is AccessControl {
         uint8 activeHandIndex,
         uint8[4] calldata handStatuses,
         bytes calldata proof
-    ) external onlyRole(COORDINATOR_ROLE) {
+    ) external {
+        _requireSettlableModule();
+        _requireCoordinator();
+
         Session storage session = sessions[sessionId];
         require(session.phase == SessionPhase.AwaitingCoordinator, "Blackjack: no showdown");
         require(session.pendingAction == 0 || session.pendingAction == ACTION_STAND, "Blackjack: showdown blocked");
@@ -437,5 +452,17 @@ contract SingleDeckBlackjackEngine is AccessControl {
         if (action == ACTION_DOUBLE) return ALLOW_DOUBLE;
         if (action == ACTION_SPLIT) return ALLOW_SPLIT;
         revert("Blackjack: bad action");
+    }
+
+    function _requireAuthorizedController() internal view {
+        require(CATALOG.isAuthorizedControllerForEngine(msg.sender, address(this)), "Blackjack: not controller");
+    }
+
+    function _requireCoordinator() internal view {
+        require(msg.sender == COORDINATOR, "Blackjack: not coordinator");
+    }
+
+    function _requireSettlableModule() internal view {
+        require(CATALOG.isSettlableEngine(address(this)), "Blackjack: module inactive");
     }
 }

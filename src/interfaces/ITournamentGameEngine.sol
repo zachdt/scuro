@@ -9,8 +9,7 @@ interface ITournamentGameEngine is IScuroGameEngine {
         address[] calldata players,
         uint256[] calldata startingStacks,
         uint256 buyIn,
-        uint256 reward,
-        bytes calldata engineConfig
+        uint256 reward
     ) external;
 
     function handleTimeout(uint256 gameId, address player) external;

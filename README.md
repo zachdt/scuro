@@ -1,13 +1,14 @@
 # Scuro
 
-Scuro is an on-chain gaming protocol built around shared economic infrastructure instead of one-off game contracts. A single protocol token powers play, staking, governance, and developer rewards; controllers route user actions into registered game engines; a developer-expression registry carries attribution; and a shared settlement layer burns wagers, mints payouts, and books developer accruals under governance-controlled policy.
+Scuro is an on-chain gaming protocol built around shared economic infrastructure instead of one-off game contracts. A single protocol token powers play, staking, governance, and developer rewards; controllers route user actions into catalogued game modules; a developer-expression registry carries attribution; and a shared settlement layer burns wagers, mints payouts, and books developer accruals under governance-controlled policy.
 
 ## Core Primitives
 
 - `ScuroToken` (`SCU`) is the protocol asset used for wagers, rewards, and developer payouts.
 - `ScuroStakingToken` (`sSCU`) wraps staked SCU and represents governance voting power.
 - `ProtocolSettlement` is the only protocol-level contract that moves value on behalf of controllers.
-- `GameEngineRegistry` records which engines are live, what verifier/config they depend on, their compatibility flags, and their developer reward rates.
+- `GameCatalog` records per-module controller, engine, verifier/config metadata, developer reward rates, and lifecycle status.
+- `GameDeploymentFactory` deploys supported controller/engine/verifier bundles and self-registers them in the catalog.
 - `DeveloperExpressionRegistry` is a permissionless ERC721 registry for developer-owned engine expressions used for reward attribution.
 - `DeveloperRewards` tracks inflationary developer rewards by epoch and handles claims after an epoch closes.
 - `ScuroGovernor` with `TimelockController` governs live protocol configuration such as reward timing and expression moderation roles.
@@ -17,14 +18,14 @@ Scuro is an on-chain gaming protocol built around shared economic infrastructure
 - Players bring SCU into gameplay, staking, and governance through controllers and the staking token rather than interacting with settlement logic directly.
 - Gameplay entrypoints carry an `expressionTokenId` so developer attribution is explicit for each solo, PvP, tournament, or blackjack session.
 - Controllers and adapters orchestrate session lifecycle for different play modes, while engines own game-specific rules and proof or randomness requirements.
-- The registry is the policy layer between orchestration and game logic: it decides which engines are active, which play modes they support, and what developer reward rate applies.
-- Settlement is the single value path for wager burns, payout minting, and developer reward accrual. Reward attribution follows the current `ownerOf(expressionTokenId)` when settlement books accrual.
+- The catalog is the policy layer between orchestration and game logic: it decides which modules are launchable, which remain settlable after retirement, and what developer reward rate applies.
+- Settlement authorizes controllers through the catalog instead of local controller roles. Reward attribution follows the current `ownerOf(expressionTokenId)` when settlement books accrual.
 - Governance updates protocol configuration through the governor and timelock instead of per-engine admin flows.
 
 ## Current Implementation Examples
 
 - `NumberPickerAdapter` + `NumberPickerEngine` provide a simple solo flow backed by VRF-style randomness.
-- `TournamentController` and `PvPController` both route into `SingleDraw2To7Engine`, showing how one engine can support tournament and head-to-head play.
+- `TournamentController` and `PvPController` each route into a `SingleDraw2To7Engine` module deployment, so tournament and head-to-head poker can carry distinct catalog entries and immutable config.
 - `BlackjackController` + `SingleDeckBlackjackEngine` provide a solo blackjack flow with Groth16 proof verification.
 - The local stack also seeds example expression NFTs for number picker, poker, and blackjack so the full developer-attribution path is exercised in tests and deploy smoke flows.
 

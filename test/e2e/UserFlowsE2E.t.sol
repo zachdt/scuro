@@ -66,7 +66,7 @@ contract UserFlowsE2ETest is BaseE2ETest {
         _approveSettlement(player2, type(uint256).max);
 
         (, uint256 gameId) = _createTournament(10 ether, 20 ether, 1_000);
-        _playAllInSingleDraw(gameId, player1.addr);
+        _playTournamentAllInSingleDraw(gameId, player1.addr);
         tournamentController.reportOutcome(gameId);
 
         _assertPlayerBalances(10_010 ether, 9_990 ether);
@@ -81,7 +81,7 @@ contract UserFlowsE2ETest is BaseE2ETest {
         _approveSettlement(player2, type(uint256).max);
 
         uint256 sessionId = _createPvPSession(10 ether, 20 ether, 1_000);
-        _playAllInSingleDraw(sessionId, player1.addr);
+        _playPvPAllInSingleDraw(sessionId, player1.addr);
         pvpController.settleSession(sessionId);
 
         _assertPlayerBalances(10_010 ether, 9_990 ether);
