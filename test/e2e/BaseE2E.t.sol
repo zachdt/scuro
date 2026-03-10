@@ -3,7 +3,8 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/Test.sol";
 import { TimelockController } from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
-import { CreatorRewards } from "../../src/CreatorRewards.sol";
+import { DeveloperExpressionRegistry } from "../../src/DeveloperExpressionRegistry.sol";
+import { DeveloperRewards } from "../../src/DeveloperRewards.sol";
 import { GameEngineRegistry } from "../../src/GameEngineRegistry.sol";
 import { ProtocolSettlement } from "../../src/ProtocolSettlement.sol";
 import { ScuroGovernor } from "../../src/ScuroGovernor.sol";
@@ -37,13 +38,13 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
 
     uint256 internal constant PLAYER_FUNDS = 10_000 ether;
     uint256 internal constant STAKE_AMOUNT = 100 ether;
-    uint16 internal constant SOLO_CREATOR_BPS = 500;
-    uint16 internal constant POKER_CREATOR_BPS = 1_000;
+    uint16 internal constant SOLO_DEVELOPER_BPS = 500;
+    uint16 internal constant POKER_DEVELOPER_BPS = 1_000;
 
     Actor internal player1;
     Actor internal player2;
-    Actor internal soloCreator;
-    Actor internal pokerCreator;
+    Actor internal soloDeveloper;
+    Actor internal pokerDeveloper;
     Actor internal outsider;
 
     ScuroToken internal token;
@@ -51,7 +52,8 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
     TimelockController internal timelock;
     ScuroGovernor internal governor;
     GameEngineRegistry internal registry;
-    CreatorRewards internal creatorRewards;
+    DeveloperExpressionRegistry internal expressionRegistry;
+    DeveloperRewards internal developerRewards;
     ProtocolSettlement internal settlement;
     TournamentController internal tournamentController;
     PvPController internal pvpController;
@@ -67,15 +69,21 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
     BlackjackVerifierBundle internal blackjackVerifierBundle;
     BlackjackController internal blackjackController;
 
+    uint256 internal numberPickerExpressionTokenId;
+    uint256 internal delayedNumberPickerExpressionTokenId;
+    uint256 internal pokerExpressionTokenId;
+    uint256 internal blackjackExpressionTokenId;
+
     function setUp() public virtual {
         player1 = _makeActor("player-1");
         player2 = _makeActor("player-2");
-        soloCreator = _makeActor("solo-creator");
-        pokerCreator = _makeActor("poker-creator");
+        soloDeveloper = _makeActor("solo-developer");
+        pokerDeveloper = _makeActor("poker-developer");
         outsider = _makeActor("outsider");
 
         _deployCore();
         _wireRoles();
+        _mintExpressions();
         _registerEngines();
         _seedActors();
     }
@@ -95,8 +103,15 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         governor = new ScuroGovernor(stakingToken, timelock, 1, 5, 1 ether);
 
         registry = new GameEngineRegistry(address(this));
-        creatorRewards = new CreatorRewards(address(this), address(token), 7 days);
-        settlement = new ProtocolSettlement(address(this), address(token), address(registry), address(creatorRewards));
+        expressionRegistry = new DeveloperExpressionRegistry(address(this));
+        developerRewards = new DeveloperRewards(address(this), address(token), 7 days);
+        settlement = new ProtocolSettlement(
+            address(this),
+            address(token),
+            address(registry),
+            address(expressionRegistry),
+            address(developerRewards)
+        );
 
         tournamentController = new TournamentController(address(this), address(settlement), address(registry));
         pvpController = new PvPController(address(this), address(settlement), address(registry));
@@ -138,10 +153,10 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
 
     function _wireRoles() internal {
         token.grantRole(token.MINTER_ROLE(), address(settlement));
-        token.grantRole(token.MINTER_ROLE(), address(creatorRewards));
+        token.grantRole(token.MINTER_ROLE(), address(developerRewards));
 
-        creatorRewards.grantRole(creatorRewards.SETTLEMENT_ROLE(), address(settlement));
-        creatorRewards.grantRole(creatorRewards.EPOCH_MANAGER_ROLE(), address(timelock));
+        developerRewards.grantRole(developerRewards.SETTLEMENT_ROLE(), address(settlement));
+        developerRewards.grantRole(developerRewards.EPOCH_MANAGER_ROLE(), address(timelock));
 
         settlement.setControllerAuthorization(address(tournamentController), true);
         settlement.setControllerAuthorization(address(pvpController), true);
@@ -161,15 +176,49 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         timelock.grantRole(timelock.EXECUTOR_ROLE(), address(0));
     }
 
+    function _mintExpressions() internal {
+        bytes32 numberPickerType = numberPickerEngine.ENGINE_TYPE();
+        bytes32 delayedNumberPickerType = delayedNumberPickerEngine.ENGINE_TYPE();
+        bytes32 pokerType = pokerEngine.ENGINE_TYPE();
+        bytes32 blackjackType = blackjackEngine.ENGINE_TYPE();
+
+        vm.prank(soloDeveloper.addr);
+        numberPickerExpressionTokenId = expressionRegistry.mintExpression(
+            numberPickerType,
+            keccak256("number-picker-auto"),
+            "ipfs://scuro/number-picker-auto"
+        );
+
+        vm.prank(soloDeveloper.addr);
+        delayedNumberPickerExpressionTokenId = expressionRegistry.mintExpression(
+            delayedNumberPickerType,
+            keccak256("number-picker-manual"),
+            "ipfs://scuro/number-picker-manual"
+        );
+
+        vm.prank(pokerDeveloper.addr);
+        pokerExpressionTokenId = expressionRegistry.mintExpression(
+            pokerType,
+            keccak256("single-draw-2-7"),
+            "ipfs://scuro/single-draw-2-7"
+        );
+
+        vm.prank(soloDeveloper.addr);
+        blackjackExpressionTokenId = expressionRegistry.mintExpression(
+            blackjackType,
+            keccak256("single-deck-blackjack-zk"),
+            "ipfs://scuro/single-deck-blackjack-zk"
+        );
+    }
+
     function _registerEngines() internal {
         registry.registerEngine(
             address(numberPickerEngine),
             GameEngineRegistry.EngineMetadata({
                 engineType: numberPickerEngine.ENGINE_TYPE(),
-                creator: soloCreator.addr,
                 verifier: address(0),
                 configHash: keccak256("number-picker-auto"),
-                creatorRateBps: SOLO_CREATOR_BPS,
+                developerRewardBps: SOLO_DEVELOPER_BPS,
                 active: true,
                 supportsTournament: false,
                 supportsPvP: false,
@@ -181,10 +230,9 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
             address(delayedNumberPickerEngine),
             GameEngineRegistry.EngineMetadata({
                 engineType: delayedNumberPickerEngine.ENGINE_TYPE(),
-                creator: soloCreator.addr,
                 verifier: address(0),
                 configHash: keccak256("number-picker-manual"),
-                creatorRateBps: SOLO_CREATOR_BPS,
+                developerRewardBps: SOLO_DEVELOPER_BPS,
                 active: true,
                 supportsTournament: false,
                 supportsPvP: false,
@@ -196,10 +244,9 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
             address(pokerEngine),
             GameEngineRegistry.EngineMetadata({
                 engineType: pokerEngine.ENGINE_TYPE(),
-                creator: pokerCreator.addr,
                 verifier: address(pokerVerifierBundle),
                 configHash: keccak256("single-draw-2-7"),
-                creatorRateBps: POKER_CREATOR_BPS,
+                developerRewardBps: POKER_DEVELOPER_BPS,
                 active: true,
                 supportsTournament: true,
                 supportsPvP: true,
@@ -211,10 +258,9 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
             address(blackjackEngine),
             GameEngineRegistry.EngineMetadata({
                 engineType: blackjackEngine.ENGINE_TYPE(),
-                creator: soloCreator.addr,
                 verifier: address(blackjackVerifierBundle),
                 configHash: keccak256("single-deck-blackjack-zk"),
-                creatorRateBps: SOLO_CREATOR_BPS,
+                developerRewardBps: SOLO_DEVELOPER_BPS,
                 active: true,
                 supportsTournament: false,
                 supportsPvP: false,
@@ -226,8 +272,8 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
     function _seedActors() internal {
         token.mint(player1.addr, PLAYER_FUNDS);
         token.mint(player2.addr, PLAYER_FUNDS);
-        token.mint(soloCreator.addr, PLAYER_FUNDS / 10);
-        token.mint(pokerCreator.addr, PLAYER_FUNDS / 10);
+        token.mint(soloDeveloper.addr, PLAYER_FUNDS / 10);
+        token.mint(pokerDeveloper.addr, PLAYER_FUNDS / 10);
     }
 
     function _approveSettlement(Actor memory actor, uint256 amount) internal {
@@ -258,7 +304,12 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         returns (uint256 tournamentId, uint256 gameId)
     {
         tournamentId = tournamentController.createTournament(
-            entryFee, rewardPool, address(pokerEngine), startingStack, _defaultPokerConfig(address(this))
+            entryFee,
+            rewardPool,
+            address(pokerEngine),
+            startingStack,
+            _defaultPokerConfig(address(this)),
+            pokerExpressionTokenId
         );
         gameId = tournamentController.startGameForPlayers(tournamentId, player1.addr, player2.addr);
     }
@@ -274,7 +325,8 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
             stake,
             rewardPool,
             startingStack,
-            _defaultPokerConfig(address(this))
+            _defaultPokerConfig(address(this)),
+            pokerExpressionTokenId
         );
     }
 
@@ -363,8 +415,8 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
     }
 
     function _closeEpoch() internal returns (uint256 closedEpoch) {
-        vm.warp(block.timestamp + creatorRewards.epochDuration() + 1);
-        closedEpoch = creatorRewards.closeCurrentEpoch();
+        vm.warp(block.timestamp + developerRewards.epochDuration() + 1);
+        closedEpoch = developerRewards.closeCurrentEpoch();
     }
 
     function _executeGovernanceProposal(address target, bytes memory data, string memory description) internal {
@@ -396,7 +448,7 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         assertEq(token.balanceOf(player2.addr), player2Balance, "player2 balance");
     }
 
-    function _assertCreatorAccrual(address creator, uint256 epoch, uint256 amount) internal view {
-        assertEq(creatorRewards.epochAccrual(epoch, creator), amount, "creator accrual");
+    function _assertDeveloperAccrual(address developer, uint256 epoch, uint256 amount) internal view {
+        assertEq(developerRewards.epochAccrual(epoch, developer), amount, "developer accrual");
     }
 }

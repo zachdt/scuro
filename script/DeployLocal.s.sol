@@ -3,7 +3,8 @@ pragma solidity ^0.8.24;
 
 import { Script, console } from "forge-std/Script.sol";
 import { TimelockController } from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
-import { CreatorRewards } from "../src/CreatorRewards.sol";
+import { DeveloperExpressionRegistry } from "../src/DeveloperExpressionRegistry.sol";
+import { DeveloperRewards } from "../src/DeveloperRewards.sol";
 import { GameEngineRegistry } from "../src/GameEngineRegistry.sol";
 import { ProtocolSettlement } from "../src/ProtocolSettlement.sol";
 import { ScuroGovernor } from "../src/ScuroGovernor.sol";
@@ -29,10 +30,10 @@ import { PokerShowdownVerifier } from "../src/verifiers/generated/PokerShowdownV
 contract DeployLocal is Script {
     address internal constant PLAYER1 = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
     address internal constant PLAYER2 = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC;
-    address internal constant SOLO_CREATOR = 0x90F79bf6EB2c4f870365E785982E1f101E93b906;
-    address internal constant POKER_CREATOR = 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65;
+    address internal constant SOLO_DEVELOPER = 0x90F79bf6EB2c4f870365E785982E1f101E93b906;
+    address internal constant POKER_DEVELOPER = 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65;
     uint256 internal constant PLAYER_FUNDS = 10_000 ether;
-    uint256 internal constant CREATOR_FUNDS = 1_000 ether;
+    uint256 internal constant DEVELOPER_FUNDS = 1_000 ether;
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -51,9 +52,15 @@ contract DeployLocal is Script {
         ScuroGovernor governor = new ScuroGovernor(stakingToken, timelock, 1, 45818, 1 ether);
 
         GameEngineRegistry registry = new GameEngineRegistry(admin);
-        CreatorRewards creatorRewards = new CreatorRewards(admin, address(token), 7 days);
-        ProtocolSettlement settlement =
-            new ProtocolSettlement(admin, address(token), address(registry), address(creatorRewards));
+        DeveloperExpressionRegistry expressionRegistry = new DeveloperExpressionRegistry(admin);
+        DeveloperRewards developerRewards = new DeveloperRewards(admin, address(token), 7 days);
+        ProtocolSettlement settlement = new ProtocolSettlement(
+            admin,
+            address(token),
+            address(registry),
+            address(expressionRegistry),
+            address(developerRewards)
+        );
         TournamentController tournamentController =
             new TournamentController(admin, address(settlement), address(registry));
         PvPController pvpController = new PvPController(admin, address(settlement), address(registry));
@@ -86,9 +93,9 @@ contract DeployLocal is Script {
             new BlackjackController(admin, address(settlement), address(registry), address(blackjackEngine));
 
         token.grantRole(token.MINTER_ROLE(), address(settlement));
-        token.grantRole(token.MINTER_ROLE(), address(creatorRewards));
-        creatorRewards.grantRole(creatorRewards.SETTLEMENT_ROLE(), address(settlement));
-        creatorRewards.grantRole(creatorRewards.EPOCH_MANAGER_ROLE(), address(timelock));
+        token.grantRole(token.MINTER_ROLE(), address(developerRewards));
+        developerRewards.grantRole(developerRewards.SETTLEMENT_ROLE(), address(settlement));
+        developerRewards.grantRole(developerRewards.EPOCH_MANAGER_ROLE(), address(timelock));
         settlement.setControllerAuthorization(address(tournamentController), true);
         settlement.setControllerAuthorization(address(pvpController), true);
         settlement.setControllerAuthorization(address(numberPickerAdapter), true);
@@ -105,10 +112,9 @@ contract DeployLocal is Script {
             address(numberPickerEngine),
             GameEngineRegistry.EngineMetadata({
                 engineType: numberPickerEngine.ENGINE_TYPE(),
-                creator: SOLO_CREATOR,
                 verifier: address(0),
                 configHash: keccak256("number-picker-auto"),
-                creatorRateBps: 500,
+                developerRewardBps: 500,
                 active: true,
                 supportsTournament: false,
                 supportsPvP: false,
@@ -120,10 +126,9 @@ contract DeployLocal is Script {
             address(pokerEngine),
             GameEngineRegistry.EngineMetadata({
                 engineType: pokerEngine.ENGINE_TYPE(),
-                creator: POKER_CREATOR,
                 verifier: address(pokerVerifierBundle),
                 configHash: keccak256("single-draw-2-7"),
-                creatorRateBps: 1000,
+                developerRewardBps: 1000,
                 active: true,
                 supportsTournament: true,
                 supportsPvP: true,
@@ -135,10 +140,9 @@ contract DeployLocal is Script {
             address(blackjackEngine),
             GameEngineRegistry.EngineMetadata({
                 engineType: blackjackEngine.ENGINE_TYPE(),
-                creator: SOLO_CREATOR,
                 verifier: address(blackjackVerifierBundle),
                 configHash: keccak256("single-deck-blackjack-zk"),
-                creatorRateBps: 500,
+                developerRewardBps: 500,
                 active: true,
                 supportsTournament: false,
                 supportsPvP: false,
@@ -146,18 +150,37 @@ contract DeployLocal is Script {
             })
         );
 
+        uint256 numberPickerExpressionTokenId = expressionRegistry.mintExpression(
+            numberPickerEngine.ENGINE_TYPE(),
+            keccak256("number-picker-auto"),
+            "ipfs://scuro/number-picker-auto"
+        );
+        uint256 blackjackExpressionTokenId = expressionRegistry.mintExpression(
+            blackjackEngine.ENGINE_TYPE(),
+            keccak256("single-deck-blackjack-zk"),
+            "ipfs://scuro/single-deck-blackjack-zk"
+        );
+        uint256 pokerExpressionTokenId = expressionRegistry.mintExpression(
+            pokerEngine.ENGINE_TYPE(),
+            keccak256("single-draw-2-7"),
+            "ipfs://scuro/single-draw-2-7"
+        );
+        expressionRegistry.transferFrom(admin, SOLO_DEVELOPER, numberPickerExpressionTokenId);
+        expressionRegistry.transferFrom(admin, SOLO_DEVELOPER, blackjackExpressionTokenId);
+        expressionRegistry.transferFrom(admin, POKER_DEVELOPER, pokerExpressionTokenId);
         token.mint(PLAYER1, PLAYER_FUNDS);
         token.mint(PLAYER2, PLAYER_FUNDS);
         token.mint(admin, PLAYER_FUNDS);
-        token.mint(SOLO_CREATOR, CREATOR_FUNDS);
-        token.mint(POKER_CREATOR, CREATOR_FUNDS);
+        token.mint(SOLO_DEVELOPER, DEVELOPER_FUNDS);
+        token.mint(POKER_DEVELOPER, DEVELOPER_FUNDS);
 
         console.log("ScuroToken", address(token));
         console.log("ScuroStakingToken", address(stakingToken));
         console.log("TimelockController", address(timelock));
         console.log("ScuroGovernor", address(governor));
         console.log("GameEngineRegistry", address(registry));
-        console.log("CreatorRewards", address(creatorRewards));
+        console.log("DeveloperExpressionRegistry", address(expressionRegistry));
+        console.log("DeveloperRewards", address(developerRewards));
         console.log("ProtocolSettlement", address(settlement));
         console.log("TournamentController", address(tournamentController));
         console.log("PvPController", address(pvpController));
@@ -172,8 +195,11 @@ contract DeployLocal is Script {
         console.log("Admin", admin);
         console.log("Player1", PLAYER1);
         console.log("Player2", PLAYER2);
-        console.log("SoloCreator", SOLO_CREATOR);
-        console.log("PokerCreator", POKER_CREATOR);
+        console.log("SoloDeveloper", SOLO_DEVELOPER);
+        console.log("PokerDeveloper", POKER_DEVELOPER);
+        console.log("NumberPickerExpressionTokenId", numberPickerExpressionTokenId);
+        console.log("PokerExpressionTokenId", pokerExpressionTokenId);
+        console.log("BlackjackExpressionTokenId", blackjackExpressionTokenId);
 
         vm.stopBroadcast();
     }

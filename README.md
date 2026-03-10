@@ -1,6 +1,6 @@
 # Scuro
 
-Scuro is a generalized on-chain gaming protocol built around a shared token, shared settlement layer, creator rewards, and governance-controlled protocol configuration.
+Scuro is a generalized on-chain gaming protocol built around a shared token, shared settlement layer, developer rewards, and governance-controlled protocol configuration.
 
 ## What Scuro Includes
 
@@ -10,7 +10,8 @@ Scuro is a generalized on-chain gaming protocol built around a shared token, sha
 - Shared protocol services:
   - `ProtocolSettlement`
   - `GameEngineRegistry`
-  - `CreatorRewards`
+  - `DeveloperExpressionRegistry`
+  - `DeveloperRewards`
 - Controllers:
   - `BlackjackController`
   - `TournamentController`
@@ -33,37 +34,51 @@ Scuro is a generalized on-chain gaming protocol built around a shared token, sha
 
 - Players use SCU for wagers and entry fees.
 - Settlement burns wagers and mints rewards.
-- Creator rewards are denominated in SCU.
+- Developer rewards are denominated in SCU.
 - Governance voting power comes from staked SCU (`sSCU`), not raw wallet balances.
 
 `ProtocolSettlement` is the only protocol-level contract that controllers use for value movement.
 
 - Burns player wagers through allowance-based `burnFrom`
 - Mints player rewards
-- Records creator accruals based on engine metadata
+- Records developer accruals for an engine plus expression token pair
 
-### Creator rewards
+### Developer rewards
 
-`CreatorRewards` tracks inflationary creator rewards by epoch.
+`DeveloperRewards` tracks inflationary developer rewards by epoch.
 
-- Settlement accrues creator rewards against the current epoch.
+- Settlement accrues developer rewards against the current epoch.
 - Epochs close on a time schedule.
-- Creators claim rewards after epoch close.
-- Reward rates are defined per engine instance in the registry.
+- Developers claim rewards after epoch close.
+- Reward rates are defined per deployed engine in `GameEngineRegistry`.
+- Reward recipients are chosen per transaction through `DeveloperExpressionRegistry`.
 
-### Registry
+### Registries
 
-`GameEngineRegistry` is the routing and policy layer for engines.
+`GameEngineRegistry` is the routing and policy layer for engine deployments.
 
 Each engine entry stores:
 
 - engine type
-- creator address
 - verifier address
 - config hash
-- creator reward bps
+- developer reward bps
 - active flag
 - compatibility flags for solo / PvP / tournament
+
+`DeveloperExpressionRegistry` is a permissionless ERC721 registry for distributable engine expressions.
+
+Each expression token stores:
+
+- engine type
+- expression hash
+- metadata URI
+- active flag
+- original minter
+
+The registry does not store a fixed payout wallet for an engine. Reward attribution comes from the current owner of the supplied expression NFT.
+
+Controllers take an `expressionTokenId` on each create/play/start entrypoint, persist it with controller state, and later reuse that stored token during settlement. `ProtocolSettlement` validates that the expression token is active, matches the target engine type, and accrues rewards to `ownerOf(expressionTokenId)` at settlement time.
 
 ### Governance
 
@@ -75,16 +90,16 @@ Current governance-tested flows include:
 - proposal creation
 - voting
 - queue / execute through timelock
-- live parameter updates such as creator epoch duration
+- live parameter updates such as developer reward epoch duration
 
 ### Controllers and engines
 
 Scuro separates orchestration from game logic.
 
-- `TournamentController` manages tournament-style sessions for registered tournament engines.
-- `PvPController` manages direct competitive sessions for registered PvP engines.
-- `NumberPickerAdapter` is the solo-play entrypoint for the VRF-backed number picker engine.
-- `BlackjackController` is the solo-play entrypoint for the zk-backed blackjack engine.
+- `TournamentController` manages tournament-style sessions for registered tournament engines and requires an expression token ID at tournament creation.
+- `PvPController` manages direct competitive sessions for registered PvP engines and requires an expression token ID at session creation.
+- `NumberPickerAdapter` is the solo-play entrypoint for the VRF-backed number picker engine and requires an expression token ID on play.
+- `BlackjackController` is the solo-play entrypoint for the zk-backed blackjack engine and requires an expression token ID on hand start.
 
 Current example engines:
 
@@ -113,7 +128,8 @@ graph TB
     Stake["ScuroStakingToken"]
     Settle["ProtocolSettlement"]
     Registry["GameEngineRegistry"]
-    Rewards["CreatorRewards"]
+    Expressions["DeveloperExpressionRegistry"]
+    Rewards["DeveloperRewards"]
     Tour["TournamentController"]
     PvP["PvPController"]
     Solo["NumberPickerAdapter"]
@@ -143,6 +159,7 @@ graph TB
 
     Settle --> Token
     Settle --> Registry
+    Settle --> Expressions
     Settle --> Rewards
 
     Registry --> Num
@@ -161,7 +178,8 @@ graph TB
 │   ├── ScuroGovernor.sol
 │   ├── ProtocolSettlement.sol
 │   ├── GameEngineRegistry.sol
-│   ├── CreatorRewards.sol
+│   ├── DeveloperExpressionRegistry.sol
+│   ├── DeveloperRewards.sol
 │   ├── controllers/
 │   ├── engines/
 │   ├── interfaces/
@@ -169,6 +187,7 @@ graph TB
 │   └── mocks/
 ├── test/
 │   ├── ProtocolCore.t.sol
+│   ├── DeveloperExpressionRegistry.t.sol
 │   ├── NumberPickerAdapter.t.sol
 │   ├── TournamentController.t.sol
 │   └── e2e/
@@ -196,7 +215,7 @@ graph TB
 ### Build
 
 ```bash
-forge build
+forge build --offline
 ```
 
 ### Build zk artifacts
@@ -242,16 +261,17 @@ forge script script/DeployLocal.s.sol:DeployLocal \
 
 The local deploy script does the following:
 
-- deploys the token, staking token, timelock, governor, registry, rewards, settlement, controllers, and example engines
+- deploys the token, staking token, timelock, governor, engine registry, developer expression registry, developer rewards, settlement, controllers, and example engines
 - deploys VRF plus real poker and blackjack Groth16 verifier bundles
 - grants required minting / settlement / controller / adapter roles
-- registers all three example engines in the registry
+- registers all three example engines in the engine registry
+- mints example developer expression NFTs for number picker, poker, and blackjack
 - seeds:
   - admin
   - player 1
   - player 2
-  - solo creator
-  - poker creator
+  - solo developer
+  - poker developer
 
 ### Run the deploy smoke
 
@@ -264,11 +284,49 @@ The smoke script:
 - validates committed zk artifacts with Bun
 - starts Anvil
 - runs the local deploy script
-- verifies deploy-time roles and registry state
+- verifies deploy-time roles, registry state, and expression token ownership
 - checks seeded balances
 - performs one post-deploy staking interaction
-- runs one real-proof poker tournament hand
-- runs one real-proof blackjack hand
+- runs one real-proof poker tournament hand using a poker expression token
+- runs one real-proof blackjack hand using a blackjack expression token
+
+## Developer Rewards Flow
+
+Developer rewards are split across two protocol components:
+
+- `GameEngineRegistry` defines the reward rate for each engine deployment.
+- `DeveloperExpressionRegistry` defines which developer-owned expression NFT is being used on a given transaction.
+
+The end-to-end accrual path is:
+
+1. A developer mints a transferable expression NFT for an engine type.
+2. A controller entrypoint receives an `expressionTokenId` from the caller or operator.
+3. The controller stores that token ID with the play/session/tournament state.
+4. On settlement, `ProtocolSettlement` validates engine type compatibility and active status.
+5. Settlement computes the accrual from the engine’s `developerRewardBps`.
+6. `DeveloperRewards` books the reward to the current `ownerOf(expressionTokenId)`.
+
+Transferred expression NFTs redirect any accrual that has not yet been booked. In immediate-settlement flows like number picker, that means future plays only. In multi-step flows like tournament, PvP, and blackjack, the owner at final settlement receives the accrual for that in-flight session. Already-booked epoch accruals remain claimable by the wallet that received them at settlement time.
+
+### Expression Integration Reference
+
+The current controller entrypoints are:
+
+- `NumberPickerAdapter.play(uint256 wager, uint256 selection, bytes32 playRef, uint256 expressionTokenId)`
+- `BlackjackController.startHand(uint256 wager, bytes32 playRef, bytes32 playerKeyCommitment, uint256 expressionTokenId)`
+- `TournamentController.createTournament(uint256 entryFee, uint256 rewardPool, address gameEngine, uint256 startingStack, bytes engineConfig, uint256 expressionTokenId)`
+- `PvPController.createSession(address gameEngine, address player1, address player2, uint256 stake, uint256 rewardPool, uint256 startingStack, bytes engineConfig, uint256 expressionTokenId)`
+
+Later lifecycle calls reuse the stored token ID:
+
+- number picker: `requestExpressionTokenId(requestId)`
+- blackjack: `sessionExpressionTokenId(sessionId)`
+- tournament: `tournaments(tournamentId).expressionTokenId`
+- PvP: `sessions(sessionId).expressionTokenId`
+
+### Operational Caveat
+
+Expression compatibility is enforced when settlement books developer accrual, not when a multi-step session is first created. For tournament, PvP, and blackjack flows, a wrong, unknown, mismatched, or later-deactivated expression token can therefore block settlement until the referenced token state is corrected.
 
 ## Testing Strategy
 
@@ -281,6 +339,7 @@ See [docs/local-deployment-testing.md](./docs/local-deployment-testing.md) for t
 These target specific protocol areas:
 
 - `test/ProtocolCore.t.sol`
+- `test/DeveloperExpressionRegistry.t.sol`
 - `test/NumberPickerAdapter.t.sol`
 - `test/TournamentController.t.sol`
 - `test/BlackjackController.t.sol`
@@ -293,34 +352,19 @@ These live under `test/e2e`.
   - protocol bootstrapping
   - role wiring
   - registry compatibility
+  - expression ownership wiring
   - one minimal happy path per major subsystem
 - `UserFlowsE2E.t.sol`
-  - full valid user journeys across solo, tournament, PvP, creator epoch, and governance flows
+  - full valid user journeys across solo, tournament, PvP, developer epoch, expression transfer, and governance flows
 - `AbusePathsE2E.t.sol`
   - replay protection
   - unauthorized access
-  - inactive engines
+  - inactive engines and inactive expressions
   - bad timing
   - invalid proofs
   - duplicate claims / settlements
 
 The E2E completeness gate is documented in [test/e2e/MATRIX.md](./test/e2e/MATRIX.md).
-
-## Coverage Philosophy
-
-This repository currently treats scenario coverage as the primary quality gate.
-
-Why:
-
-- the codebase relies on `via_ir`
-- disabling IR for coverage causes compiler failures (`stack too deep` / Yul issues)
-- raw percentage coverage is therefore not the right short-term gate
-
-Current rule:
-
-- exhaustive flow coverage first
-- coverage matrix tracked in `test/e2e/MATRIX.md`
-- percentage gating can be revisited after the coverage toolchain is stable for this codebase
 
 ## Main Contracts
 
@@ -331,7 +375,8 @@ Current rule:
 - `src/ScuroGovernor.sol`
 - `src/ProtocolSettlement.sol`
 - `src/GameEngineRegistry.sol`
-- `src/CreatorRewards.sol`
+- `src/DeveloperExpressionRegistry.sol`
+- `src/DeveloperRewards.sol`
 
 ### Controllers
 
@@ -356,14 +401,14 @@ Current rule:
 ## Example User Flows Covered Today
 
 - player stakes SCU and gains voting power
-- governance changes creator epoch duration
-- player performs solo number-picker play
-- creator accrues and claims rewards after epoch close
-- tournament match settles through poker engine
-- PvP session settles through poker engine
-- solo blackjack hand settles through blackjack engine
-- governance can deactivate poker for new tournaments without blocking settlement of games already in progress
-- inactive engine and replay protections block invalid settlement flows
+- governance changes developer epoch duration
+- player performs solo number-picker play with an expression token
+- developer accrues and claims rewards after epoch close
+- transferred expression NFTs redirect later-booked rewards without moving already-booked balances
+- tournament match settles through poker engine with an expression token
+- PvP session settles through poker engine with an expression token
+- solo blackjack hand settles through blackjack engine with an expression token
+- inactive engines and inactive expressions block invalid settlement flows
 - poker timeout, fold, tie, and verifier-rejection paths are exercised
 
 ## Notes
@@ -376,7 +421,7 @@ Current rule:
 
 ```bash
 # Build
-forge build
+forge build --offline
 
 # Full test suite
 forge test --offline

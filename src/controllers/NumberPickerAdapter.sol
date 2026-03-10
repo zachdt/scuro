@@ -14,10 +14,12 @@ contract NumberPickerAdapter is AccessControl {
     NumberPickerEngine internal immutable ENGINE;
 
     mapping(uint256 => bool) public requestSettled;
+    mapping(uint256 => uint256) public requestExpressionTokenId;
 
     event PlayFinalized(
         uint256 indexed requestId,
         address indexed player,
+        uint256 indexed expressionTokenId,
         uint256 wager,
         uint256 payout,
         bool isWin
@@ -44,10 +46,14 @@ contract NumberPickerAdapter is AccessControl {
         return ENGINE;
     }
 
-    function play(uint256 wager, uint256 selection, bytes32 playRef) external returns (uint256 requestId) {
+    function play(uint256 wager, uint256 selection, bytes32 playRef, uint256 expressionTokenId)
+        external
+        returns (uint256 requestId)
+    {
         require(REGISTRY.isRegisteredForSolo(address(ENGINE)), "NumberPickerAdapter: engine inactive");
         SETTLEMENT.burnPlayerWager(msg.sender, wager);
         requestId = ENGINE.requestPlay(msg.sender, wager, selection, playRef);
+        requestExpressionTokenId[requestId] = expressionTokenId;
         _finalize(requestId);
     }
 
@@ -69,10 +75,11 @@ contract NumberPickerAdapter is AccessControl {
         require(fulfilled, "NumberPickerAdapter: pending");
 
         requestSettled[requestId] = true;
+        uint256 expressionTokenId = requestExpressionTokenId[requestId];
         if (payout > 0) {
             SETTLEMENT.mintPlayerReward(player, payout);
         }
-        SETTLEMENT.accrueCreatorForEngine(address(ENGINE), wager);
-        emit PlayFinalized(requestId, player, wager, payout, isWin);
+        SETTLEMENT.accrueDeveloperForExpression(address(ENGINE), expressionTokenId, wager);
+        emit PlayFinalized(requestId, player, expressionTokenId, wager, payout, isWin);
     }
 }

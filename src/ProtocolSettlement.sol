@@ -2,7 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
-import {CreatorRewards} from "./CreatorRewards.sol";
+import {DeveloperExpressionRegistry} from "./DeveloperExpressionRegistry.sol";
+import {DeveloperRewards} from "./DeveloperRewards.sol";
 import {GameEngineRegistry} from "./GameEngineRegistry.sol";
 import {ScuroToken} from "./ScuroToken.sol";
 
@@ -10,17 +11,31 @@ contract ProtocolSettlement is AccessControl {
     bytes32 public constant CONTROLLER_ROLE = keccak256("CONTROLLER_ROLE");
 
     ScuroToken internal immutable TOKEN;
-    CreatorRewards internal immutable CREATOR_REWARDS;
+    DeveloperRewards internal immutable DEVELOPER_REWARDS;
+    DeveloperExpressionRegistry internal immutable EXPRESSION_REGISTRY;
     GameEngineRegistry internal immutable REGISTRY;
 
     event PlayerWagerBurned(address indexed player, uint256 amount, address indexed caller);
     event PlayerRewardMinted(address indexed player, uint256 amount, address indexed caller);
-    event CreatorAccrualRecorded(address indexed engine, address indexed creator, uint256 activityAmount, uint256 accrual);
+    event DeveloperAccrualRecorded(
+        address indexed engine,
+        uint256 indexed expressionTokenId,
+        address indexed developer,
+        uint256 activityAmount,
+        uint256 accrual
+    );
 
-    constructor(address admin, address tokenAddress, address registryAddress, address creatorRewardsAddress) {
+    constructor(
+        address admin,
+        address tokenAddress,
+        address registryAddress,
+        address expressionRegistryAddress,
+        address developerRewardsAddress
+    ) {
         TOKEN = ScuroToken(tokenAddress);
         REGISTRY = GameEngineRegistry(registryAddress);
-        CREATOR_REWARDS = CreatorRewards(creatorRewardsAddress);
+        EXPRESSION_REGISTRY = DeveloperExpressionRegistry(expressionRegistryAddress);
+        DEVELOPER_REWARDS = DeveloperRewards(developerRewardsAddress);
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(CONTROLLER_ROLE, admin);
@@ -30,8 +45,12 @@ contract ProtocolSettlement is AccessControl {
         return TOKEN;
     }
 
-    function creatorRewards() public view returns (CreatorRewards) {
-        return CREATOR_REWARDS;
+    function developerRewards() public view returns (DeveloperRewards) {
+        return DEVELOPER_REWARDS;
+    }
+
+    function expressionRegistry() public view returns (DeveloperExpressionRegistry) {
+        return EXPRESSION_REGISTRY;
     }
 
     function registry() public view returns (GameEngineRegistry) {
@@ -60,18 +79,31 @@ contract ProtocolSettlement is AccessControl {
         emit PlayerRewardMinted(player, amount, msg.sender);
     }
 
-    function accrueCreatorForEngine(address engine, uint256 activityAmount)
+    function accrueDeveloperForExpression(address engine, uint256 expressionTokenId, uint256 activityAmount)
         external
         onlyRole(CONTROLLER_ROLE)
         returns (uint256 accrual)
     {
-        (address creator, uint16 creatorRateBps) = REGISTRY.getCreatorConfig(engine);
-        if (creator == address(0) || creatorRateBps == 0 || activityAmount == 0) {
+        if (activityAmount == 0) {
             return 0;
         }
 
-        accrual = (activityAmount * creatorRateBps) / 10_000;
-        CREATOR_REWARDS.accrue(creator, accrual);
-        emit CreatorAccrualRecorded(engine, creator, activityAmount, accrual);
+        GameEngineRegistry.EngineMetadata memory engineMetadata = REGISTRY.getEngineMetadata(engine);
+        require(engineMetadata.active, "Settlement: engine inactive");
+
+        DeveloperExpressionRegistry.ExpressionMetadata memory expressionMetadata =
+            EXPRESSION_REGISTRY.getExpressionMetadata(expressionTokenId);
+        require(expressionMetadata.active, "Settlement: expression inactive");
+        require(expressionMetadata.engineType == engineMetadata.engineType, "Settlement: expression mismatch");
+
+        uint16 developerRewardBps = engineMetadata.developerRewardBps;
+        if (developerRewardBps == 0) {
+            return 0;
+        }
+
+        address developer = EXPRESSION_REGISTRY.ownerOf(expressionTokenId);
+        accrual = (activityAmount * developerRewardBps) / 10_000;
+        DEVELOPER_REWARDS.accrue(developer, accrual);
+        emit DeveloperAccrualRecorded(engine, expressionTokenId, developer, activityAmount, accrual);
     }
 }

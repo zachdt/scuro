@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {CreatorRewards} from "../src/CreatorRewards.sol";
+import {DeveloperExpressionRegistry} from "../src/DeveloperExpressionRegistry.sol";
+import {DeveloperRewards} from "../src/DeveloperRewards.sol";
 import {GameEngineRegistry} from "../src/GameEngineRegistry.sol";
 import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
 import {ScuroToken} from "../src/ScuroToken.sol";
@@ -17,21 +17,30 @@ import {ZkFixtureLoader} from "./helpers/ZkFixtureLoader.sol";
 contract TournamentControllerTest is ZkFixtureLoader {
     ScuroToken internal token;
     GameEngineRegistry internal registry;
-    CreatorRewards internal creatorRewards;
+    DeveloperExpressionRegistry internal expressionRegistry;
+    DeveloperRewards internal developerRewards;
     ProtocolSettlement internal settlement;
     TournamentController internal controller;
     SingleDraw2To7Engine internal engine;
     PokerVerifierBundle internal verifierBundle;
 
-    address internal creator = address(0xC0FFEE);
+    address internal developer = address(0xC0FFEE);
     address internal player1 = address(0x111);
     address internal player2 = address(0x222);
+    uint256 internal expressionTokenId;
 
     function setUp() public {
         token = new ScuroToken(address(this));
         registry = new GameEngineRegistry(address(this));
-        creatorRewards = new CreatorRewards(address(this), address(token), 7 days);
-        settlement = new ProtocolSettlement(address(this), address(token), address(registry), address(creatorRewards));
+        expressionRegistry = new DeveloperExpressionRegistry(address(this));
+        developerRewards = new DeveloperRewards(address(this), address(token), 7 days);
+        settlement = new ProtocolSettlement(
+            address(this),
+            address(token),
+            address(registry),
+            address(expressionRegistry),
+            address(developerRewards)
+        );
         controller = new TournamentController(address(this), address(settlement), address(registry));
         verifierBundle = new PokerVerifierBundle(
             address(this),
@@ -42,8 +51,8 @@ contract TournamentControllerTest is ZkFixtureLoader {
         engine = new SingleDraw2To7Engine(address(this));
 
         token.grantRole(token.MINTER_ROLE(), address(settlement));
-        token.grantRole(token.MINTER_ROLE(), address(creatorRewards));
-        creatorRewards.grantRole(creatorRewards.SETTLEMENT_ROLE(), address(settlement));
+        token.grantRole(token.MINTER_ROLE(), address(developerRewards));
+        developerRewards.grantRole(developerRewards.SETTLEMENT_ROLE(), address(settlement));
         settlement.setControllerAuthorization(address(controller), true);
         engine.grantRole(engine.CONTROLLER_ROLE(), address(controller));
 
@@ -51,16 +60,20 @@ contract TournamentControllerTest is ZkFixtureLoader {
             address(engine),
             GameEngineRegistry.EngineMetadata({
                 engineType: engine.ENGINE_TYPE(),
-                creator: creator,
                 verifier: address(verifierBundle),
                 configHash: keccak256("2-7"),
-                creatorRateBps: 1_000,
+                developerRewardBps: 1_000,
                 active: true,
                 supportsTournament: true,
                 supportsPvP: true,
                 supportsSolo: false
             })
         );
+
+        bytes32 engineType = engine.ENGINE_TYPE();
+        vm.prank(developer);
+        expressionTokenId =
+            expressionRegistry.mintExpression(engineType, keccak256("single-draw-2-7"), "ipfs://2-7");
 
         token.mint(player1, 100 ether);
         token.mint(player2, 100 ether);
@@ -70,7 +83,7 @@ contract TournamentControllerTest is ZkFixtureLoader {
         token.approve(address(settlement), type(uint256).max);
     }
 
-    function test_TournamentLifecycleSettlesRewardsAndCreatorAccrual() public {
+    function test_TournamentLifecycleSettlesRewardsAndDeveloperAccrual() public {
         uint256 gameId = _createTournamentGame();
 
         vm.prank(player1);
@@ -93,7 +106,7 @@ contract TournamentControllerTest is ZkFixtureLoader {
 
         assertEq(token.balanceOf(player1), 110 ether);
         assertEq(token.balanceOf(player2), 90 ether);
-        assertEq(creatorRewards.epochAccrual(creatorRewards.currentEpoch(), creator), 4 ether);
+        assertEq(developerRewards.epochAccrual(developerRewards.currentEpoch(), developer), 4 ether);
 
         vm.expectRevert("TournamentController: reported");
         controller.reportOutcome(gameId);
@@ -123,7 +136,8 @@ contract TournamentControllerTest is ZkFixtureLoader {
     }
 
     function _createTournamentGame() internal returns (uint256 gameId) {
-        uint256 tournamentId = controller.createTournament(10 ether, 20 ether, address(engine), 1_000, _defaultPokerConfig());
+        uint256 tournamentId =
+            controller.createTournament(10 ether, 20 ether, address(engine), 1_000, _defaultPokerConfig(), expressionTokenId);
         gameId = controller.startGameForPlayers(tournamentId, player1, player2);
         _submitInitialDealProof(gameId);
     }

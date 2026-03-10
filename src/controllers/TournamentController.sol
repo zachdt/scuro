@@ -16,6 +16,7 @@ contract TournamentController is AccessControl, ReentrancyGuard {
         uint256 rewardPool;
         address gameEngine;
         uint256 startingStack;
+        uint256 expressionTokenId;
         bytes engineConfig;
     }
 
@@ -29,10 +30,16 @@ contract TournamentController is AccessControl, ReentrancyGuard {
     mapping(uint256 => uint256) public gameToTournament;
     mapping(uint256 => bool) public gameReported;
 
-    event TournamentCreated(uint256 indexed tournamentId, address indexed engine, uint256 entryFee, uint256 rewardPool);
+    event TournamentCreated(
+        uint256 indexed tournamentId,
+        address indexed engine,
+        uint256 indexed expressionTokenId,
+        uint256 entryFee,
+        uint256 rewardPool
+    );
     event TournamentActiveSet(uint256 indexed tournamentId, bool active);
     event GameStarted(uint256 indexed tournamentId, uint256 indexed gameId, address player1, address player2);
-    event GameSettled(uint256 indexed gameId, address indexed engine);
+    event GameSettled(uint256 indexed gameId, address indexed engine, uint256 indexed expressionTokenId);
 
     constructor(address admin, address settlementAddress, address registryAddress) {
         SETTLEMENT = ProtocolSettlement(settlementAddress);
@@ -54,7 +61,8 @@ contract TournamentController is AccessControl, ReentrancyGuard {
         uint256 rewardPool,
         address gameEngine,
         uint256 startingStack,
-        bytes calldata engineConfig
+        bytes calldata engineConfig,
+        uint256 expressionTokenId
     ) external onlyRole(OPERATOR_ROLE) returns (uint256 tournamentId) {
         require(REGISTRY.isRegisteredForTournament(gameEngine), "TournamentController: engine inactive");
         tournamentId = nextTournamentId++;
@@ -64,9 +72,10 @@ contract TournamentController is AccessControl, ReentrancyGuard {
             rewardPool: rewardPool,
             gameEngine: gameEngine,
             startingStack: startingStack,
+            expressionTokenId: expressionTokenId,
             engineConfig: engineConfig
         });
-        emit TournamentCreated(tournamentId, gameEngine, entryFee, rewardPool);
+        emit TournamentCreated(tournamentId, gameEngine, expressionTokenId, entryFee, rewardPool);
     }
 
     function setTournamentActive(uint256 tournamentId, bool active) external onlyRole(OPERATOR_ROLE) {
@@ -124,7 +133,9 @@ contract TournamentController is AccessControl, ReentrancyGuard {
             SETTLEMENT.mintPlayerReward(winners[i], payouts[i]);
         }
 
-        SETTLEMENT.accrueCreatorForEngine(tournament.gameEngine, tournament.rewardPool + (tournament.entryFee * 2));
-        emit GameSettled(gameId, tournament.gameEngine);
+        SETTLEMENT.accrueDeveloperForExpression(
+            tournament.gameEngine, tournament.expressionTokenId, tournament.rewardPool + (tournament.entryFee * 2)
+        );
+        emit GameSettled(gameId, tournament.gameEngine, tournament.expressionTokenId);
     }
 }

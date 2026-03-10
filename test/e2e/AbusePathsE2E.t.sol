@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {BaseE2ETest} from "./BaseE2E.t.sol";
-import {CreatorRewards} from "../../src/CreatorRewards.sol";
+import {DeveloperRewards} from "../../src/DeveloperRewards.sol";
 import {GameEngineRegistry} from "../../src/GameEngineRegistry.sol";
+import {BaseE2ETest} from "./BaseE2E.t.sol";
 
 contract AbusePathsE2ETest is BaseE2ETest {
     function test_NumberPickerRejectsInvalidSelectionZeroWagerAndMissingApproval() public {
@@ -11,15 +11,15 @@ contract AbusePathsE2ETest is BaseE2ETest {
 
         vm.prank(player1.addr);
         vm.expectRevert("NumberPicker: invalid selection");
-        numberPickerAdapter.play(100 ether, 0, keccak256("bad-selection"));
+        numberPickerAdapter.play(100 ether, 0, keccak256("bad-selection"), numberPickerExpressionTokenId);
 
         vm.prank(player1.addr);
         vm.expectRevert("NumberPicker: invalid wager");
-        numberPickerAdapter.play(0, 25, keccak256("bad-wager"));
+        numberPickerAdapter.play(0, 25, keccak256("bad-wager"), numberPickerExpressionTokenId);
 
         vm.prank(player2.addr);
         vm.expectRevert();
-        numberPickerAdapter.play(100 ether, 25, keccak256("missing-approval"));
+        numberPickerAdapter.play(100 ether, 25, keccak256("missing-approval"), numberPickerExpressionTokenId);
     }
 
     function test_NumberPickerRejectsInactiveEngineAndDuplicateFinalize() public {
@@ -28,12 +28,14 @@ contract AbusePathsE2ETest is BaseE2ETest {
         registry.setEngineActive(address(numberPickerEngine), false);
         vm.prank(player1.addr);
         vm.expectRevert("NumberPickerAdapter: engine inactive");
-        numberPickerAdapter.play(100 ether, 25, keccak256("inactive-engine"));
+        numberPickerAdapter.play(100 ether, 25, keccak256("inactive-engine"), numberPickerExpressionTokenId);
 
         registry.setEngineActive(address(numberPickerEngine), true);
 
         vm.prank(player1.addr);
-        uint256 requestId = delayedNumberPickerAdapter.playWithoutFinalize(100 ether, 25, keccak256("pending-request"));
+        uint256 requestId = delayedNumberPickerAdapter.playWithoutFinalize(
+            100 ether, 25, keccak256("pending-request"), delayedNumberPickerExpressionTokenId
+        );
 
         vm.expectRevert("NumberPickerAdapter: pending");
         delayedNumberPickerAdapter.finalizeForTest(requestId);
@@ -55,7 +57,14 @@ contract AbusePathsE2ETest is BaseE2ETest {
 
         registry.setEngineActive(address(pokerEngine), false);
         vm.expectRevert("TournamentController: engine inactive");
-        tournamentController.createTournament(10 ether, 20 ether, address(pokerEngine), 1_000, _defaultPokerConfig(address(this)));
+        tournamentController.createTournament(
+            10 ether,
+            20 ether,
+            address(pokerEngine),
+            1_000,
+            _defaultPokerConfig(address(this)),
+            pokerExpressionTokenId
+        );
         vm.expectRevert("TournamentController: engine inactive");
         tournamentController.startGameForPlayers(tournamentId, player1.addr, player2.addr);
 
@@ -63,6 +72,10 @@ contract AbusePathsE2ETest is BaseE2ETest {
         _createPvPSession(10 ether, 20 ether, 1_000);
 
         _playAllInSingleDraw(gameId, player1.addr);
+        vm.expectRevert("Settlement: engine inactive");
+        tournamentController.reportOutcome(gameId);
+
+        registry.setEngineActive(address(pokerEngine), true);
         tournamentController.reportOutcome(gameId);
         _assertPlayerBalances(10_010 ether, 9_990 ether);
     }
@@ -81,41 +94,41 @@ contract AbusePathsE2ETest is BaseE2ETest {
         pokerEngine.initializeGame(1, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
     }
 
-    function test_CreatorRewardsRejectEarlyCloseClaimBeforeCloseDuplicateClaimAndZeroAccrualMint() public {
+    function test_DeveloperRewardsRejectEarlyCloseClaimBeforeCloseDuplicateClaimAndZeroAccrualMint() public {
         _approveSettlement(player1, 100 ether);
         vm.prank(player1.addr);
-        numberPickerAdapter.play(100 ether, 25, keccak256("claim-guard"));
+        numberPickerAdapter.play(100 ether, 25, keccak256("claim-guard"), numberPickerExpressionTokenId);
 
-        vm.expectRevert("CreatorRewards: epoch active");
-        creatorRewards.closeCurrentEpoch();
+        vm.expectRevert("DeveloperRewards: epoch active");
+        developerRewards.closeCurrentEpoch();
 
         uint256[] memory epochs = new uint256[](1);
         epochs[0] = 1;
-        vm.prank(soloCreator.addr);
-        vm.expectRevert("CreatorRewards: epoch open");
-        creatorRewards.claim(epochs);
+        vm.prank(soloDeveloper.addr);
+        vm.expectRevert("DeveloperRewards: epoch open");
+        developerRewards.claim(epochs);
 
         _closeEpoch();
 
         uint256 outsiderBalanceBefore = token.balanceOf(outsider.addr);
         vm.prank(outsider.addr);
-        creatorRewards.claim(epochs);
+        developerRewards.claim(epochs);
         assertEq(token.balanceOf(outsider.addr), outsiderBalanceBefore);
 
-        vm.prank(soloCreator.addr);
-        creatorRewards.claim(epochs);
+        vm.prank(soloDeveloper.addr);
+        developerRewards.claim(epochs);
 
-        vm.prank(soloCreator.addr);
-        vm.expectRevert("CreatorRewards: already claimed");
-        creatorRewards.claim(epochs);
+        vm.prank(soloDeveloper.addr);
+        vm.expectRevert("DeveloperRewards: already claimed");
+        developerRewards.claim(epochs);
     }
 
     function test_GovernanceRejectsInsufficientVotesAndEnforcesTimelockDelay() public {
         address[] memory targets = new address[](1);
-        targets[0] = address(creatorRewards);
+        targets[0] = address(developerRewards);
         uint256[] memory values = new uint256[](1);
         bytes[] memory calldatas = new bytes[](1);
-        calldatas[0] = abi.encodeCall(CreatorRewards.setEpochDuration, (3 days));
+        calldatas[0] = abi.encodeCall(DeveloperRewards.setEpochDuration, (3 days));
 
         vm.prank(outsider.addr);
         vm.expectRevert();
@@ -283,10 +296,9 @@ contract AbusePathsE2ETest is BaseE2ETest {
             outsider.addr,
             GameEngineRegistry.EngineMetadata({
                 engineType: keccak256("fake"),
-                creator: outsider.addr,
                 verifier: address(0),
                 configHash: bytes32(0),
-                creatorRateBps: 100,
+                developerRewardBps: 100,
                 active: true,
                 supportsTournament: false,
                 supportsPvP: false,
@@ -312,6 +324,23 @@ contract AbusePathsE2ETest is BaseE2ETest {
 
         vm.prank(outsider.addr);
         vm.expectRevert();
-        settlement.accrueCreatorForEngine(address(numberPickerEngine), 1 ether);
+        settlement.accrueDeveloperForExpression(address(numberPickerEngine), numberPickerExpressionTokenId, 1 ether);
+    }
+
+    function test_SettlementRejectsInactiveOrMismatchedExpressions() public {
+        _approveSettlement(player1, 300 ether);
+
+        vm.prank(player1.addr);
+        numberPickerAdapter.play(100 ether, 25, keccak256("active-expression"), numberPickerExpressionTokenId);
+
+        expressionRegistry.setExpressionActive(numberPickerExpressionTokenId, false);
+        vm.prank(player1.addr);
+        vm.expectRevert("Settlement: expression inactive");
+        numberPickerAdapter.play(100 ether, 25, keccak256("inactive-expression"), numberPickerExpressionTokenId);
+
+        expressionRegistry.setExpressionActive(numberPickerExpressionTokenId, true);
+        vm.prank(player1.addr);
+        vm.expectRevert("Settlement: expression mismatch");
+        numberPickerAdapter.play(100 ether, 25, keccak256("wrong-type"), pokerExpressionTokenId);
     }
 }

@@ -18,6 +18,7 @@ contract PvPController is AccessControl, ReentrancyGuard {
         uint256 stake;
         uint256 rewardPool;
         uint256 startingStack;
+        uint256 expressionTokenId;
         bytes engineConfig;
     }
 
@@ -27,8 +28,14 @@ contract PvPController is AccessControl, ReentrancyGuard {
     mapping(uint256 => Session) public sessions;
     mapping(uint256 => bool) public sessionSettled;
 
-    event SessionCreated(uint256 indexed sessionId, address indexed engine, address indexed player1, address player2);
-    event SessionSettled(uint256 indexed sessionId, address indexed engine);
+    event SessionCreated(
+        uint256 indexed sessionId,
+        address indexed engine,
+        uint256 indexed expressionTokenId,
+        address player1,
+        address player2
+    );
+    event SessionSettled(uint256 indexed sessionId, address indexed engine, uint256 indexed expressionTokenId);
 
     constructor(address admin, address settlementAddress, address registryAddress) {
         SETTLEMENT = ProtocolSettlement(settlementAddress);
@@ -52,7 +59,8 @@ contract PvPController is AccessControl, ReentrancyGuard {
         uint256 stake,
         uint256 rewardPool,
         uint256 startingStack,
-        bytes calldata engineConfig
+        bytes calldata engineConfig,
+        uint256 expressionTokenId
     ) external onlyRole(OPERATOR_ROLE) returns (uint256 sessionId) {
         require(REGISTRY.isRegisteredForPvP(gameEngine), "PvPController: engine inactive");
         if (stake > 0) {
@@ -69,6 +77,7 @@ contract PvPController is AccessControl, ReentrancyGuard {
             stake: stake,
             rewardPool: rewardPool,
             startingStack: startingStack,
+            expressionTokenId: expressionTokenId,
             engineConfig: engineConfig
         });
 
@@ -89,7 +98,7 @@ contract PvPController is AccessControl, ReentrancyGuard {
             engineConfig
         );
 
-        emit SessionCreated(sessionId, gameEngine, player1, player2);
+        emit SessionCreated(sessionId, gameEngine, expressionTokenId, player1, player2);
     }
 
     function settleSession(uint256 sessionId) external nonReentrant {
@@ -104,7 +113,9 @@ contract PvPController is AccessControl, ReentrancyGuard {
             SETTLEMENT.mintPlayerReward(winners[i], payouts[i]);
         }
 
-        SETTLEMENT.accrueCreatorForEngine(session.gameEngine, session.rewardPool + (session.stake * 2));
-        emit SessionSettled(sessionId, session.gameEngine);
+        SETTLEMENT.accrueDeveloperForExpression(
+            session.gameEngine, session.expressionTokenId, session.rewardPool + (session.stake * 2)
+        );
+        emit SessionSettled(sessionId, session.gameEngine, session.expressionTokenId);
     }
 }
