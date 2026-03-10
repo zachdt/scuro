@@ -1,12 +1,14 @@
 # Local Deployment And Testing
 
-This guide covers the practical developer workflow for Scuro's local stack:
+This guide is the developer/operator companion to the root [README](../README.md). Use it when you need to build the repo, validate zk artifacts, choose the right test suite, deploy the local stack, or run the end-to-end smoke against Anvil.
 
-- validating committed zk artifacts
-- running the contract and E2E suites
-- deploying the full local stack to Anvil
-- running the deploy smoke with real poker and blackjack proofs
-- verifying developer rewards and expression registry behavior
+Next step after this page: use the [E2E scenario matrix](../test/e2e/MATRIX.md) when you need to confirm that a user story or edge case is covered by the suite.
+
+## Documentation Links
+
+- [Docs index](./README.md)
+- [Protocol architecture](./protocol-architecture.md)
+- [E2E scenario matrix](../test/e2e/MATRIX.md)
 
 ## What Is In Scope
 
@@ -16,11 +18,13 @@ The active local stack includes three example engines:
 - `SingleDraw2To7Engine`: poker engine used by tournament and PvP controllers, backed by zk proofs
 - `SingleDeckBlackjackEngine`: solo blackjack engine backed by zk proofs
 
-It also includes the full developer rewards path:
+It also includes the full developer-attribution path:
 
 - `GameEngineRegistry` for engine deployment metadata and `developerRewardBps`
 - `DeveloperExpressionRegistry` for developer-owned engine expression NFTs
 - `DeveloperRewards` for epoch-based SCU claims
+
+The root package is the only supported build target. Archived directories are reference-only and are intentionally excluded from current build, deployment, and test workflows.
 
 ## Prerequisites
 
@@ -29,6 +33,54 @@ It also includes the full developer rewards path:
 - `bash`
 
 Use `--offline` with `forge test` in this environment. It avoids external lookup behavior that is not needed for local verification.
+
+## Command Quick Reference
+
+Build the contracts:
+
+```bash
+forge build
+```
+
+Validate committed zk artifacts:
+
+```bash
+bun run --cwd zk check
+```
+
+Rebuild zk artifacts only when circuit sources change:
+
+```bash
+bun run --cwd zk build
+```
+
+Run the full suite:
+
+```bash
+forge test --offline
+```
+
+Run the layered E2E suite only:
+
+```bash
+forge test --match-path 'test/e2e/*.t.sol' --offline
+```
+
+Run focused contract tests:
+
+```bash
+forge test --match-path 'test/DeveloperExpressionRegistry.t.sol' --offline
+forge test --match-path 'test/TournamentController.t.sol' --offline
+forge test --match-path 'test/BlackjackController.t.sol' --offline
+forge test --match-path 'test/NumberPickerAdapter.t.sol' --offline
+forge test --match-path 'test/ProtocolCore.t.sol' --offline
+```
+
+Run the deploy smoke:
+
+```bash
+./script/e2e_deploy_smoke.sh
+```
 
 ## Recommended Order
 
@@ -62,7 +114,7 @@ forge test --offline
 forge test --match-path 'test/e2e/*.t.sol' --offline
 ```
 
-### 5. Run the focused contract tests
+### 5. Run focused controller and protocol tests
 
 ```bash
 forge test --match-path 'test/DeveloperExpressionRegistry.t.sol' --offline
@@ -71,6 +123,44 @@ forge test --match-path 'test/BlackjackController.t.sol' --offline
 forge test --match-path 'test/NumberPickerAdapter.t.sol' --offline
 forge test --match-path 'test/ProtocolCore.t.sol' --offline
 ```
+
+## Test Suite Breakdown
+
+### Focused contract tests
+
+These cover protocol subsystems in isolation:
+
+- `test/ProtocolCore.t.sol`: token, staking, governance, settlement, and developer reward expectations
+- `test/DeveloperExpressionRegistry.t.sol`: permissionless expression mint, transfer, and moderation behavior
+- `test/NumberPickerAdapter.t.sol`: solo adapter flow, payout, and developer accrual
+- `test/TournamentController.t.sol`: tournament orchestration on top of the poker engine
+- `test/BlackjackController.t.sol`: blackjack session lifecycle and settlement behavior
+
+### Layered E2E tests
+
+These live under `test/e2e` and act as the scenario-completeness gate:
+
+- `SmokeE2E.t.sol`: full-stack wiring, role setup, registry compatibility, expression wiring, and one minimal happy path per major subsystem
+- `UserFlowsE2E.t.sol`: end-to-end user journeys across solo play, tournament play, PvP play, developer rewards, and governance
+- `AbusePathsE2E.t.sol`: replay protection, unauthorized access, inactive engines, inactive expressions, timing issues, and invalid proof or settlement paths
+
+The detailed coverage matrix is maintained in [test/e2e/MATRIX.md](../test/e2e/MATRIX.md).
+
+## Coverage Philosophy
+
+Scenario coverage is currently the primary quality gate for this repository.
+
+Why:
+
+- the codebase relies on `via_ir`
+- disabling IR for coverage causes compiler failures such as `stack too deep` and Yul issues
+- raw percentage coverage is therefore not the right short-term gate
+
+Current rule:
+
+- prioritize exhaustive flow coverage first
+- keep the completeness gate in [test/e2e/MATRIX.md](../test/e2e/MATRIX.md)
+- revisit percentage-based gating after the coverage toolchain is stable for this codebase
 
 ## Manual Local Deployment
 
@@ -107,7 +197,7 @@ Run the full local smoke with:
 ./script/e2e_deploy_smoke.sh
 ```
 
-The deploy smoke does all of the following:
+The smoke script performs the highest-signal local verification pass because it exercises the deployed contracts, not just the test harnesses. It does all of the following:
 
 - validates committed zk artifacts
 - starts Anvil
@@ -118,24 +208,22 @@ The deploy smoke does all of the following:
 - executes one real-proof poker flow using a poker expression token
 - executes one real-proof blackjack flow using a blackjack expression token
 
-This is the highest-signal local verification command because it exercises both zk-backed engines and the developer rewards path against deployed contracts, not just against the in-test harnesses.
+## Developer Attribution Verification
 
-## Developer Rewards Verification
+The local stack expects every gameplay entrypoint to carry an `expressionTokenId`.
 
-The local stack now expects every gameplay entrypoint to carry an `expressionTokenId`.
-
-The controller entrypoints are:
+The main controller entrypoints are:
 
 - `NumberPickerAdapter.play(..., expressionTokenId)`
 - `BlackjackController.startHand(..., expressionTokenId)`
 - `TournamentController.createTournament(..., expressionTokenId)`
 - `PvPController.createSession(..., expressionTokenId)`
 
-For the multi-step controllers, that token ID is stored first and then reused later:
+For multi-step flows, controllers persist the token ID and settlement reuses it later:
 
-- blackjack settlement reads `sessionExpressionTokenId(sessionId)`
-- tournament settlement reads `tournaments(tournamentId).expressionTokenId`
-- PvP settlement reads `sessions(sessionId).expressionTokenId`
+- blackjack: `sessionExpressionTokenId(sessionId)`
+- tournament: `tournaments(tournamentId).expressionTokenId`
+- PvP: `sessions(sessionId).expressionTokenId`
 
 The important invariants are:
 
@@ -146,13 +234,13 @@ The important invariants are:
 - the reward recipient is the current `ownerOf(expressionTokenId)` at settlement time
 - for tournament, PvP, and blackjack flows, a mid-session expression transfer changes who receives accrual if settlement has not happened yet
 
-When debugging reward attribution locally:
+When debugging attribution locally:
 
-- inspect the engine metadata in `GameEngineRegistry`
+- inspect engine metadata in `GameEngineRegistry`
 - inspect token ownership and metadata in `DeveloperExpressionRegistry`
 - inspect epoch accruals in `DeveloperRewards`
 - confirm the controller stored the expected `expressionTokenId`
-- remember that compatibility is enforced when settlement books accrual, so a later expression deactivation or a bad stored token ID will surface during settlement rather than at game creation
+- remember that compatibility is enforced when settlement books accrual, so a later expression deactivation or engine deactivation can surface during settlement rather than at session creation
 
 ## User Story To Test Mapping
 
@@ -202,3 +290,5 @@ When debugging reward attribution locally:
 - Poker game initialization is controller-gated so an arbitrary caller cannot pre-seed predictable game IDs and block tournament or PvP session creation.
 - Engine deactivation now blocks both new game creation and developer reward settlement until the engine is reactivated.
 - The zk-backed engines still depend on off-chain proof coordination. Current tests cover proof validation and some timeout paths, but there is still no coordinator-timeout recovery path if proof submission stalls.
+
+Next step: consult the [E2E scenario matrix](../test/e2e/MATRIX.md) to map a user story or regression risk to a concrete scenario ID and test name.
