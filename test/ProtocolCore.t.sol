@@ -3,7 +3,8 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {TimelockController} from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
-import {CreatorRewards} from "../src/CreatorRewards.sol";
+import {DeveloperExpressionRegistry} from "../src/DeveloperExpressionRegistry.sol";
+import {DeveloperRewards} from "../src/DeveloperRewards.sol";
 import {GameEngineRegistry} from "../src/GameEngineRegistry.sol";
 import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
 import {ScuroGovernor} from "../src/ScuroGovernor.sol";
@@ -11,16 +12,22 @@ import {ScuroStakingToken} from "../src/ScuroStakingToken.sol";
 import {ScuroToken} from "../src/ScuroToken.sol";
 
 contract ProtocolCoreTest is Test {
+    bytes32 internal constant NUMBER_PICKER_TYPE = keccak256("NUMBER_PICKER");
+    bytes32 internal constant BLACKJACK_TYPE = keccak256("BLACKJACK");
+
     ScuroToken internal token;
     ScuroStakingToken internal stakingToken;
     TimelockController internal timelock;
     ScuroGovernor internal governor;
     GameEngineRegistry internal registry;
-    CreatorRewards internal creatorRewards;
+    DeveloperExpressionRegistry internal expressionRegistry;
+    DeveloperRewards internal developerRewards;
     ProtocolSettlement internal settlement;
 
     address internal alice = address(0xA11CE);
+    address internal bob = address(0xB0B);
     address internal controller = address(0xC0DE);
+    address internal engine = address(0x1234);
 
     function setUp() public {
         token = new ScuroToken(address(this));
@@ -36,13 +43,20 @@ contract ProtocolCoreTest is Test {
         timelock.grantRole(timelock.EXECUTOR_ROLE(), address(0));
 
         registry = new GameEngineRegistry(address(this));
-        creatorRewards = new CreatorRewards(address(this), address(token), 7 days);
-        settlement = new ProtocolSettlement(address(this), address(token), address(registry), address(creatorRewards));
+        expressionRegistry = new DeveloperExpressionRegistry(address(this));
+        developerRewards = new DeveloperRewards(address(this), address(token), 7 days);
+        settlement = new ProtocolSettlement(
+            address(this),
+            address(token),
+            address(registry),
+            address(expressionRegistry),
+            address(developerRewards)
+        );
 
         token.grantRole(token.MINTER_ROLE(), address(settlement));
-        token.grantRole(token.MINTER_ROLE(), address(creatorRewards));
-        creatorRewards.grantRole(creatorRewards.SETTLEMENT_ROLE(), address(settlement));
-        creatorRewards.grantRole(creatorRewards.EPOCH_MANAGER_ROLE(), address(timelock));
+        token.grantRole(token.MINTER_ROLE(), address(developerRewards));
+        developerRewards.grantRole(developerRewards.SETTLEMENT_ROLE(), address(settlement));
+        developerRewards.grantRole(developerRewards.EPOCH_MANAGER_ROLE(), address(timelock));
 
         token.mint(alice, 1_000 ether);
     }
@@ -58,7 +72,7 @@ contract ProtocolCoreTest is Test {
         assertEq(stakingToken.getVotes(alice), 100 ether);
     }
 
-    function test_GovernanceCanUpdateCreatorEpochDuration() public {
+    function test_GovernanceCanUpdateDeveloperEpochDuration() public {
         vm.startPrank(alice);
         token.approve(address(stakingToken), 500 ether);
         stakingToken.stake(500 ether);
@@ -67,10 +81,10 @@ contract ProtocolCoreTest is Test {
         vm.roll(block.number + 1);
 
         address[] memory targets = new address[](1);
-        targets[0] = address(creatorRewards);
+        targets[0] = address(developerRewards);
         uint256[] memory values = new uint256[](1);
         bytes[] memory calldatas = new bytes[](1);
-        calldatas[0] = abi.encodeCall(CreatorRewards.setEpochDuration, (14 days));
+        calldatas[0] = abi.encodeCall(DeveloperRewards.setEpochDuration, (14 days));
         string memory description = "update epoch duration";
 
         vm.prank(alice);
@@ -86,7 +100,7 @@ contract ProtocolCoreTest is Test {
         vm.warp(block.timestamp + 2);
         governor.execute(targets, values, calldatas, descriptionHash);
 
-        assertEq(creatorRewards.epochDuration(), 14 days);
+        assertEq(developerRewards.epochDuration(), 14 days);
     }
 
     function test_UnauthorizedContractsCannotBurnMintOrAccrue() public {
@@ -104,11 +118,80 @@ contract ProtocolCoreTest is Test {
 
         vm.prank(alice);
         vm.expectRevert();
-        settlement.accrueCreatorForEngine(address(0x1234), 1 ether);
+        settlement.accrueDeveloperForExpression(address(0x1234), 1, 1 ether);
 
         settlement.setControllerAuthorization(controller, true);
         vm.prank(controller);
         settlement.burnPlayerWager(alice, 1 ether);
         assertEq(token.balanceOf(alice), 999 ether);
+    }
+
+    function test_SettlementRoutesDeveloperAccrualToExpressionOwnerAndHonorsTransfers() public {
+        registry.registerEngine(
+            engine,
+            GameEngineRegistry.EngineMetadata({
+                engineType: NUMBER_PICKER_TYPE,
+                verifier: address(0),
+                configHash: keccak256("number-picker-auto"),
+                developerRewardBps: 500,
+                active: true,
+                supportsTournament: false,
+                supportsPvP: false,
+                supportsSolo: true
+            })
+        );
+
+        vm.prank(alice);
+        uint256 expressionTokenId =
+            expressionRegistry.mintExpression(NUMBER_PICKER_TYPE, keccak256("expr-1"), "ipfs://expr-1");
+
+        settlement.setControllerAuthorization(controller, true);
+
+        vm.prank(controller);
+        settlement.accrueDeveloperForExpression(engine, expressionTokenId, 100 ether);
+        assertEq(developerRewards.epochAccrual(1, alice), 5 ether);
+        assertEq(developerRewards.epochAccrual(1, bob), 0);
+
+        vm.prank(alice);
+        expressionRegistry.transferFrom(alice, bob, expressionTokenId);
+
+        vm.prank(controller);
+        settlement.accrueDeveloperForExpression(engine, expressionTokenId, 200 ether);
+        assertEq(developerRewards.epochAccrual(1, alice), 5 ether);
+        assertEq(developerRewards.epochAccrual(1, bob), 10 ether);
+    }
+
+    function test_SettlementRejectsInactiveOrMismatchedExpressions() public {
+        registry.registerEngine(
+            engine,
+            GameEngineRegistry.EngineMetadata({
+                engineType: NUMBER_PICKER_TYPE,
+                verifier: address(0),
+                configHash: keccak256("number-picker-auto"),
+                developerRewardBps: 500,
+                active: true,
+                supportsTournament: false,
+                supportsPvP: false,
+                supportsSolo: true
+            })
+        );
+
+        vm.prank(alice);
+        uint256 numberPickerExpressionId =
+            expressionRegistry.mintExpression(NUMBER_PICKER_TYPE, keccak256("expr-1"), "ipfs://expr-1");
+        vm.prank(alice);
+        uint256 blackjackExpressionId =
+            expressionRegistry.mintExpression(BLACKJACK_TYPE, keccak256("expr-2"), "ipfs://expr-2");
+
+        settlement.setControllerAuthorization(controller, true);
+
+        expressionRegistry.setExpressionActive(numberPickerExpressionId, false);
+        vm.prank(controller);
+        vm.expectRevert("Settlement: expression inactive");
+        settlement.accrueDeveloperForExpression(engine, numberPickerExpressionId, 100 ether);
+
+        vm.prank(controller);
+        vm.expectRevert("Settlement: expression mismatch");
+        settlement.accrueDeveloperForExpression(engine, blackjackExpressionId, 100 ether);
     }
 }

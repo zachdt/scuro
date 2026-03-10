@@ -1,35 +1,45 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import { CreatorRewards } from "../src/CreatorRewards.sol";
-import { GameEngineRegistry } from "../src/GameEngineRegistry.sol";
-import { ProtocolSettlement } from "../src/ProtocolSettlement.sol";
-import { ScuroToken } from "../src/ScuroToken.sol";
-import { BlackjackController } from "../src/controllers/BlackjackController.sol";
-import { SingleDeckBlackjackEngine } from "../src/engines/SingleDeckBlackjackEngine.sol";
-import { BlackjackVerifierBundle } from "../src/verifiers/BlackjackVerifierBundle.sol";
-import { BlackjackActionResolveVerifier } from "../src/verifiers/generated/BlackjackActionResolveVerifier.sol";
-import { BlackjackInitialDealVerifier } from "../src/verifiers/generated/BlackjackInitialDealVerifier.sol";
-import { BlackjackShowdownVerifier } from "../src/verifiers/generated/BlackjackShowdownVerifier.sol";
-import { ZkFixtureLoader } from "./helpers/ZkFixtureLoader.sol";
+import {DeveloperExpressionRegistry} from "../src/DeveloperExpressionRegistry.sol";
+import {DeveloperRewards} from "../src/DeveloperRewards.sol";
+import {GameEngineRegistry} from "../src/GameEngineRegistry.sol";
+import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
+import {ScuroToken} from "../src/ScuroToken.sol";
+import {BlackjackController} from "../src/controllers/BlackjackController.sol";
+import {SingleDeckBlackjackEngine} from "../src/engines/SingleDeckBlackjackEngine.sol";
+import {BlackjackVerifierBundle} from "../src/verifiers/BlackjackVerifierBundle.sol";
+import {BlackjackActionResolveVerifier} from "../src/verifiers/generated/BlackjackActionResolveVerifier.sol";
+import {BlackjackInitialDealVerifier} from "../src/verifiers/generated/BlackjackInitialDealVerifier.sol";
+import {BlackjackShowdownVerifier} from "../src/verifiers/generated/BlackjackShowdownVerifier.sol";
+import {ZkFixtureLoader} from "./helpers/ZkFixtureLoader.sol";
 
 contract BlackjackControllerTest is ZkFixtureLoader {
     ScuroToken internal token;
     GameEngineRegistry internal registry;
-    CreatorRewards internal creatorRewards;
+    DeveloperExpressionRegistry internal expressionRegistry;
+    DeveloperRewards internal developerRewards;
     ProtocolSettlement internal settlement;
     BlackjackVerifierBundle internal verifierBundle;
     SingleDeckBlackjackEngine internal engine;
     BlackjackController internal controller;
 
-    address internal creator = address(0xBEEF);
+    address internal developer = address(0xBEEF);
     address internal player = address(0x111);
+    uint256 internal expressionTokenId;
 
     function setUp() public {
         token = new ScuroToken(address(this));
         registry = new GameEngineRegistry(address(this));
-        creatorRewards = new CreatorRewards(address(this), address(token), 7 days);
-        settlement = new ProtocolSettlement(address(this), address(token), address(registry), address(creatorRewards));
+        expressionRegistry = new DeveloperExpressionRegistry(address(this));
+        developerRewards = new DeveloperRewards(address(this), address(token), 7 days);
+        settlement = new ProtocolSettlement(
+            address(this),
+            address(token),
+            address(registry),
+            address(expressionRegistry),
+            address(developerRewards)
+        );
         verifierBundle = new BlackjackVerifierBundle(
             address(this),
             address(new BlackjackInitialDealVerifier()),
@@ -40,8 +50,8 @@ contract BlackjackControllerTest is ZkFixtureLoader {
         controller = new BlackjackController(address(this), address(settlement), address(registry), address(engine));
 
         token.grantRole(token.MINTER_ROLE(), address(settlement));
-        token.grantRole(token.MINTER_ROLE(), address(creatorRewards));
-        creatorRewards.grantRole(creatorRewards.SETTLEMENT_ROLE(), address(settlement));
+        token.grantRole(token.MINTER_ROLE(), address(developerRewards));
+        developerRewards.grantRole(developerRewards.SETTLEMENT_ROLE(), address(settlement));
         settlement.setControllerAuthorization(address(controller), true);
         engine.grantRole(engine.CONTROLLER_ROLE(), address(controller));
 
@@ -49,15 +59,20 @@ contract BlackjackControllerTest is ZkFixtureLoader {
             address(engine),
             GameEngineRegistry.EngineMetadata({
                 engineType: engine.ENGINE_TYPE(),
-                creator: creator,
                 verifier: address(verifierBundle),
                 configHash: keccak256("single-deck-blackjack-zk"),
-                creatorRateBps: 500,
+                developerRewardBps: 500,
                 active: true,
                 supportsTournament: false,
                 supportsPvP: false,
                 supportsSolo: true
             })
+        );
+
+        bytes32 engineType = engine.ENGINE_TYPE();
+        vm.prank(developer);
+        expressionTokenId = expressionRegistry.mintExpression(
+            engineType, keccak256("single-deck-blackjack-zk"), "ipfs://single-deck-blackjack-zk"
         );
 
         token.mint(player, 1_000);
@@ -71,7 +86,8 @@ contract BlackjackControllerTest is ZkFixtureLoader {
         BlackjackShowdownFixture memory showdown = _loadBlackjackShowdownFixture();
 
         vm.prank(player);
-        uint256 sessionId = controller.startHand(100, keccak256("blackjack-hit-stand"), initial.playerKeyCommitment);
+        uint256 sessionId =
+            controller.startHand(100, keccak256("blackjack-hit-stand"), initial.playerKeyCommitment, expressionTokenId);
         assertEq(sessionId, 1);
         assertEq(token.balanceOf(player), 900);
 
@@ -88,20 +104,22 @@ contract BlackjackControllerTest is ZkFixtureLoader {
         controller.settle(sessionId);
 
         assertEq(token.balanceOf(player), 1_100);
-        assertEq(creatorRewards.epochAccrual(creatorRewards.currentEpoch(), creator), 5);
+        assertEq(developerRewards.epochAccrual(developerRewards.currentEpoch(), developer), 5);
         (address settledPlayer, uint256 totalBurned, uint256 payout, bool completed) =
             engine.getSettlementOutcome(sessionId);
         assertEq(settledPlayer, player);
         assertEq(totalBurned, 100);
         assertEq(payout, 200);
         assertTrue(completed);
+        assertEq(controller.sessionExpressionTokenId(sessionId), expressionTokenId);
     }
 
     function test_BlackjackRejectsInvalidInitProofAndTimeoutAutoStands() public {
         BlackjackInitialDealFixture memory initial = _loadBlackjackInitialDealFixture();
 
         vm.prank(player);
-        uint256 sessionId = controller.startHand(100, keccak256("blackjack-timeout"), initial.playerKeyCommitment);
+        uint256 sessionId =
+            controller.startHand(100, keccak256("blackjack-timeout"), initial.playerKeyCommitment, expressionTokenId);
 
         vm.expectRevert("Blackjack: invalid init proof");
         _submitInitialDealWithDeck(sessionId, initial, bytes32(uint256(initial.deckCommitment) + 1));

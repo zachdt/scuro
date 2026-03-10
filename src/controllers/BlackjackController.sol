@@ -14,9 +14,22 @@ contract BlackjackController is AccessControl {
     SingleDeckBlackjackEngine internal immutable ENGINE;
 
     mapping(uint256 => bool) public sessionSettled;
+    mapping(uint256 => uint256) public sessionExpressionTokenId;
 
-    event HandStarted(uint256 indexed sessionId, address indexed player, uint256 wager, bytes32 indexed playRef);
-    event SessionSettled(uint256 indexed sessionId, address indexed player, uint256 payout, uint256 totalBurned);
+    event HandStarted(
+        uint256 indexed sessionId,
+        address indexed player,
+        uint256 indexed expressionTokenId,
+        uint256 wager,
+        bytes32 playRef
+    );
+    event SessionSettled(
+        uint256 indexed sessionId,
+        address indexed player,
+        uint256 indexed expressionTokenId,
+        uint256 payout,
+        uint256 totalBurned
+    );
 
     constructor(address admin, address settlementAddress, address registryAddress, address engineAddress) {
         SETTLEMENT = ProtocolSettlement(settlementAddress);
@@ -38,11 +51,15 @@ contract BlackjackController is AccessControl {
         return ENGINE;
     }
 
-    function startHand(uint256 wager, bytes32 playRef, bytes32 playerKeyCommitment) external returns (uint256 sessionId) {
+    function startHand(uint256 wager, bytes32 playRef, bytes32 playerKeyCommitment, uint256 expressionTokenId)
+        external
+        returns (uint256 sessionId)
+    {
         require(REGISTRY.isRegisteredForSolo(address(ENGINE)), "BlackjackController: engine inactive");
         SETTLEMENT.burnPlayerWager(msg.sender, wager);
         sessionId = ENGINE.openSession(msg.sender, wager, playRef, playerKeyCommitment);
-        emit HandStarted(sessionId, msg.sender, wager, playRef);
+        sessionExpressionTokenId[sessionId] = expressionTokenId;
+        emit HandStarted(sessionId, msg.sender, expressionTokenId, wager, playRef);
     }
 
     function hit(uint256 sessionId) external {
@@ -71,11 +88,12 @@ contract BlackjackController is AccessControl {
         require(completed, "BlackjackController: active");
 
         sessionSettled[sessionId] = true;
+        uint256 expressionTokenId = sessionExpressionTokenId[sessionId];
         if (payout > 0) {
             SETTLEMENT.mintPlayerReward(player, payout);
         }
-        SETTLEMENT.accrueCreatorForEngine(address(ENGINE), totalBurned);
-        emit SessionSettled(sessionId, player, payout, totalBurned);
+        SETTLEMENT.accrueDeveloperForExpression(address(ENGINE), expressionTokenId, totalBurned);
+        emit SessionSettled(sessionId, player, expressionTokenId, payout, totalBurned);
     }
 
     function _declareAction(address player, uint256 sessionId, uint8 action) internal {

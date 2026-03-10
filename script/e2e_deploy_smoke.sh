@@ -47,7 +47,7 @@ fi
 PRIVATE_KEY="${ADMIN_KEY}" forge script script/DeployLocal.s.sol:DeployLocal --rpc-url "${RPC_URL}" --broadcast \
   2>&1 | tee "${DEPLOY_LOG}"
 
-extract_address() {
+extract_value() {
   local label="$1"
   awk -v wanted="${label}" '$1 == wanted {print $2}' "${DEPLOY_LOG}" | tail -n 1
 }
@@ -63,26 +63,30 @@ assert_equal() {
   fi
 }
 
-SCURO_TOKEN="$(extract_address ScuroToken)"
-STAKING_TOKEN="$(extract_address ScuroStakingToken)"
-SETTLEMENT="$(extract_address ProtocolSettlement)"
-REGISTRY="$(extract_address GameEngineRegistry)"
-CREATOR_REWARDS="$(extract_address CreatorRewards)"
-NUMBER_PICKER_ENGINE="$(extract_address NumberPickerEngine)"
-NUMBER_PICKER_ADAPTER="$(extract_address NumberPickerAdapter)"
-POKER_ENGINE="$(extract_address SingleDraw2To7Engine)"
-POKER_VERIFIER_BUNDLE="$(extract_address PokerVerifierBundle)"
-BLACKJACK_ENGINE="$(extract_address SingleDeckBlackjackEngine)"
-BLACKJACK_VERIFIER_BUNDLE="$(extract_address BlackjackVerifierBundle)"
-BLACKJACK_CONTROLLER="$(extract_address BlackjackController)"
-TOURNAMENT_CONTROLLER="$(extract_address TournamentController)"
-PVP_CONTROLLER="$(extract_address PvPController)"
-PLAYER1="$(extract_address Player1)"
-PLAYER2="$(extract_address Player2)"
-SOLO_CREATOR="$(extract_address SoloCreator)"
-POKER_CREATOR="$(extract_address PokerCreator)"
+SCURO_TOKEN="$(extract_value ScuroToken)"
+STAKING_TOKEN="$(extract_value ScuroStakingToken)"
+SETTLEMENT="$(extract_value ProtocolSettlement)"
+REGISTRY="$(extract_value GameEngineRegistry)"
+EXPRESSION_REGISTRY="$(extract_value DeveloperExpressionRegistry)"
+DEVELOPER_REWARDS="$(extract_value DeveloperRewards)"
+NUMBER_PICKER_ENGINE="$(extract_value NumberPickerEngine)"
+NUMBER_PICKER_ADAPTER="$(extract_value NumberPickerAdapter)"
+POKER_ENGINE="$(extract_value SingleDraw2To7Engine)"
+POKER_VERIFIER_BUNDLE="$(extract_value PokerVerifierBundle)"
+BLACKJACK_ENGINE="$(extract_value SingleDeckBlackjackEngine)"
+BLACKJACK_VERIFIER_BUNDLE="$(extract_value BlackjackVerifierBundle)"
+BLACKJACK_CONTROLLER="$(extract_value BlackjackController)"
+TOURNAMENT_CONTROLLER="$(extract_value TournamentController)"
+PVP_CONTROLLER="$(extract_value PvPController)"
+PLAYER1="$(extract_value Player1)"
+PLAYER2="$(extract_value Player2)"
+SOLO_DEVELOPER="$(extract_value SoloDeveloper)"
+POKER_DEVELOPER="$(extract_value PokerDeveloper)"
+NUMBER_PICKER_EXPRESSION_TOKEN_ID="$(extract_value NumberPickerExpressionTokenId)"
+POKER_EXPRESSION_TOKEN_ID="$(extract_value PokerExpressionTokenId)"
+BLACKJACK_EXPRESSION_TOKEN_ID="$(extract_value BlackjackExpressionTokenId)"
 
-for label in SCURO_TOKEN STAKING_TOKEN SETTLEMENT REGISTRY CREATOR_REWARDS NUMBER_PICKER_ENGINE NUMBER_PICKER_ADAPTER POKER_ENGINE POKER_VERIFIER_BUNDLE BLACKJACK_ENGINE BLACKJACK_VERIFIER_BUNDLE BLACKJACK_CONTROLLER TOURNAMENT_CONTROLLER PVP_CONTROLLER PLAYER1 PLAYER2 SOLO_CREATOR POKER_CREATOR; do
+for label in SCURO_TOKEN STAKING_TOKEN SETTLEMENT REGISTRY EXPRESSION_REGISTRY DEVELOPER_REWARDS NUMBER_PICKER_ENGINE NUMBER_PICKER_ADAPTER POKER_ENGINE POKER_VERIFIER_BUNDLE BLACKJACK_ENGINE BLACKJACK_VERIFIER_BUNDLE BLACKJACK_CONTROLLER TOURNAMENT_CONTROLLER PVP_CONTROLLER PLAYER1 PLAYER2 SOLO_DEVELOPER POKER_DEVELOPER NUMBER_PICKER_EXPRESSION_TOKEN_ID POKER_EXPRESSION_TOKEN_ID BLACKJACK_EXPRESSION_TOKEN_ID; do
   if [[ -z "${!label}" ]]; then
     echo "missing deployment output for ${label}" >&2
     exit 1
@@ -98,9 +102,9 @@ assert_equal \
   "true" \
   "settlement minter role"
 assert_equal \
-  "$(cast call "${SCURO_TOKEN}" "hasRole(bytes32,address)(bool)" "${MINTER_ROLE}" "${CREATOR_REWARDS}" --rpc-url "${RPC_URL}")" \
+  "$(cast call "${SCURO_TOKEN}" "hasRole(bytes32,address)(bool)" "${MINTER_ROLE}" "${DEVELOPER_REWARDS}" --rpc-url "${RPC_URL}")" \
   "true" \
-  "creator rewards minter role"
+  "developer rewards minter role"
 assert_equal \
   "$(cast call "${SETTLEMENT}" "hasRole(bytes32,address)(bool)" "${CONTROLLER_ROLE}" "${NUMBER_PICKER_ADAPTER}" --rpc-url "${RPC_URL}")" \
   "true" \
@@ -129,6 +133,18 @@ assert_equal \
   "$(cast call "${REGISTRY}" "isRegisteredForSolo(address)(bool)" "${BLACKJACK_ENGINE}" --rpc-url "${RPC_URL}")" \
   "true" \
   "blackjack solo registration"
+assert_equal \
+  "$(cast call "${EXPRESSION_REGISTRY}" "ownerOf(uint256)(address)" "${NUMBER_PICKER_EXPRESSION_TOKEN_ID}" --rpc-url "${RPC_URL}")" \
+  "${SOLO_DEVELOPER}" \
+  "number picker expression owner"
+assert_equal \
+  "$(cast call "${EXPRESSION_REGISTRY}" "ownerOf(uint256)(address)" "${POKER_EXPRESSION_TOKEN_ID}" --rpc-url "${RPC_URL}")" \
+  "${POKER_DEVELOPER}" \
+  "poker expression owner"
+assert_equal \
+  "$(cast call "${EXPRESSION_REGISTRY}" "ownerOf(uint256)(address)" "${BLACKJACK_EXPRESSION_TOKEN_ID}" --rpc-url "${RPC_URL}")" \
+  "${SOLO_DEVELOPER}" \
+  "blackjack expression owner"
 
 assert_equal \
   "$(cast call "${SCURO_TOKEN}" "balanceOf(address)(uint256)" "${PLAYER1}" --rpc-url "${RPC_URL}")" \
@@ -156,7 +172,7 @@ PRIVATE_KEY="${ADMIN_KEY}" \
 PLAYER1_PRIVATE_KEY=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d \
 PLAYER2_PRIVATE_KEY=0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a \
 SCURO_TOKEN="${SCURO_TOKEN}" \
-CREATOR_REWARDS="${CREATOR_REWARDS}" \
+DEVELOPER_REWARDS="${DEVELOPER_REWARDS}" \
 REGISTRY="${REGISTRY}" \
 TOURNAMENT_CONTROLLER="${TOURNAMENT_CONTROLLER}" \
 POKER_ENGINE="${POKER_ENGINE}" \
@@ -164,8 +180,10 @@ POKER_VERIFIER_BUNDLE="${POKER_VERIFIER_BUNDLE}" \
 BLACKJACK_CONTROLLER="${BLACKJACK_CONTROLLER}" \
 BLACKJACK_ENGINE="${BLACKJACK_ENGINE}" \
 BLACKJACK_VERIFIER_BUNDLE="${BLACKJACK_VERIFIER_BUNDLE}" \
-SOLO_CREATOR="${SOLO_CREATOR}" \
-POKER_CREATOR="${POKER_CREATOR}" \
+SOLO_DEVELOPER="${SOLO_DEVELOPER}" \
+POKER_DEVELOPER="${POKER_DEVELOPER}" \
+POKER_EXPRESSION_TOKEN_ID="${POKER_EXPRESSION_TOKEN_ID}" \
+BLACKJACK_EXPRESSION_TOKEN_ID="${BLACKJACK_EXPRESSION_TOKEN_ID}" \
 forge script script/SmokeRealProofHands.s.sol:SmokeRealProofHands --rpc-url "${RPC_URL}" --broadcast >/dev/null
 
 echo "deploy smoke passed"

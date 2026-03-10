@@ -22,6 +22,7 @@ graph TB
 
     subgraph UserLayer [User Layer]
         Player[Players / Participants]
+        Devs[Developers / Distributors]
     end
 
     subgraph ControllerLayer [Controller Layer]
@@ -34,7 +35,8 @@ graph TB
     subgraph ServiceLayer [Protocol Service Layer]
         Settlement[ProtocolSettlement]
         Registry[GameEngineRegistry]
-        Rewards[CreatorRewards]
+        Expressions[DeveloperExpressionRegistry]
+        Rewards[DeveloperRewards]
     end
 
     subgraph TokenLayer [Token Ecosystem]
@@ -59,11 +61,13 @@ graph TB
     Player --> BjCtrl
     Player --> Stake
     Player --> Governor
+    Devs --> Expressions
 
     Governor --> Timelock
     Governor --> Stake
     Timelock --> Registry
     Timelock --> Rewards
+    Timelock --> Expressions
 
     Solo --> Settlement
     Solo --> Registry
@@ -83,6 +87,7 @@ graph TB
 
     Settlement --> Token
     Settlement --> Registry
+    Settlement --> Expressions
     Settlement --> Rewards
     Rewards --> Token
     Stake --> Token
@@ -100,18 +105,21 @@ graph TB
 - `TournamentController` creates tournaments, starts poker matches, and settles reported tournament outcomes.
 - `PvPController` creates direct two-player poker sessions and settles completed matches.
 - `BlackjackController` opens blackjack hands, burns any extra wager for doubles/splits, and settles completed hands.
+- Every user-facing controller entrypoint now requires an `expressionTokenId` so developer attribution is explicit per transaction.
 
 ### Protocol services
 
-- `ProtocolSettlement` is the only protocol-level contract allowed to burn player wagers, mint player rewards, and accrue creator rewards.
-- `GameEngineRegistry` stores engine metadata, creator reward rates, compatibility flags, and active status.
-- `CreatorRewards` accumulates creator inflation by epoch and handles post-close claims.
+- `ProtocolSettlement` is the only protocol-level contract allowed to burn player wagers, mint player rewards, and accrue developer rewards.
+- `GameEngineRegistry` stores engine metadata, per-engine developer reward rates, compatibility flags, and active status.
+- `DeveloperExpressionRegistry` is a permissionless ERC721 registry for developer-owned engine expressions bound to `engineType`.
+- `DeveloperRewards` accumulates developer inflation by epoch and handles post-close claims.
+- Controllers persist `expressionTokenId` at create/play/start time; settlement reuses that stored token ID later when booking accrual.
 
 ### Governance and tokens
 
-- `ScuroToken` (`SCU`) is the protocol asset used for wagers, rewards, and creator payouts.
+- `ScuroToken` (`SCU`) is the protocol asset used for wagers, rewards, and developer payouts.
 - `ScuroStakingToken` (`sSCU`) wraps staked SCU and provides governance voting power.
-- `ScuroGovernor` plus `TimelockController` govern live protocol configuration such as creator reward epoch duration.
+- `ScuroGovernor` plus `TimelockController` govern live protocol configuration such as developer reward epoch duration and expression moderation roles.
 
 ### Engine model
 
@@ -121,6 +129,8 @@ graph TB
 
 ## Operational Notes
 
-- Registry deactivation blocks new poker tournaments and new PvP sessions.
-- Tournament games that were already started can still settle after deactivation so rewards are not stranded.
+- Engine deactivation blocks new sessions and also blocks developer reward accrual for settlement until the engine is reactivated.
+- Expression compatibility is checked when settlement records developer accrual, not when every session is created.
+- Expression deactivation blocks settlement for transactions that reference that expression token, including already-open sessions.
+- Expression NFTs are transferable; accrual follows the owner at booking time, so long-running sessions follow the owner at final settlement.
 - The zk-backed engines still rely on an off-chain coordinator for proof generation and submission.

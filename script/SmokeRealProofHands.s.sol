@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { Script } from "forge-std/Script.sol";
 import { stdJson } from "forge-std/StdJson.sol";
-import { CreatorRewards } from "../src/CreatorRewards.sol";
+import { DeveloperRewards } from "../src/DeveloperRewards.sol";
 import { GameEngineRegistry } from "../src/GameEngineRegistry.sol";
 import { ScuroToken } from "../src/ScuroToken.sol";
 import { BlackjackController } from "../src/controllers/BlackjackController.sol";
@@ -18,8 +18,8 @@ contract SmokeRealProofHands is Script {
     uint256 internal constant REWARD_POOL = 20 ether;
     uint256 internal constant STARTING_STACK = 1_000;
     uint256 internal constant BLACKJACK_WAGER = 100;
-    uint256 internal constant POKER_CREATOR_ACCRUAL = 4 ether;
-    uint256 internal constant BLACKJACK_CREATOR_ACCRUAL = 5;
+    uint256 internal constant POKER_DEVELOPER_ACCRUAL = 4 ether;
+    uint256 internal constant BLACKJACK_DEVELOPER_ACCRUAL = 5;
     uint256 internal constant DEFAULT_ANVIL_PLAYER1_KEY =
         0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d;
     uint256 internal constant DEFAULT_ANVIL_PLAYER2_KEY =
@@ -103,7 +103,7 @@ contract SmokeRealProofHands is Script {
         address player2 = vm.addr(player2Key);
 
         ScuroToken token = ScuroToken(vm.envAddress("SCURO_TOKEN"));
-        CreatorRewards creatorRewards = CreatorRewards(vm.envAddress("CREATOR_REWARDS"));
+        DeveloperRewards developerRewards = DeveloperRewards(vm.envAddress("DEVELOPER_REWARDS"));
         GameEngineRegistry registry = GameEngineRegistry(vm.envAddress("REGISTRY"));
         TournamentController tournamentController = TournamentController(vm.envAddress("TOURNAMENT_CONTROLLER"));
         SingleDraw2To7Engine pokerEngine = SingleDraw2To7Engine(vm.envAddress("POKER_ENGINE"));
@@ -112,8 +112,10 @@ contract SmokeRealProofHands is Script {
 
         address pokerVerifierBundle = vm.envAddress("POKER_VERIFIER_BUNDLE");
         address blackjackVerifierBundle = vm.envAddress("BLACKJACK_VERIFIER_BUNDLE");
-        address pokerCreator = vm.envAddress("POKER_CREATOR");
-        address soloCreator = vm.envAddress("SOLO_CREATOR");
+        address pokerDeveloper = vm.envAddress("POKER_DEVELOPER");
+        address soloDeveloper = vm.envAddress("SOLO_DEVELOPER");
+        uint256 pokerExpressionTokenId = vm.envUint("POKER_EXPRESSION_TOKEN_ID");
+        uint256 blackjackExpressionTokenId = vm.envUint("BLACKJACK_EXPRESSION_TOKEN_ID");
 
         _assertVerifierMetadata(
             registry, address(pokerEngine), pokerVerifierBundle, address(blackjackEngine), blackjackVerifierBundle
@@ -136,7 +138,8 @@ contract SmokeRealProofHands is Script {
             REWARD_POOL,
             address(pokerEngine),
             STARTING_STACK,
-            abi.encode(uint256(10), uint256(20), uint256(180), uint256(60), pokerVerifierBundle, admin)
+            abi.encode(uint256(10), uint256(20), uint256(180), uint256(60), pokerVerifierBundle, admin),
+            pokerExpressionTokenId
         );
         gameId = tournamentController.startGameForPlayers(tournamentId, player1, player2);
         vm.stopBroadcast();
@@ -170,7 +173,10 @@ contract SmokeRealProofHands is Script {
         BlackjackInitialDealFixture memory blackjackInitial = _loadBlackjackInitialDealFixture();
         vm.startBroadcast(player1Key);
         uint256 sessionId = blackjackController.startHand(
-            BLACKJACK_WAGER, keccak256("smoke-blackjack"), blackjackInitial.playerKeyCommitment
+            BLACKJACK_WAGER,
+            keccak256("smoke-blackjack"),
+            blackjackInitial.playerKeyCommitment,
+            blackjackExpressionTokenId
         );
         vm.stopBroadcast();
 
@@ -195,11 +201,11 @@ contract SmokeRealProofHands is Script {
         require(token.balanceOf(player1) == (10_010 ether + 100), "Smoke: player1 balance");
         require(token.balanceOf(player2) == 9_990 ether, "Smoke: player2 balance");
         require(
-            creatorRewards.epochAccrual(creatorRewards.currentEpoch(), pokerCreator) == POKER_CREATOR_ACCRUAL,
+            developerRewards.epochAccrual(developerRewards.currentEpoch(), pokerDeveloper) == POKER_DEVELOPER_ACCRUAL,
             "Smoke: poker accrual"
         );
         require(
-            creatorRewards.epochAccrual(creatorRewards.currentEpoch(), soloCreator) == BLACKJACK_CREATOR_ACCRUAL,
+            developerRewards.epochAccrual(developerRewards.currentEpoch(), soloDeveloper) == BLACKJACK_DEVELOPER_ACCRUAL,
             "Smoke: blackjack accrual"
         );
         require(registry.isRegisteredForTournament(address(pokerEngine)), "Smoke: poker inactive");
@@ -357,7 +363,6 @@ contract SmokeRealProofHands is Script {
     function _loadPokerInitialDealFixture() internal view returns (PokerInitialDealFixture memory fixture) {
         string memory json = vm.readFile(_fixturePath("poker_initial_deal"));
         string[] memory publicSignals = json.readStringArray(".publicSignals");
-
         fixture.proof = json.readBytes(".proof");
         fixture.handNonce = _bytes32FromString(publicSignals[2]);
         fixture.deckCommitment = _bytes32FromString(publicSignals[3]);
@@ -372,7 +377,6 @@ contract SmokeRealProofHands is Script {
     function _loadPokerDrawFixture(string memory name) internal view returns (PokerDrawFixture memory fixture) {
         string memory json = vm.readFile(_fixturePath(name));
         string[] memory publicSignals = json.readStringArray(".publicSignals");
-
         fixture.proof = json.readBytes(".proof");
         fixture.newCommitment = _bytes32FromString(publicSignals[6]);
         fixture.newEncryptionKeyCommitment = _bytes32FromString(publicSignals[7]);
@@ -382,7 +386,6 @@ contract SmokeRealProofHands is Script {
     function _loadPokerShowdownFixture() internal view returns (PokerShowdownFixture memory fixture) {
         string memory json = vm.readFile(_fixturePath("poker_showdown"));
         string[] memory publicSignals = json.readStringArray(".publicSignals");
-
         fixture.proof = json.readBytes(".proof");
         fixture.isTie = vm.parseUint(publicSignals[6]) == 1;
     }
@@ -390,7 +393,6 @@ contract SmokeRealProofHands is Script {
     function _loadBlackjackInitialDealFixture() internal view returns (BlackjackInitialDealFixture memory fixture) {
         string memory json = vm.readFile(_fixturePath("blackjack_initial_deal"));
         string[] memory publicSignals = json.readStringArray(".publicSignals");
-
         fixture.proof = json.readBytes(".proof");
         fixture.handNonce = _bytes32FromString(publicSignals[1]);
         fixture.deckCommitment = _bytes32FromString(publicSignals[2]);
@@ -413,7 +415,6 @@ contract SmokeRealProofHands is Script {
     function _loadBlackjackActionFixture() internal view returns (BlackjackActionFixture memory fixture) {
         string memory json = vm.readFile(_fixturePath("blackjack_action_resolve"));
         string[] memory publicSignals = json.readStringArray(".publicSignals");
-
         fixture.proof = json.readBytes(".proof");
         fixture.newPlayerStateCommitment = _bytes32FromString(publicSignals[4]);
         fixture.dealerStateCommitment = _bytes32FromString(publicSignals[5]);
@@ -432,7 +433,6 @@ contract SmokeRealProofHands is Script {
     function _loadBlackjackShowdownFixture() internal view returns (BlackjackShowdownFixture memory fixture) {
         string memory json = vm.readFile(_fixturePath("blackjack_showdown"));
         string[] memory publicSignals = json.readStringArray(".publicSignals");
-
         fixture.proof = json.readBytes(".proof");
         fixture.playerStateCommitment = _bytes32FromString(publicSignals[2]);
         fixture.dealerStateCommitment = _bytes32FromString(publicSignals[3]);

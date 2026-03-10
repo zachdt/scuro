@@ -8,10 +8,9 @@ contract GameEngineRegistry is AccessControl {
 
     struct EngineMetadata {
         bytes32 engineType;
-        address creator;
         address verifier;
         bytes32 configHash;
-        uint16 creatorRateBps;
+        uint16 developerRewardBps;
         bool active;
         bool supportsTournament;
         bool supportsPvP;
@@ -20,7 +19,7 @@ contract GameEngineRegistry is AccessControl {
 
     mapping(address => EngineMetadata) private engines;
 
-    event EngineRegistered(address indexed engine, bytes32 indexed engineType, address indexed creator);
+    event EngineRegistered(address indexed engine, bytes32 indexed engineType, uint16 developerRewardBps);
     event EngineDeactivated(address indexed engine, bool active);
 
     constructor(address admin) {
@@ -30,10 +29,11 @@ contract GameEngineRegistry is AccessControl {
 
     function registerEngine(address engine, EngineMetadata calldata metadata) external onlyRole(REGISTRAR_ROLE) {
         require(engine != address(0), "Registry: zero engine");
-        require(metadata.creatorRateBps <= 10_000, "Registry: invalid bps");
+        require(metadata.engineType != bytes32(0), "Registry: zero type");
+        require(metadata.developerRewardBps <= 10_000, "Registry: invalid bps");
         require(metadata.active, "Registry: engine must start active");
         engines[engine] = metadata;
-        emit EngineRegistered(engine, metadata.engineType, metadata.creator);
+        emit EngineRegistered(engine, metadata.engineType, metadata.developerRewardBps);
     }
 
     function setEngineActive(address engine, bool active) external onlyRole(REGISTRAR_ROLE) {
@@ -43,7 +43,7 @@ contract GameEngineRegistry is AccessControl {
     }
 
     function getEngineMetadata(address engine) external view returns (EngineMetadata memory) {
-        return engines[engine];
+        return _requireEngine(engine);
     }
 
     function isActive(address engine) public view returns (bool) {
@@ -65,8 +65,13 @@ contract GameEngineRegistry is AccessControl {
         return metadata.active && metadata.supportsSolo;
     }
 
-    function getCreatorConfig(address engine) external view returns (address creator, uint16 creatorRateBps) {
-        EngineMetadata memory metadata = engines[engine];
-        return (metadata.creator, metadata.creatorRateBps);
+    function getDeveloperRewardConfig(address engine) external view returns (bytes32 engineType, uint16 developerRewardBps) {
+        EngineMetadata memory metadata = _requireEngine(engine);
+        return (metadata.engineType, metadata.developerRewardBps);
+    }
+
+    function _requireEngine(address engine) internal view returns (EngineMetadata memory metadata) {
+        metadata = engines[engine];
+        require(metadata.engineType != bytes32(0), "Registry: unknown");
     }
 }

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
 import {ScuroToken} from "./ScuroToken.sol";
 
-contract CreatorRewards is AccessControl {
+contract DeveloperRewards is AccessControl {
     bytes32 public constant SETTLEMENT_ROLE = keccak256("SETTLEMENT_ROLE");
     bytes32 public constant EPOCH_MANAGER_ROLE = keccak256("EPOCH_MANAGER_ROLE");
 
@@ -17,12 +17,12 @@ contract CreatorRewards is AccessControl {
     mapping(uint256 => mapping(address => uint256)) public epochAccrual;
     mapping(uint256 => mapping(address => bool)) public epochClaimed;
 
-    event CreatorAccrued(uint256 indexed epoch, address indexed creator, uint256 amount);
+    event DeveloperAccrued(uint256 indexed epoch, address indexed developer, uint256 amount);
     event EpochClosed(uint256 indexed epoch, uint256 nextEpoch, uint256 nextEpochStart);
-    event CreatorClaimed(uint256 indexed epoch, address indexed creator, uint256 amount);
+    event DeveloperClaimed(uint256 indexed epoch, address indexed developer, uint256 amount);
 
     constructor(address admin, address tokenAddress, uint256 epochDurationSeconds) {
-        require(epochDurationSeconds > 0, "CreatorRewards: invalid duration");
+        require(epochDurationSeconds > 0, "DeveloperRewards: invalid duration");
         TOKEN = ScuroToken(tokenAddress);
         epochDuration = epochDurationSeconds;
         epochStart = block.timestamp;
@@ -37,21 +37,21 @@ contract CreatorRewards is AccessControl {
     }
 
     function setEpochDuration(uint256 newDuration) external onlyRole(EPOCH_MANAGER_ROLE) {
-        require(newDuration > 0, "CreatorRewards: invalid duration");
+        require(newDuration > 0, "DeveloperRewards: invalid duration");
         epochDuration = newDuration;
     }
 
-    function accrue(address creator, uint256 amount) external onlyRole(SETTLEMENT_ROLE) {
-        if (creator == address(0) || amount == 0) {
+    function accrue(address developer, uint256 amount) external onlyRole(SETTLEMENT_ROLE) {
+        if (developer == address(0) || amount == 0) {
             return;
         }
 
-        epochAccrual[currentEpoch][creator] += amount;
-        emit CreatorAccrued(currentEpoch, creator, amount);
+        epochAccrual[currentEpoch][developer] += amount;
+        emit DeveloperAccrued(currentEpoch, developer, amount);
     }
 
     function closeCurrentEpoch() external onlyRole(EPOCH_MANAGER_ROLE) returns (uint256 closedEpoch) {
-        require(block.timestamp >= epochStart + epochDuration, "CreatorRewards: epoch active");
+        require(block.timestamp >= epochStart + epochDuration, "DeveloperRewards: epoch active");
         closedEpoch = currentEpoch;
         epochClosed[closedEpoch] = true;
         currentEpoch = closedEpoch + 1;
@@ -62,8 +62,8 @@ contract CreatorRewards is AccessControl {
     function claim(uint256[] calldata epochs) external returns (uint256 totalClaimed) {
         for (uint256 i = 0; i < epochs.length; i++) {
             uint256 epoch = epochs[i];
-            require(epochClosed[epoch], "CreatorRewards: epoch open");
-            require(!epochClaimed[epoch][msg.sender], "CreatorRewards: already claimed");
+            require(epochClosed[epoch], "DeveloperRewards: epoch open");
+            require(!epochClaimed[epoch][msg.sender], "DeveloperRewards: already claimed");
             uint256 amount = epochAccrual[epoch][msg.sender];
             if (amount == 0) {
                 epochClaimed[epoch][msg.sender] = true;
@@ -72,7 +72,7 @@ contract CreatorRewards is AccessControl {
 
             epochClaimed[epoch][msg.sender] = true;
             totalClaimed += amount;
-            emit CreatorClaimed(epoch, msg.sender, amount);
+            emit DeveloperClaimed(epoch, msg.sender, amount);
         }
 
         if (totalClaimed > 0) {
