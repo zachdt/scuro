@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
 import { Script, console } from "forge-std/Script.sol";
@@ -69,7 +69,7 @@ contract DeployLocal is Script {
         PokerVerifierBundle pokerVerifierBundle = new PokerVerifierBundle(
             admin, address(pokerInitialDealVerifier), address(pokerDrawResolveVerifier), address(pokerShowdownVerifier)
         );
-        SingleDraw2To7Engine pokerEngine = new SingleDraw2To7Engine();
+        SingleDraw2To7Engine pokerEngine = new SingleDraw2To7Engine(admin);
 
         BlackjackInitialDealVerifier blackjackInitialDealVerifier = new BlackjackInitialDealVerifier();
         BlackjackActionResolveVerifier blackjackActionResolveVerifier = new BlackjackActionResolveVerifier();
@@ -94,6 +94,8 @@ contract DeployLocal is Script {
         settlement.setControllerAuthorization(address(numberPickerAdapter), true);
         settlement.setControllerAuthorization(address(blackjackController), true);
         numberPickerEngine.grantRole(numberPickerEngine.ADAPTER_ROLE(), address(numberPickerAdapter));
+        pokerEngine.grantRole(pokerEngine.CONTROLLER_ROLE(), address(tournamentController));
+        pokerEngine.grantRole(pokerEngine.CONTROLLER_ROLE(), address(pvpController));
         blackjackEngine.grantRole(blackjackEngine.CONTROLLER_ROLE(), address(blackjackController));
 
         timelock.grantRole(timelock.PROPOSER_ROLE(), address(governor));

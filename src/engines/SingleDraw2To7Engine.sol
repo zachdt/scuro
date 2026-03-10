@@ -1,11 +1,13 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
+import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
 import { IPokerEngine } from "../interfaces/IPokerEngine.sol";
 import { IPokerZKEngine } from "../interfaces/IPokerZKEngine.sol";
 import { IPokerVerifierBundle } from "../interfaces/IPokerVerifierBundle.sol";
 
-contract SingleDraw2To7Engine is IPokerZKEngine {
+contract SingleDraw2To7Engine is IPokerZKEngine, AccessControl {
+    bytes32 public constant CONTROLLER_ROLE = keccak256("CONTROLLER_ROLE");
     bytes32 public constant ENGINE_TYPE = keccak256("POKER_2_7_SINGLE_DRAW");
     uint8 internal constant COORDINATOR_ACTOR = type(uint8).max;
 
@@ -77,6 +79,11 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         _;
     }
 
+    constructor(address admin) {
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        _grantRole(CONTROLLER_ROLE, admin);
+    }
+
     function engineType() external pure override returns (bytes32) {
         return ENGINE_TYPE;
     }
@@ -88,7 +95,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         uint256 buyIn,
         uint256 reward,
         bytes calldata engineConfig
-    ) external override {
+    ) external override onlyRole(CONTROLLER_ROLE) {
         require(players.length == 2, "SingleDraw: two players");
         Game storage game = games[gameId];
         require(game.matchState == MatchState.Inactive, "SingleDraw: exists");

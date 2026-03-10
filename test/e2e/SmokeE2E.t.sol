@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
 import {BaseE2ETest} from "./BaseE2E.t.sol";
@@ -14,6 +14,8 @@ contract SmokeE2ETest is BaseE2ETest {
         assertTrue(settlement.hasRole(settlement.CONTROLLER_ROLE(), address(numberPickerAdapter)));
         assertTrue(settlement.hasRole(settlement.CONTROLLER_ROLE(), address(blackjackController)));
         assertTrue(numberPickerEngine.hasRole(numberPickerEngine.ADAPTER_ROLE(), address(numberPickerAdapter)));
+        assertTrue(pokerEngine.hasRole(pokerEngine.CONTROLLER_ROLE(), address(tournamentController)));
+        assertTrue(pokerEngine.hasRole(pokerEngine.CONTROLLER_ROLE(), address(pvpController)));
         assertTrue(blackjackEngine.hasRole(blackjackEngine.CONTROLLER_ROLE(), address(blackjackController)));
         assertTrue(registry.isRegisteredForSolo(address(numberPickerEngine)));
         assertTrue(registry.isRegisteredForSolo(address(blackjackEngine)));

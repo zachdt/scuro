@@ -76,12 +76,13 @@ BLACKJACK_ENGINE="$(extract_address SingleDeckBlackjackEngine)"
 BLACKJACK_VERIFIER_BUNDLE="$(extract_address BlackjackVerifierBundle)"
 BLACKJACK_CONTROLLER="$(extract_address BlackjackController)"
 TOURNAMENT_CONTROLLER="$(extract_address TournamentController)"
+PVP_CONTROLLER="$(extract_address PvPController)"
 PLAYER1="$(extract_address Player1)"
 PLAYER2="$(extract_address Player2)"
 SOLO_CREATOR="$(extract_address SoloCreator)"
 POKER_CREATOR="$(extract_address PokerCreator)"
 
-for label in SCURO_TOKEN STAKING_TOKEN SETTLEMENT REGISTRY CREATOR_REWARDS NUMBER_PICKER_ENGINE NUMBER_PICKER_ADAPTER POKER_ENGINE POKER_VERIFIER_BUNDLE BLACKJACK_ENGINE BLACKJACK_VERIFIER_BUNDLE BLACKJACK_CONTROLLER TOURNAMENT_CONTROLLER PLAYER1 PLAYER2 SOLO_CREATOR POKER_CREATOR; do
+for label in SCURO_TOKEN STAKING_TOKEN SETTLEMENT REGISTRY CREATOR_REWARDS NUMBER_PICKER_ENGINE NUMBER_PICKER_ADAPTER POKER_ENGINE POKER_VERIFIER_BUNDLE BLACKJACK_ENGINE BLACKJACK_VERIFIER_BUNDLE BLACKJACK_CONTROLLER TOURNAMENT_CONTROLLER PVP_CONTROLLER PLAYER1 PLAYER2 SOLO_CREATOR POKER_CREATOR; do
   if [[ -z "${!label}" ]]; then
     echo "missing deployment output for ${label}" >&2
     exit 1
@@ -108,6 +109,14 @@ assert_equal \
   "$(cast call "${NUMBER_PICKER_ENGINE}" "hasRole(bytes32,address)(bool)" "${ADAPTER_ROLE}" "${NUMBER_PICKER_ADAPTER}" --rpc-url "${RPC_URL}")" \
   "true" \
   "adapter engine role"
+assert_equal \
+  "$(cast call "${POKER_ENGINE}" "hasRole(bytes32,address)(bool)" "${CONTROLLER_ROLE}" "${TOURNAMENT_CONTROLLER}" --rpc-url "${RPC_URL}")" \
+  "true" \
+  "tournament poker controller role"
+assert_equal \
+  "$(cast call "${POKER_ENGINE}" "hasRole(bytes32,address)(bool)" "${CONTROLLER_ROLE}" "${PVP_CONTROLLER}" --rpc-url "${RPC_URL}")" \
+  "true" \
+  "pvp poker controller role"
 assert_equal \
   "$(cast call "${REGISTRY}" "isRegisteredForSolo(address)(bool)" "${NUMBER_PICKER_ENGINE}" --rpc-url "${RPC_URL}")" \
   "true" \

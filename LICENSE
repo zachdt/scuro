@@ -1,0 +1,75 @@
+Scuro Proprietary License
+
+Copyright (c) 2026 Zachary Thielemann.
+All rights reserved.
+
+This repository is public for visibility only. Except where a file, directory,
+or notice expressly states different third-party terms, all source code,
+contracts, scripts, tests, build files, documentation, and other materials in
+this repository (the "Work") are proprietary and remain the exclusive property
+of Zachary Thielemann (the "Licensor").
+
+1. No license grant
+
+No license or other right is granted to you under any copyright, patent, trade
+secret, trademark, or other intellectual property right in the Work, whether by
+implication, estoppel, exhaustion, or otherwise, except for the limited access
+described in Section 2.
+
+2. Limited repository access
+
+You may view the Work through an authorized source code hosting interface and
+make only the temporary technical copies strictly required for that access. This
+limited access does not permit downloading for use, copying for reuse, forking,
+modifying, distributing, deploying, executing, sublicensing, selling, or
+otherwise exploiting the Work.
+
+3. Prohibited uses
+
+Without prior written permission from the Licensor, you may not:
+
+- use the Work for personal, internal, academic, evaluation, testing, or
+  commercial purposes;
+- copy, reproduce, archive, mirror, publish, distribute, or redistribute the
+  Work;
+- modify the Work or create derivative works from it;
+- deploy, run, host, benchmark, or offer the Work or any derivative as a
+  product or service;
+- remove or alter any copyright, attribution, license, or proprietary notice.
+
+4. Third-party components
+
+Some files or directories may include third-party materials provided under
+separate license terms. Those materials are identified by their file headers,
+bundled license files, or THIRD_PARTY_NOTICES.md. This license applies only to
+material the Licensor owns and does not replace or limit any obligations imposed
+by third-party licenses.
+
+5. No trademark rights
+
+No right is granted to use the Licensor's names, brands, logos, or marks.
+
+6. Reservation of rights
+
+All rights not expressly granted in Section 2 are reserved by the Licensor.
+Any unauthorized use of the Work is prohibited.
+
+7. Disclaimer
+
+THE WORK IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING ANY WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, OR THAT THE WORK WILL BE
+ERROR-FREE OR UNINTERRUPTED.
+
+8. Limitation of liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE LICENSOR WILL NOT BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, CONSEQUENTIAL, OR PUNITIVE
+DAMAGES, OR ANY LOSS OF DATA, PROFITS, REVENUE, GOODWILL, OR BUSINESS
+OPPORTUNITY, ARISING OUT OF OR RELATED TO THE WORK OR THIS LICENSE, EVEN IF THE
+LICENSOR HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+9. Contact
+
+Licensing requests must be approved in writing by the Licensor:
+zachdt@gmail.com

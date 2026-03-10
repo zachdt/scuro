@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/Test.sol";
@@ -120,7 +120,7 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
             address(pokerDrawResolveVerifier),
             address(pokerShowdownVerifier)
         );
-        pokerEngine = new SingleDraw2To7Engine();
+        pokerEngine = new SingleDraw2To7Engine(address(this));
 
         BlackjackInitialDealVerifier blackjackInitialDealVerifier = new BlackjackInitialDealVerifier();
         BlackjackActionResolveVerifier blackjackActionResolveVerifier = new BlackjackActionResolveVerifier();
@@ -153,6 +153,8 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         delayedNumberPickerEngine.grantRole(
             delayedNumberPickerEngine.ADAPTER_ROLE(), address(delayedNumberPickerAdapter)
         );
+        pokerEngine.grantRole(pokerEngine.CONTROLLER_ROLE(), address(tournamentController));
+        pokerEngine.grantRole(pokerEngine.CONTROLLER_ROLE(), address(pvpController));
         blackjackEngine.grantRole(blackjackEngine.CONTROLLER_ROLE(), address(blackjackController));
 
         timelock.grantRole(timelock.PROPOSER_ROLE(), address(governor));

@@ -12,6 +12,7 @@ Scuro is a generalized on-chain gaming protocol built around a shared token, sha
   - `GameEngineRegistry`
   - `CreatorRewards`
 - Controllers:
+  - `BlackjackController`
   - `TournamentController`
   - `PvPController`
   - `NumberPickerAdapter`
@@ -82,6 +83,7 @@ Scuro separates orchestration from game logic.
 - `TournamentController` manages tournament-style sessions for registered tournament engines.
 - `PvPController` manages direct competitive sessions for registered PvP engines.
 - `NumberPickerAdapter` is the solo-play entrypoint for the VRF-backed number picker engine.
+- `BlackjackController` is the solo-play entrypoint for the zk-backed blackjack engine.
 
 Current example engines:
 
@@ -201,6 +203,8 @@ forge build
 bun run --cwd zk build
 ```
 
+See [docs/local-deployment-testing.md](./docs/local-deployment-testing.md) for the full local deployment and testing workflow, including when to rebuild artifacts versus only validating committed zk outputs.
+
 ### Run all tests
 
 Use `--offline` in this environment. It avoids a local Foundry issue around external trace/signature lookup.
@@ -239,7 +243,7 @@ The local deploy script does the following:
 - deploys the token, staking token, timelock, governor, registry, rewards, settlement, controllers, and example engines
 - deploys VRF plus real poker and blackjack Groth16 verifier bundles
 - grants required minting / settlement / controller / adapter roles
-- registers both example engines in the registry
+- registers all three example engines in the registry
 - seeds:
   - admin
   - player 1
@@ -268,6 +272,8 @@ The smoke script:
 
 Scuro uses two layers of tests:
 
+See [docs/local-deployment-testing.md](./docs/local-deployment-testing.md) for the exact commands, prerequisites, and the mapping from user stories to suites.
+
 ### Focused contract tests
 
 These target specific protocol areas:
@@ -275,6 +281,7 @@ These target specific protocol areas:
 - `test/ProtocolCore.t.sol`
 - `test/NumberPickerAdapter.t.sol`
 - `test/TournamentController.t.sol`
+- `test/BlackjackController.t.sol`
 
 ### Layered E2E tests
 
@@ -352,6 +359,7 @@ Current rule:
 - tournament match settles through poker engine
 - PvP session settles through poker engine
 - solo blackjack hand settles through blackjack engine
+- governance can deactivate poker for new tournaments without blocking settlement of games already in progress
 - inactive engine and replay protections block invalid settlement flows
 - poker timeout, fold, tie, and verifier-rejection paths are exercised
 
@@ -376,3 +384,10 @@ forge test --match-path 'test/e2e/*.t.sol' --offline
 # Deploy smoke
 ./script/e2e_deploy_smoke.sh
 ```
+
+## License
+
+Unless a file header or [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) says
+otherwise, this repository is proprietary and public for inspection only. It is
+not licensed for personal, internal, academic, or commercial use. See
+[LICENSE](./LICENSE).

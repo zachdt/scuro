@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
@@ -82,6 +82,7 @@ contract TournamentController is AccessControl, ReentrancyGuard {
     {
         Tournament memory tournament = tournaments[tournamentId];
         require(tournament.active, "TournamentController: inactive");
+        require(REGISTRY.isRegisteredForTournament(tournament.gameEngine), "TournamentController: engine inactive");
 
         if (tournament.entryFee > 0) {
             SETTLEMENT.burnPlayerWager(p1, tournament.entryFee);
@@ -115,7 +116,6 @@ contract TournamentController is AccessControl, ReentrancyGuard {
         require(!gameReported[gameId], "TournamentController: reported");
         uint256 tournamentId = gameToTournament[gameId];
         Tournament memory tournament = tournaments[tournamentId];
-        require(REGISTRY.isRegisteredForTournament(tournament.gameEngine), "TournamentController: engine inactive");
         require(ITournamentGameEngine(tournament.gameEngine).isGameOver(gameId), "TournamentController: game active");
 
         gameReported[gameId] = true;

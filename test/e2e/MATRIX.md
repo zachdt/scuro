@@ -17,8 +17,9 @@ This matrix is the completeness gate for the E2E suite. Every listed flow or edg
 | `FLOW-MULTI-EPOCH` | Closed epochs remain claimable later | `UserFlowsE2ETest.test_MultiEpochFlow_ClosedEpochsRemainClaimableLater` |
 | `ABUSE-SOLO-INPUTS` | Invalid selection, zero wager, missing approval | `AbusePathsE2ETest.test_NumberPickerRejectsInvalidSelectionZeroWagerAndMissingApproval` |
 | `ABUSE-SOLO-PENDING` | Inactive engine, pending finalize, duplicate finalize | `AbusePathsE2ETest.test_NumberPickerRejectsInactiveEngineAndDuplicateFinalize` |
-| `ABUSE-SETTLEMENT-LIFECYCLE` | Premature tournament settlement, inactive-engine tournament/PvP rejection | `AbusePathsE2ETest.test_TournamentAndPvPRejectInactiveEnginesPrematureSettlementAndReplay` |
+| `ABUSE-SETTLEMENT-LIFECYCLE` | Premature tournament settlement, inactive-engine rejection for new tournament/PvP starts, completed tournament settlement after deactivation | `AbusePathsE2ETest.test_TournamentAndPvPRejectInactiveEnginesPrematureSettlementAndReplay` |
 | `ABUSE-CREATOR-EPOCHS` | Early close, claim before close, zero-accrual claim, duplicate claim | `AbusePathsE2ETest.test_CreatorRewardsRejectEarlyCloseClaimBeforeCloseDuplicateClaimAndZeroAccrualMint` |
 | `ABUSE-GOV` | Insufficient proposer votes, timelock delay enforcement | `AbusePathsE2ETest.test_GovernanceRejectsInsufficientVotesAndEnforcesTimelockDelay` |
-| `ABUSE-POKER` | Bad phases, bad proofs, timeout, fold path, tie path | `AbusePathsE2ETest.test_PokerRejectsBadPhasesBadProofsSupportsTimeoutFoldAndTiePaths` |
+| `ABUSE-POKER` | Bad phases, bad proofs, timeout, fold path, tie path | `AbusePathsE2ETest.test_PokerRejectsDrawProofsOutsideDrawPhase`, `AbusePathsE2ETest.test_PokerRejectsInvalidDrawAndShowdownProofs`, `AbusePathsE2ETest.test_PokerTimeoutClaimsTheCurrentHand`, `AbusePathsE2ETest.test_PokerFoldEndsTheCurrentHand`, `AbusePathsE2ETest.test_PokerTieProofAdvancesToNextHand` |
+| `ABUSE-POKER-INIT` | Unauthorized caller cannot initialize poker games directly | `AbusePathsE2ETest.test_PokerEngineRejectsUnauthorizedGameInitialization` |
 | `ABUSE-ROLES` | Unauthorized registry and settlement calls | `AbusePathsE2ETest.test_RegistryAndSettlementRejectUnauthorizedCallers` |

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
 import {BaseE2ETest} from "./BaseE2E.t.sol";
@@ -49,16 +49,36 @@ contract AbusePathsE2ETest is BaseE2ETest {
         _approveSettlement(player1, type(uint256).max);
         _approveSettlement(player2, type(uint256).max);
 
-        (, uint256 gameId) = _createTournament(10 ether, 20 ether, 1_000);
+        (uint256 tournamentId, uint256 gameId) = _createTournament(10 ether, 20 ether, 1_000);
         vm.expectRevert("TournamentController: game active");
         tournamentController.reportOutcome(gameId);
 
         registry.setEngineActive(address(pokerEngine), false);
         vm.expectRevert("TournamentController: engine inactive");
         tournamentController.createTournament(10 ether, 20 ether, address(pokerEngine), 1_000, _defaultPokerConfig(address(this)));
+        vm.expectRevert("TournamentController: engine inactive");
+        tournamentController.startGameForPlayers(tournamentId, player1.addr, player2.addr);
 
         vm.expectRevert("PvPController: engine inactive");
         _createPvPSession(10 ether, 20 ether, 1_000);
+
+        _playAllInSingleDraw(gameId, player1.addr);
+        tournamentController.reportOutcome(gameId);
+        _assertPlayerBalances(10_010 ether, 9_990 ether);
+    }
+
+    function test_PokerEngineRejectsUnauthorizedGameInitialization() public {
+        address[] memory players = new address[](2);
+        players[0] = player1.addr;
+        players[1] = player2.addr;
+
+        uint256[] memory stacks = new uint256[](2);
+        stacks[0] = 1_000;
+        stacks[1] = 1_000;
+
+        vm.prank(outsider.addr);
+        vm.expectRevert();
+        pokerEngine.initializeGame(1, players, stacks, 0, 20 ether, _defaultPokerConfig(address(this)));
     }
 
     function test_CreatorRewardsRejectEarlyCloseClaimBeforeCloseDuplicateClaimAndZeroAccrualMint() public {

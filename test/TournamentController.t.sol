@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
@@ -39,12 +39,13 @@ contract TournamentControllerTest is ZkFixtureLoader {
             address(new PokerDrawResolveVerifier()),
             address(new PokerShowdownVerifier())
         );
-        engine = new SingleDraw2To7Engine();
+        engine = new SingleDraw2To7Engine(address(this));
 
         token.grantRole(token.MINTER_ROLE(), address(settlement));
         token.grantRole(token.MINTER_ROLE(), address(creatorRewards));
         creatorRewards.grantRole(creatorRewards.SETTLEMENT_ROLE(), address(settlement));
         settlement.setControllerAuthorization(address(controller), true);
+        engine.grantRole(engine.CONTROLLER_ROLE(), address(controller));
 
         registry.registerEngine(
             address(engine),

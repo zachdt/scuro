@@ -1,6 +1,15 @@
 # Scuro Protocol Architecture
 
-The Scuro protocol is a decentralized gaming ecosystem that facilitates trustless gameplay, automated settlement, and incentives for game creators.
+Scuro is a shared settlement and governance layer that hosts three example game engines:
+
+- `NumberPickerEngine` via `NumberPickerAdapter`
+- `SingleDraw2To7Engine` via `TournamentController` and `PvPController`
+- `SingleDeckBlackjackEngine` via `BlackjackController`
+
+Two of the three engines are powered by zk proof verification:
+
+- poker (`SingleDraw2To7Engine`)
+- blackjack (`SingleDeckBlackjackEngine`)
 
 ## High-Level Architecture
 
@@ -16,106 +25,102 @@ graph TB
     end
 
     subgraph ControllerLayer [Controller Layer]
-        PvPC[PvPController]
-        TournC[TournamentController]
+        Solo[NumberPickerAdapter]
+        PvP[PvPController]
+        Tourn[TournamentController]
+        BjCtrl[BlackjackController]
     end
 
     subgraph ServiceLayer [Protocol Service Layer]
         Settlement[ProtocolSettlement]
         Registry[GameEngineRegistry]
-    end
-
-    subgraph RewardLayer [Reward & Incentive Layer]
-        CRewards[CreatorRewards]
+        Rewards[CreatorRewards]
     end
 
     subgraph TokenLayer [Token Ecosystem]
-        SToken[ScuroToken ERC20]
-        SSToken[ScuroStakingToken sSCU]
+        Token[ScuroToken ERC20]
+        Stake[ScuroStakingToken sSCU]
     end
 
     subgraph EngineLayer [Engine Layer]
-        subgraph StandardEngines [Standard ITournamentGameEngine]
-            SDraw[SingleDraw2To7Engine]
-        end
-        subgraph VRFEngines [VRF Engines]
-            NPicker[NumberPickerEngine]
-        end
+        NumberPicker[NumberPickerEngine]
+        Poker[SingleDraw2To7Engine]
+        Blackjack[SingleDeckBlackjackEngine]
     end
 
     subgraph ExternalLayer [External Integrations]
         VRF[VRF Coordinator]
-        ZK[ZK Verifiers]
+        ZK[Groth16 Verifiers]
     end
 
-    %% Relationships
-    Player --> PvPC
-    Player --> TournC
-    Player --> SSToken
-    Player --> SDraw
-    Player --> NPicker
+    Player --> Solo
+    Player --> PvP
+    Player --> Tourn
+    Player --> BjCtrl
+    Player --> Stake
     Player --> Governor
 
     Governor --> Timelock
-    Governor --> SSToken
-    Timelock --> Settlement
+    Governor --> Stake
     Timelock --> Registry
+    Timelock --> Rewards
 
-    PvPC --> Settlement
-    PvPC --> Registry
-    PvPC --> StandardEngines
+    Solo --> Settlement
+    Solo --> Registry
+    Solo --> NumberPicker
 
-    TournC --> Settlement
-    TournC --> Registry
-    TournC --> StandardEngines
+    PvP --> Settlement
+    PvP --> Registry
+    PvP --> Poker
 
-    Settlement --> SToken
+    Tourn --> Settlement
+    Tourn --> Registry
+    Tourn --> Poker
+
+    BjCtrl --> Settlement
+    BjCtrl --> Registry
+    BjCtrl --> Blackjack
+
+    Settlement --> Token
     Settlement --> Registry
-    Settlement --> CRewards
+    Settlement --> Rewards
+    Rewards --> Token
+    Stake --> Token
 
-    CRewards --> SToken
-
-    SSToken --> SToken
-
-    NPicker --> VRF
-    SDraw --> ZK
+    NumberPicker --> VRF
+    Poker --> ZK
+    Blackjack --> ZK
 ```
 
 ## Component Breakdown
 
-### 1. Controllers (`PvPController`, `TournamentController`)
-These are the entry points for different game modes. They handle:
-- Session/Tournament lifecycle management.
-- Authorization and role-based access.
-- Coordination between Settlement and Engines.
+### Controllers
 
-### 2. ProtocolSettlement
-The financial orchestrator of the protocol. It handles:
-- **Wager Burning**: Deducting `ScuroToken` from players upon game start.
-- **Reward Minting**: Distributing rewards to winners upon game conclusion.
-- **Creator Accruals**: Automatically calculating and recording rewards for game engine creators based on protocol activity.
+- `NumberPickerAdapter` handles solo VRF-backed play and immediate settlement finalization.
+- `TournamentController` creates tournaments, starts poker matches, and settles reported tournament outcomes.
+- `PvPController` creates direct two-player poker sessions and settles completed matches.
+- `BlackjackController` opens blackjack hands, burns any extra wager for doubles/splits, and settles completed hands.
 
-### 3. GameEngineRegistry
-A central repository of metadata for all supported games. It tracks:
-- Engine addresses and types.
-- Creator configurations (for reward distribution).
-- Active status and supported game modes (PvP, Tournament, Solo).
+### Protocol services
 
-### 4. CreatorRewards
-Manages the distribution of incentives to engine creators.
-- **Epoch-based Accrual**: Rewards are tracked in time-bound epochs.
-- **Trustless Claims**: Creators can claim their accrued `ScuroToken` rewards once an epoch is closed.
+- `ProtocolSettlement` is the only protocol-level contract allowed to burn player wagers, mint player rewards, and accrue creator rewards.
+- `GameEngineRegistry` stores engine metadata, creator reward rates, compatibility flags, and active status.
+- `CreatorRewards` accumulates creator inflation by epoch and handles post-close claims.
 
-### 5. Governance Layer
-- **ScuroGovernor**: The core DAO contract used for on-chain voting and proposal management.
-- **TimelockController**: A delayed execution layer that ensures proposals are not executed immediately, giving the community time to react.
-- **Voting Power**: Derived from `ScuroStakingToken` (sSCU) balances.
+### Governance and tokens
 
-### 6. Token Ecosystem
-- **ScuroToken (SCU)**: The primary utility token for wagers, rewards, and creator incentives.
-- **ScuroStakingToken (sSCU)**: A staked version of SCU that grants voting power for protocol governance.
+- `ScuroToken` (`SCU`) is the protocol asset used for wagers, rewards, and creator payouts.
+- `ScuroStakingToken` (`sSCU`) wraps staked SCU and provides governance voting power.
+- `ScuroGovernor` plus `TimelockController` govern live protocol configuration such as creator reward epoch duration.
 
-### 6. Game Engines
-The core logic units that implement the `ITournamentGameEngine` (or custom) interfaces.
-- **SingleDraw2To7Engine**: A sophisticated poker engine utilizing Zero-Knowledge (ZK) proofs for private state management.
-- **NumberPickerEngine**: A randomness-based engine utilizing Chainlink VRF for provably fair outcomes.
+### Engine model
+
+- `NumberPickerEngine` is the simple solo engine and depends on a VRF coordinator mock in local/dev flows.
+- `SingleDraw2To7Engine` is the shared poker engine for tournament and PvP flows. Controllers may initialize games; the zk coordinator proves the initial deal, draw resolution, and showdown.
+- `SingleDeckBlackjackEngine` is the solo zk blackjack engine. The controller opens sessions while the zk coordinator proves the initial deal, action resolution, and showdown.
+
+## Operational Notes
+
+- Registry deactivation blocks new poker tournaments and new PvP sessions.
+- Tournament games that were already started can still settle after deactivation so rewards are not stranded.
+- The zk-backed engines still rely on an off-chain coordinator for proof generation and submission.
