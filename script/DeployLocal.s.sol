@@ -1,24 +1,25 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {Script, console} from "forge-std/Script.sol";
-import {TimelockController} from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
-import {DeveloperExpressionRegistry} from "../src/DeveloperExpressionRegistry.sol";
-import {DeveloperRewards} from "../src/DeveloperRewards.sol";
-import {GameCatalog} from "../src/GameCatalog.sol";
-import {GameDeploymentFactory} from "../src/GameDeploymentFactory.sol";
-import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
-import {ScuroGovernor} from "../src/ScuroGovernor.sol";
-import {ScuroStakingToken} from "../src/ScuroStakingToken.sol";
-import {ScuroToken} from "../src/ScuroToken.sol";
-import {BlackjackController} from "../src/controllers/BlackjackController.sol";
-import {NumberPickerAdapter} from "../src/controllers/NumberPickerAdapter.sol";
-import {PvPController} from "../src/controllers/PvPController.sol";
-import {TournamentController} from "../src/controllers/TournamentController.sol";
-import {NumberPickerEngine} from "../src/engines/NumberPickerEngine.sol";
-import {SingleDeckBlackjackEngine} from "../src/engines/SingleDeckBlackjackEngine.sol";
-import {SingleDraw2To7Engine} from "../src/engines/SingleDraw2To7Engine.sol";
-import {VRFCoordinatorMock} from "../src/mocks/VRFCoordinatorMock.sol";
+import { Script, console } from "forge-std/Script.sol";
+import { TimelockController } from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
+import { DeveloperExpressionRegistry } from "../src/DeveloperExpressionRegistry.sol";
+import { DeveloperRewards } from "../src/DeveloperRewards.sol";
+import { GameCatalog } from "../src/GameCatalog.sol";
+import { GameDeploymentFactory } from "../src/GameDeploymentFactory.sol";
+import { ProtocolSettlement } from "../src/ProtocolSettlement.sol";
+import { ScuroGovernor } from "../src/ScuroGovernor.sol";
+import { ScuroStakingToken } from "../src/ScuroStakingToken.sol";
+import { ScuroToken } from "../src/ScuroToken.sol";
+import { ScuroVerifierRegistry } from "../src/verifiers/ScuroVerifierRegistry.sol";
+import { BlackjackController } from "../src/controllers/BlackjackController.sol";
+import { NumberPickerAdapter } from "../src/controllers/NumberPickerAdapter.sol";
+import { PvPController } from "../src/controllers/PvPController.sol";
+import { TournamentController } from "../src/controllers/TournamentController.sol";
+import { NumberPickerEngine } from "../src/engines/NumberPickerEngine.sol";
+import { SingleDeckBlackjackEngine } from "../src/engines/SingleDeckBlackjackEngine.sol";
+import { SingleDraw2To7Engine } from "../src/engines/SingleDraw2To7Engine.sol";
+import { VRFCoordinatorMock } from "../src/mocks/VRFCoordinatorMock.sol";
 
 contract DeployLocal is Script {
     address internal constant PLAYER1 = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
@@ -47,8 +48,10 @@ contract DeployLocal is Script {
         GameCatalog catalog = new GameCatalog(admin);
         DeveloperExpressionRegistry expressionRegistry = new DeveloperExpressionRegistry(admin);
         DeveloperRewards developerRewards = new DeveloperRewards(admin, address(token), 7 days);
-        ProtocolSettlement settlement =
-            new ProtocolSettlement(address(token), address(catalog), address(expressionRegistry), address(developerRewards));
+        ScuroVerifierRegistry verifierRegistry = new ScuroVerifierRegistry(admin);
+        ProtocolSettlement settlement = new ProtocolSettlement(
+            address(token), address(catalog), address(expressionRegistry), address(developerRewards)
+        );
         GameDeploymentFactory factory = new GameDeploymentFactory(admin, address(catalog), address(settlement));
 
         token.grantRole(token.MINTER_ROLE(), address(settlement));
@@ -61,16 +64,18 @@ contract DeployLocal is Script {
 
         VRFCoordinatorMock vrfCoordinator = new VRFCoordinatorMock();
 
-        GameDeploymentFactory.NumberPickerDeployment memory numberPickerParams = GameDeploymentFactory.NumberPickerDeployment({
-            vrfCoordinator: address(vrfCoordinator),
-            configHash: keccak256("number-picker-auto"),
-            developerRewardBps: 500
-        });
+        GameDeploymentFactory.NumberPickerDeployment memory numberPickerParams =
+            GameDeploymentFactory.NumberPickerDeployment({
+                vrfCoordinator: address(vrfCoordinator),
+                configHash: keccak256("number-picker-auto"),
+                developerRewardBps: 500
+            });
         uint256 numberPickerModuleId;
         address numberPickerControllerAddress;
         address numberPickerEngineAddress;
-        (numberPickerModuleId, numberPickerControllerAddress, numberPickerEngineAddress, ) =
-            factory.deploySoloModule(uint8(GameDeploymentFactory.SoloFamily.NumberPicker), abi.encode(numberPickerParams));
+        (numberPickerModuleId, numberPickerControllerAddress, numberPickerEngineAddress,) = factory.deploySoloModule(
+            uint8(GameDeploymentFactory.SoloFamily.NumberPicker), abi.encode(numberPickerParams)
+        );
 
         GameDeploymentFactory.PokerDeployment memory tournamentPokerParams = GameDeploymentFactory.PokerDeployment({
             coordinator: admin,
@@ -85,9 +90,15 @@ contract DeployLocal is Script {
         address tournamentControllerAddress;
         address tournamentPokerEngineAddress;
         address tournamentPokerVerifierBundle;
-        (tournamentPokerModuleId, tournamentControllerAddress, tournamentPokerEngineAddress, tournamentPokerVerifierBundle) = factory.deployTournamentModule(
-            uint8(GameDeploymentFactory.MatchFamily.PokerSingleDraw2To7), abi.encode(tournamentPokerParams)
-        );
+        (
+            tournamentPokerModuleId,
+            tournamentControllerAddress,
+            tournamentPokerEngineAddress,
+            tournamentPokerVerifierBundle
+        ) =
+            factory.deployTournamentModule(
+                uint8(GameDeploymentFactory.MatchFamily.PokerSingleDraw2To7), abi.encode(tournamentPokerParams)
+            );
 
         GameDeploymentFactory.PokerDeployment memory pvpPokerParams = GameDeploymentFactory.PokerDeployment({
             coordinator: admin,
@@ -151,6 +162,10 @@ contract DeployLocal is Script {
         catalog.grantRole(catalog.REGISTRAR_ROLE(), address(timelock));
         catalog.renounceRole(catalog.DEFAULT_ADMIN_ROLE(), admin);
         catalog.renounceRole(catalog.REGISTRAR_ROLE(), admin);
+        verifierRegistry.grantRole(verifierRegistry.DEFAULT_ADMIN_ROLE(), address(timelock));
+        verifierRegistry.grantRole(verifierRegistry.REGISTRAR_ROLE(), address(timelock));
+        verifierRegistry.renounceRole(verifierRegistry.DEFAULT_ADMIN_ROLE(), admin);
+        verifierRegistry.renounceRole(verifierRegistry.REGISTRAR_ROLE(), admin);
         factory.grantRole(factory.DEFAULT_ADMIN_ROLE(), address(timelock));
         factory.grantRole(factory.DEPLOYER_ROLE(), address(timelock));
         factory.renounceRole(factory.DEFAULT_ADMIN_ROLE(), admin);
@@ -164,6 +179,7 @@ contract DeployLocal is Script {
         console.log("GameDeploymentFactory", address(factory));
         console.log("DeveloperExpressionRegistry", address(expressionRegistry));
         console.log("DeveloperRewards", address(developerRewards));
+        console.log("ScuroVerifierRegistry", address(verifierRegistry));
         console.log("ProtocolSettlement", address(settlement));
         console.log("TournamentController", address(tournamentController));
         console.log("TournamentPokerEngine", address(tournamentPokerEngine));

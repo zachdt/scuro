@@ -1,24 +1,25 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
-import {GameCatalog} from "./GameCatalog.sol";
-import {ProtocolSettlement} from "./ProtocolSettlement.sol";
-import {BlackjackController} from "./controllers/BlackjackController.sol";
-import {NumberPickerAdapter} from "./controllers/NumberPickerAdapter.sol";
-import {PvPController} from "./controllers/PvPController.sol";
-import {TournamentController} from "./controllers/TournamentController.sol";
-import {NumberPickerEngine} from "./engines/NumberPickerEngine.sol";
-import {SingleDeckBlackjackEngine} from "./engines/SingleDeckBlackjackEngine.sol";
-import {SingleDraw2To7Engine} from "./engines/SingleDraw2To7Engine.sol";
-import {BlackjackVerifierBundle} from "./verifiers/BlackjackVerifierBundle.sol";
-import {PokerVerifierBundle} from "./verifiers/PokerVerifierBundle.sol";
-import {BlackjackActionResolveVerifier} from "./verifiers/generated/BlackjackActionResolveVerifier.sol";
-import {BlackjackInitialDealVerifier} from "./verifiers/generated/BlackjackInitialDealVerifier.sol";
-import {BlackjackShowdownVerifier} from "./verifiers/generated/BlackjackShowdownVerifier.sol";
-import {PokerDrawResolveVerifier} from "./verifiers/generated/PokerDrawResolveVerifier.sol";
-import {PokerInitialDealVerifier} from "./verifiers/generated/PokerInitialDealVerifier.sol";
-import {PokerShowdownVerifier} from "./verifiers/generated/PokerShowdownVerifier.sol";
+import { AccessControl } from "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import { GameCatalog } from "./GameCatalog.sol";
+import { ProtocolSettlement } from "./ProtocolSettlement.sol";
+import { BlackjackController } from "./controllers/BlackjackController.sol";
+import { NumberPickerAdapter } from "./controllers/NumberPickerAdapter.sol";
+import { PvPController } from "./controllers/PvPController.sol";
+import { TournamentController } from "./controllers/TournamentController.sol";
+import { NumberPickerEngine } from "./engines/NumberPickerEngine.sol";
+import { SingleDeckBlackjackEngine } from "./engines/SingleDeckBlackjackEngine.sol";
+import { SingleDraw2To7Engine } from "./engines/SingleDraw2To7Engine.sol";
+import { BlackjackVerifierBundle } from "./verifiers/BlackjackVerifierBundle.sol";
+import { LaunchVerificationKeyHashes } from "./verifiers/LaunchVerificationKeyHashes.sol";
+import { PokerVerifierBundle } from "./verifiers/PokerVerifierBundle.sol";
+import { BlackjackActionResolveVerifier } from "./verifiers/generated/BlackjackActionResolveVerifier.sol";
+import { BlackjackInitialDealVerifier } from "./verifiers/generated/BlackjackInitialDealVerifier.sol";
+import { BlackjackShowdownVerifier } from "./verifiers/generated/BlackjackShowdownVerifier.sol";
+import { PokerDrawResolveVerifier } from "./verifiers/generated/PokerDrawResolveVerifier.sol";
+import { PokerInitialDealVerifier } from "./verifiers/generated/PokerInitialDealVerifier.sol";
+import { PokerShowdownVerifier } from "./verifiers/generated/PokerShowdownVerifier.sol";
 
 contract GameDeploymentFactory is AccessControl {
     bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
@@ -117,7 +118,13 @@ contract GameDeploymentFactory is AccessControl {
             BlackjackActionResolveVerifier actionResolveVerifier = new BlackjackActionResolveVerifier();
             BlackjackShowdownVerifier showdownVerifier = new BlackjackShowdownVerifier();
             BlackjackVerifierBundle blackjackVerifierBundle = new BlackjackVerifierBundle(
-                msg.sender, address(initialDealVerifier), address(actionResolveVerifier), address(showdownVerifier)
+                msg.sender,
+                LaunchVerificationKeyHashes.BLACKJACK_INITIAL_DEAL_VK_HASH,
+                LaunchVerificationKeyHashes.BLACKJACK_ACTION_VK_HASH,
+                LaunchVerificationKeyHashes.BLACKJACK_SHOWDOWN_VK_HASH,
+                address(initialDealVerifier),
+                address(actionResolveVerifier),
+                address(showdownVerifier)
             );
 
             SingleDeckBlackjackEngine blackjackEngine = new SingleDeckBlackjackEngine(
@@ -146,7 +153,15 @@ contract GameDeploymentFactory is AccessControl {
             revert("Factory: unsupported solo family");
         }
 
-        emit ModuleDeployed(moduleId, GameCatalog.GameMode.Solo, family, controller, engine, verifier, CATALOG.getModule(moduleId).configHash);
+        emit ModuleDeployed(
+            moduleId,
+            GameCatalog.GameMode.Solo,
+            family,
+            controller,
+            engine,
+            verifier,
+            CATALOG.getModule(moduleId).configHash
+        );
     }
 
     function deployPvPModule(uint8 family, bytes calldata deploymentParams)
@@ -210,7 +225,13 @@ contract GameDeploymentFactory is AccessControl {
         PokerDrawResolveVerifier drawResolveVerifier = new PokerDrawResolveVerifier();
         PokerShowdownVerifier showdownVerifier = new PokerShowdownVerifier();
         PokerVerifierBundle pokerVerifierBundle = new PokerVerifierBundle(
-            msg.sender, address(initialDealVerifier), address(drawResolveVerifier), address(showdownVerifier)
+            msg.sender,
+            LaunchVerificationKeyHashes.POKER_INITIAL_DEAL_VK_HASH,
+            LaunchVerificationKeyHashes.POKER_DRAW_VK_HASH,
+            LaunchVerificationKeyHashes.POKER_SHOWDOWN_VK_HASH,
+            address(initialDealVerifier),
+            address(drawResolveVerifier),
+            address(showdownVerifier)
         );
 
         SingleDraw2To7Engine pokerEngine = new SingleDraw2To7Engine(
