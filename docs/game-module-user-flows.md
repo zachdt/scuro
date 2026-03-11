@@ -1,0 +1,241 @@
+# Game Module User Flows
+
+This guide captures the current controller and engine flows for each shipped game module in this repository. The diagrams describe the code paths that exist today, including where settlement happens, who is allowed to call each stage, and which off-chain or external component unblocks the next step.
+
+## Current Module Map
+
+| Module | Mode | Controller | Engine | External dependency | Local default config |
+| --- | --- | --- | --- | --- | --- |
+| NumberPicker | Solo | `NumberPickerAdapter` | `NumberPickerEngine` | VRF coordinator | auto-callback VRF mock |
+| Tournament Poker | Tournament | `TournamentController` | `SingleDraw2To7Engine` | coordinator + Groth16 proofs | SB `10`, BB `20`, blind interval `180s`, action window `60s` |
+| PvP Poker | PvP | `PvPController` | `SingleDraw2To7Engine` | coordinator + Groth16 proofs | SB `10`, BB `20`, blind interval `180s`, action window `60s` |
+| Blackjack | Solo | `BlackjackController` | `SingleDeckBlackjackEngine` | coordinator + Groth16 proofs | action window `60s` |
+
+## NumberPicker
+
+Key runtime notes:
+- The player enters through `NumberPickerAdapter`, which burns the wager before asking the engine for randomness.
+- Win logic is `rollResult > selection`; payout is `wager * 100 / selection`.
+- In the default local setup, the VRF mock calls back immediately, so `play()` records the request and finalizes in one transaction.
+- Developer accrual is based on the wager amount that was burned for the request.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Player
+    participant Adapter as NumberPickerAdapter
+    participant Catalog as GameCatalog
+    participant Settlement as ProtocolSettlement
+    participant Engine as NumberPickerEngine
+    participant VRF as VRF Coordinator
+
+    Player->>Adapter: play(wager, selection, playRef, expressionTokenId)
+    Adapter->>Catalog: isLaunchableController(this)
+    Adapter->>Settlement: burnPlayerWager(player, wager)
+    Adapter->>Engine: requestPlay(player, wager, selection, playRef)
+    Engine->>Catalog: isAuthorizedControllerForEngine(adapter, engine)
+    Engine->>VRF: requestRandomWords(...)
+    VRF->>Engine: rawFulfillRandomWords(requestId, randomWords)
+    Note over Engine: rollResult = (randomWord % 100) + 1<br/>isWin = rollResult > selection<br/>payout = wager * 100 / selection when winning
+    Adapter->>Adapter: record expressionTokenId
+    Adapter->>Catalog: isSettlableController(this)
+    Adapter->>Engine: getSettlementOutcome(requestId)
+    Adapter->>Engine: getOutcome(requestId)
+    Adapter->>Settlement: mintPlayerReward(player, payout)
+    Adapter->>Settlement: accrueDeveloperForExpression(expressionTokenId, wager)
+```
+
+## Tournament Poker
+
+Key runtime notes:
+- `TournamentController` stores a reusable tournament configuration, then launches individual two-player games under that configuration.
+- This is not a bracket manager. The controller does not track standings, rounds, or automatic advancement.
+- `startingStack` is an internal chip stack for the poker engine. Settlement still pays the fixed `rewardPool`, not the final chip count.
+- The poker engine loops hand-by-hand until one player stack reaches zero. Then anyone can call `reportOutcome`.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Operator
+    actor Coordinator
+    actor P1 as Player 1
+    actor P2 as Player 2
+    actor Caller as Any caller
+    participant Controller as TournamentController
+    participant Catalog as GameCatalog
+    participant Settlement as ProtocolSettlement
+    participant Engine as SingleDraw2To7Engine
+    participant Verifier as PokerVerifierBundle
+
+    Operator->>Controller: createTournament(entryFee, rewardPool, startingStack, expressionTokenId)
+    Controller->>Catalog: isLaunchableController(this)
+    Controller-->>Operator: tournamentId
+
+    Operator->>Controller: startGameForPlayers(tournamentId, p1, p2)
+    Controller->>Catalog: isLaunchableController(this)
+    Controller->>Settlement: burnPlayerWager(p1, entryFee)
+    Controller->>Settlement: burnPlayerWager(p2, entryFee)
+    Controller->>Engine: initializeGame(gameId, [p1,p2], [stack,stack], entryFee, rewardPool)
+    Engine->>Catalog: isAuthorizedControllerForEngine(controller, engine)
+    Note over Engine: matchState = Active<br/>phase = AwaitingInitialDeal<br/>small blind and big blind posted immediately
+
+    Coordinator->>Engine: submitInitialDealProof(...)
+    Engine->>Verifier: verifyInitialDeal(...)
+    Note over Engine: phase = PreDrawBetting<br/>deadlineAt = now + 60s
+
+    P1->>Engine: bet(...) or fold()
+    P2->>Engine: bet(...) or fold()
+    Note over Engine: if bets match, phase -> DrawDeclaration
+
+    P2->>Engine: declareDraw(cardIndices)
+    P1->>Engine: declareDraw(cardIndices)
+    Note over Engine: phase = DrawProofPending
+
+    Coordinator->>Engine: submitDrawProof(player1, ...)
+    Engine->>Verifier: verifyDraw(...)
+    Coordinator->>Engine: submitDrawProof(player2, ...)
+    Engine->>Verifier: verifyDraw(...)
+    Note over Engine: phase = PostDrawBetting<br/>deadlineAt = now + 60s
+
+    P2->>Engine: bet(...) or fold()
+    P1->>Engine: bet(...) or fold()
+    Note over Engine: if bets match, phase -> ShowdownProofPending
+
+    Coordinator->>Engine: submitShowdownProof(winner, isTie, ...)
+    Engine->>Verifier: verifyShowdown(...)
+    Note over Engine: if both stacks remain > 0,<br/>dealer rotates and next hand starts<br/>if one stack reaches 0, matchState = Completed
+
+    Caller->>Controller: reportOutcome(gameId)
+    Controller->>Catalog: isSettlableController(this)
+    Controller->>Engine: isGameOver(gameId)
+    Controller->>Engine: getOutcomes(gameId)
+    Controller->>Settlement: mintPlayerReward(winner(s), rewardPool split)
+    Controller->>Settlement: accrueDeveloperForExpression(expressionTokenId, rewardPool + 2 * entryFee)
+```
+
+## PvP Poker
+
+Key runtime notes:
+- `PvPController` starts a single heads-up match directly; there is no reusable tournament record.
+- The poker hand state machine is the same `SingleDraw2To7Engine` used by the tournament module.
+- Stakes are burned up front, and settlement later pays the session `rewardPool`.
+- As with tournament poker, settlement is triggered only after the engine reports `Completed`.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Operator
+    actor Coordinator
+    actor P1 as Player 1
+    actor P2 as Player 2
+    actor Caller as Any caller
+    participant Controller as PvPController
+    participant Catalog as GameCatalog
+    participant Settlement as ProtocolSettlement
+    participant Engine as SingleDraw2To7Engine
+    participant Verifier as PokerVerifierBundle
+
+    Operator->>Controller: createSession(p1, p2, stake, rewardPool, startingStack, expressionTokenId)
+    Controller->>Catalog: isLaunchableController(this)
+    Controller->>Settlement: burnPlayerWager(p1, stake)
+    Controller->>Settlement: burnPlayerWager(p2, stake)
+    Controller->>Engine: initializeGame(sessionId, [p1,p2], [stack,stack], stake, rewardPool)
+    Engine->>Catalog: isAuthorizedControllerForEngine(controller, engine)
+
+    Note over Engine: Hand loop is identical to Tournament Poker:<br/>AwaitingInitialDeal -> PreDrawBetting -> DrawDeclaration -> DrawProofPending -> PostDrawBetting -> ShowdownProofPending<br/>The loop repeats until one player stack reaches zero
+
+    Coordinator->>Engine: submitInitialDealProof(...)
+    Engine->>Verifier: verifyInitialDeal(...)
+    P1->>Engine: bet(...) / fold() / declareDraw(...)
+    P2->>Engine: bet(...) / fold() / declareDraw(...)
+    Coordinator->>Engine: submitDrawProof(...)
+    Engine->>Verifier: verifyDraw(...)
+    Coordinator->>Engine: submitShowdownProof(...)
+    Engine->>Verifier: verifyShowdown(...)
+
+    Caller->>Controller: settleSession(sessionId)
+    Controller->>Catalog: isSettlableController(this)
+    Controller->>Engine: isGameOver(sessionId)
+    Controller->>Engine: getOutcomes(sessionId)
+    Controller->>Settlement: mintPlayerReward(winner(s), rewardPool split)
+    Controller->>Settlement: accrueDeveloperForExpression(expressionTokenId, rewardPool + 2 * stake)
+```
+
+## Blackjack
+
+Key runtime notes:
+- `BlackjackController` is a solo controller; only one player address is tracked by the engine.
+- The player burns the initial wager up front. `doubleDown` and `split` can require an additional burn equal to the active hand wager.
+- The coordinator is responsible for initial deal proofs, post-action proofs, and showdown proofs.
+- If the player misses the action window, `claimPlayerTimeout()` converts the pending move into a forced stand.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Player
+    actor Coordinator
+    actor Caller as Any caller
+    participant Controller as BlackjackController
+    participant Catalog as GameCatalog
+    participant Settlement as ProtocolSettlement
+    participant Engine as SingleDeckBlackjackEngine
+    participant Verifier as BlackjackVerifierBundle
+
+    Player->>Controller: startHand(wager, playRef, playerKeyCommitment, expressionTokenId)
+    Controller->>Catalog: isLaunchableController(this)
+    Controller->>Settlement: burnPlayerWager(player, wager)
+    Controller->>Engine: openSession(player, wager, playRef, playerKeyCommitment)
+    Engine->>Catalog: isAuthorizedControllerForEngine(controller, engine)
+    Note over Engine: phase = AwaitingInitialDeal<br/>totalBurned = wager<br/>handCount = 1
+
+    Coordinator->>Engine: submitInitialDealProof(...)
+    Engine->>Verifier: verifyInitialDeal(...)
+    Note over Engine: if payout > 0 or immediateResultCode != 0,<br/>phase = Completed<br/>otherwise phase = AwaitingPlayerAction with deadlineAt = now + 60s
+
+    Player->>Controller: hit() / stand() / doubleDown() / split()
+    Controller->>Catalog: isSettlableController(this)
+    Controller->>Engine: requiredAdditionalBurn(sessionId, action)
+    Controller->>Settlement: burnPlayerWager(player, additionalBurn)
+    Controller->>Engine: declareAction(sessionId, player, action, additionalBurn)
+    Note over Engine: phase = AwaitingCoordinator<br/>pendingAction = action
+
+    Coordinator->>Engine: submitActionProof(...)
+    Engine->>Verifier: verifyAction(...)
+    Note over Engine: phase returns to AwaitingPlayerAction<br/>or remains AwaitingCoordinator for showdown
+
+    alt Player times out during AwaitingPlayerAction
+        Caller->>Controller: claimPlayerTimeout(sessionId)
+        Controller->>Catalog: isSettlableController(this)
+        Controller->>Engine: claimPlayerTimeout(sessionId)
+        Note over Engine: pendingAction = STAND<br/>phase = AwaitingCoordinator
+    else Player stands or action path reaches showdown
+        Coordinator->>Engine: submitShowdownProof(...)
+        Engine->>Verifier: verifyShowdown(...)
+        Note over Engine: phase = Completed<br/>payout is fixed on session state
+    end
+
+    Caller->>Controller: settle(sessionId)
+    Controller->>Catalog: isSettlableController(this)
+    Controller->>Engine: getSettlementOutcome(sessionId)
+    Controller->>Settlement: mintPlayerReward(player, payout)
+    Controller->>Settlement: accrueDeveloperForExpression(expressionTokenId, totalBurned)
+```
+
+## Shared Lifecycle Rules
+
+- Players never call `ProtocolSettlement` directly. Controllers are the only settlement callers.
+- `LIVE` modules can launch and settle. `RETIRED` modules cannot launch new sessions but can still settle in-flight sessions. `DISABLED` modules halt settlement and engine progress.
+- Expression compatibility is enforced at settlement time by engine type and active status, not by module `configHash`.
+- Poker and blackjack both depend on a coordinator to submit valid Groth16-backed proofs. Player timeouts exist only for player-clock phases, not for stalled coordinator proof submission.
+
+## Source Files
+
+- [ProtocolSettlement](../src/ProtocolSettlement.sol)
+- [GameCatalog](../src/GameCatalog.sol)
+- [NumberPickerAdapter](../src/controllers/NumberPickerAdapter.sol)
+- [NumberPickerEngine](../src/engines/NumberPickerEngine.sol)
+- [TournamentController](../src/controllers/TournamentController.sol)
+- [PvPController](../src/controllers/PvPController.sol)
+- [SingleDraw2To7Engine](../src/engines/SingleDraw2To7Engine.sol)
+- [BlackjackController](../src/controllers/BlackjackController.sol)
+- [SingleDeckBlackjackEngine](../src/engines/SingleDeckBlackjackEngine.sol)
