@@ -1,10 +1,17 @@
 # Scuro Protocol Architecture
 
-Scuro is a shared settlement and governance layer that hosts multiple game-specific controllers and engines behind a single protocol asset. The current implementation includes a VRF-backed solo example plus poker and blackjack examples that rely on Groth16 proof verification, with developer attribution handled through transferable expression NFTs and module registration handled through a catalog/factory pair.
+Scuro is a high-performance, shared settlement and governance layer designed to host a diverse array of game-specific controllers and engines. By unifying these components under a single protocol asset, Scuro provides a standardized economic infrastructure that simplifies game development and ensures cross-game compatibility.
 
-Next step after this page: use [Local Deployment and Testing](./local-deployment-testing.md) when you need commands, deployment workflow, or suite selection.
+The current implementation showcases this versatility through a variety of modules:
+- **VRF-backed Solo Play**: A foundational example of provably fair single-player interaction.
+- **ZK-Proven Poker & Blackjack**: Advanced examples leveraging Groth16 proof verification for secure, private gameplay.
+- **Developer Attribution**: A robust system using transferable "Expression NFTs" and a centralized Catalog/Factory pair to manage module registration and reward distribution.
+
+---
 
 ## High-Level Architecture
+
+The following diagram illustrates the layered approach Scuro takes to separate concerns, from user interaction down to the core token ecosystem.
 
 ```mermaid
 graph TB
@@ -93,67 +100,59 @@ graph TB
     Blackjack --> ZK
 ```
 
+---
+
 ## Layer Breakdown
 
-### Governance and tokens
-
-- `ScuroToken` (`SCU`) is the protocol asset used for wagers, rewards, and developer payouts.
-- `ScuroStakingToken` (`sSCU`) wraps staked SCU and provides governance voting power.
-- `ScuroGovernor` plus `TimelockController` govern live protocol configuration such as developer reward epoch duration and expression moderation roles.
+### Governance & Token Ecosystem
+The foundation of the protocol ensures economic stability and decentralized control.
+- **`ScuroToken` (`SCU`)**: The lifeblood of the protocol, used for all wagers, rewards, and payouts.
+- **`ScuroStakingToken` (`sSCU`)**: Allows participants to stake their `SCU`, providing both liquidity and a voice in the protocol's future through governance.
+- **`ScuroGovernor` & `TimelockController`**: These contracts manage the protocol's evolution, allowing the community to adjust parameters like reward durations and moderation roles.
 
 ### Controllers
+Controllers are the entry points for players, orchestrating the lifecycle of specific game modes.
+- **Mode-Specific Logic**: From solo play (`NumberPickerAdapter`) to complex multi-player tournaments (`TournamentController`), controllers manage the transition from user action to engine execution.
+- **Attribution Persistence**: They track the `expressionTokenId` across multi-step flows, ensuring that developers receive their rightful rewards upon settlement.
 
-- `NumberPickerAdapter` handles solo VRF-backed play and immediate settlement finalization.
-- `TournamentController` creates tournaments, starts poker matches, and settles reported tournament outcomes.
-- `PvPController` creates direct two-player poker sessions and settles completed matches.
-- `BlackjackController` opens blackjack hands, burns any extra wager for doubles or splits, and settles completed hands.
-- `BaseSoloController` holds the shared solo-controller logic for catalog gating, settlement calls, and expression-token persistence.
-- Every gameplay entrypoint carries an `expressionTokenId`; multi-step controllers persist it so settlement can attribute rewards later.
+### Protocol Services
+The "brains" of Scuro, these services handle high-level logic and value settlement.
+- **`ProtocolSettlement`**: The ONLY contract authorized to move value. It acts as a secure clearinghouse, verifying controller authorization via the `GameCatalog` before burning wagers or minting rewards.
+- **`GameCatalog`**: The source of truth for all authorized game modules. It stores metadata, reward rates, and enforces lifecycle statuses (`LIVE`, `RETIRED`, `DISABLED`).
+- **`GameDeploymentFactory`**: A utility for standardizing the deployment and registration of new game modules.
+- **`DeveloperExpressionRegistry`**: A permissionless registry where developers mint NFTs representing their logic, enabling transferable reward attribution.
+- **`DeveloperRewards`**: Manages the accumulation and distribution of inflationary rewards to developers across defined epochs.
 
-### Protocol services
+### Engines & Integrations
+Engines contain the pure rules of the game, isolated from economic logic.
+- **Game Integrity**: Engines handle the core "physics" of the game, whether it's evaluating a poker hand or processing blackjack actions.
+- **External Signals**: They interface with external providers like VRF coordinators for randomness or Groth16 verifiers for zero-knowledge proofs.
 
-- `ProtocolSettlement` is the only protocol-level contract allowed to burn player wagers, mint player rewards, and accrue developer rewards. It authorizes callers by checking whether the calling controller is settlable in `GameCatalog`.
-- `GameCatalog` stores module metadata: play mode, controller, engine, verifier address, config hash, `developerRewardBps`, and module status.
-- `GameDeploymentFactory` is the module bootstrap helper that deploys supported controllers, engines, and verifier bundles, then registers the resulting module in `GameCatalog`.
-- `DeveloperExpressionRegistry` is a permissionless ERC721 registry for developer-owned engine expressions bound to `engineType`.
-- `DeveloperRewards` accumulates developer inflation by epoch and handles post-close claims.
-- Module lifecycle is status-based:
-  - `LIVE`: launchable and settlable
-  - `RETIRED`: not launchable, still settlable for in-flight games
-  - `DISABLED`: neither launchable nor settlable
+---
 
-### Engines and integrations
+## Value and Control Flow
 
-- `NumberPickerEngine` is the simple solo engine and depends on a VRF coordinator mock in local and dev flows.
-- `SingleDraw2To7Engine` is the poker engine implementation used by both tournament and PvP modules. Each module now deploys its own engine instance with immutable blind, timeout, verifier, and coordinator settings.
-- `SingleDeckBlackjackEngine` is the solo zk blackjack engine. The controller opens sessions while a zk coordinator proves the initial deal, action resolution, and showdown.
-- Poker and blackjack both depend on Groth16 verifier bundles wired into the deployed stack.
+1.  **Direct Interaction**: Players interact with **Controllers**, never with the **Settlement** layer directly.
+2.  **Catalog Gating**: Controllers consult the **Catalog** to ensure a module is authorized for play before a session begins.
+3.  **Engine Autonomy**: Engines focus solely on game rules and proof requirements, ensuring logic remains separated from value flow.
+4.  **Centralized Settlement**: Value movement is consolidated in **ProtocolSettlement**, which enforces strict authorization and attribution rules.
+5.  **Dynamic Attribution**: Rewards follow the current owner of a developer's **Expression NFT**, allowing for secondary markets or organizational transfers of developer streaks.
 
-## Value And Control Flow
-
-- Players enter through controllers or the staking token, not through settlement directly.
-- Controllers consult the catalog to ensure their module is launchable before starting new gameplay and settlable before finishing existing gameplay.
-- Engines own rules, proof or randomness requirements, and game-specific state transitions.
-- Gameplay calls supply an `expressionTokenId`; multi-step flows store it first and reuse it at final settlement.
-- Settlement centralizes value movement by burning wagers, minting payouts, and recording developer reward accruals.
-- Settlement enforces controller authorization, expression active status, and engine-type compatibility at accrual time by reading module metadata from `GameCatalog`.
-- Developer accrual follows the current owner of the expression NFT when settlement books activity.
-- Governance modifies live protocol settings through the governor and timelock rather than per-engine manual intervention, and can also own catalog/factory roles for module deployment and lifecycle changes.
+---
 
 ## Code Map
 
-- `src/ScuroToken.sol`, `src/ScuroStakingToken.sol`, `src/ScuroGovernor.sol`: token and governance primitives.
-- `src/ProtocolSettlement.sol`, `src/GameCatalog.sol`, `src/GameDeploymentFactory.sol`, `src/DeveloperExpressionRegistry.sol`, `src/DeveloperRewards.sol`: shared protocol service layer.
-- `src/controllers/`: controller and adapter entrypoints for solo, tournament, PvP, and blackjack flows.
-- `src/engines/`: game-specific rule engines.
-- `src/verifiers/` and `zk/`: verifier bundles, generated verifier contracts, circuits, fixtures, and zk artifacts.
-- `script/DeployLocal.s.sol` and `script/e2e_deploy_smoke.sh`: local stack deployment and smoke verification entrypoints.
-- `test/e2e/`: end-to-end scenario suites and coverage matrix.
+- **Core Primitives**: `src/ScuroToken.sol`, `src/ScuroStakingToken.sol`, `src/ScuroGovernor.sol`
+- **Protocol Services**: `src/ProtocolSettlement.sol`, `src/GameCatalog.sol`, `src/GameDeploymentFactory.sol`, `src/DeveloperExpressionRegistry.sol`, `src/DeveloperRewards.sol`
+- **Gameplay Entrypoints**: `src/controllers/`
+- **Game Logic**: `src/engines/`
+- **ZK & Verification**: `src/verifiers/`, `zk/`
+- **Deployment & Integration**: `script/`, `test/e2e/`
+
+---
 
 ## Operational Notes
 
-- `RETIRED` modules block new sessions but still allow coordinator completions and settlement for games that already started.
-- `DISABLED` modules block both new sessions and settlement progress.
-- Expression compatibility is enforced when settlement books accrual, so a deactivated or mismatched expression can surface at settlement time for long-running flows.
-- Expression NFTs are transferable; long-running sessions follow the expression owner at final settlement.
-- The zk-backed engines still rely on an off-chain coordinator for proof generation and submission.
+- **Lifecycle Management**: The `RETIRED` status allows for graceful decommissioning of modules—blocking new sessions while allowing in-flight games to settle. `DISABLED` acts as an emergency stop, halting all progress.
+- **Attribution Enforcement**: Reward compatibility is checked at settlement time, meaning developers must ensure their expressions remain active and correctly configured throughout a game's lifecycle.
+- **Transferable Rewards**: Because expression NFTs are transferable, long-running sessions (like tournaments) will always reward the entity that owns the logic at the moment of final settlement.

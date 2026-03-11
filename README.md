@@ -1,49 +1,56 @@
 # Scuro
 
-Scuro is an on-chain gaming protocol built around shared economic infrastructure instead of one-off game contracts. A single protocol token powers play, staking, governance, and developer rewards; controllers route user actions into catalogued game modules; a developer-expression registry carries attribution; and a shared settlement layer burns wagers, mints payouts, and books developer accruals under governance-controlled policy.
+Scuro is a next-generation on-chain gaming protocol designed as a shared economic backbone for decentralized games. Unlike traditional models that rely on isolated, one-off contracts, Scuro provides a unified infrastructure for play, staking, governance, and developer incentives—allowing game developers to focus on logic while inheriting a robust, secure settlement layer.
 
 ## Core Primitives
 
-- `ScuroToken` (`SCU`) is the protocol asset used for wagers, rewards, and developer payouts.
-- `ScuroStakingToken` (`sSCU`) wraps staked SCU and represents governance voting power.
-- `ProtocolSettlement` is the only protocol-level contract that moves value on behalf of controllers.
-- `GameCatalog` records per-module controller, engine, verifier/config metadata, developer reward rates, and lifecycle status.
-- `GameDeploymentFactory` deploys supported controller/engine/verifier bundles and self-registers them in the catalog.
-- `DeveloperExpressionRegistry` is a permissionless ERC721 registry for developer-owned engine expressions used for reward attribution.
-- `DeveloperRewards` tracks inflationary developer rewards by epoch and handles claims after an epoch closes.
-- `ScuroGovernor` with `TimelockController` governs live protocol configuration such as reward timing and expression moderation roles.
+A single protocol token (`SCU`) powers the entire ecosystem, ensuring deep liquidity and shared utility across all hosted modules.
 
-## How Scuro Flows
+- **`ScuroToken` (`SCU`)**: The native protocol asset used for wagers, rewards, and developer payouts.
+- **`ScuroStakingToken` (`sSCU`)**: A liquid representation of staked SCU that confers governance voting power.
+- **`ProtocolSettlement`**: The central authority for value movement, managing wagers, payouts, and accruals.
+- **`GameCatalog`**: A registry of authorized game modules, engines, and verifiers, enforcing protocol-level policy.
+- **`GameDeploymentFactory`**: A streamlined tool for deploying and registering new controller/engine bundles.
+- **`DeveloperExpressionRegistry`**: An ERC721 registry for developer-owned "expressions"—logical identities used for reward attribution.
+- **`DeveloperRewards`**: An automated system that tracks and distributes inflationary rewards to developers based on activity.
+- **`ScuroGovernor` & `TimelockController`**: The decentralized governance layer that manages global protocol parameters.
 
-- Players bring SCU into gameplay, staking, and governance through controllers and the staking token rather than interacting with settlement logic directly.
-- Gameplay entrypoints carry an `expressionTokenId` so developer attribution is explicit for each solo, PvP, tournament, or blackjack session.
-- Controllers and adapters orchestrate session lifecycle for different play modes, while engines own game-specific rules and proof or randomness requirements.
-- The catalog is the policy layer between orchestration and game logic: it decides which modules are launchable, which remain settlable after retirement, and what developer reward rate applies.
-- Settlement authorizes controllers through the catalog instead of local controller roles. Reward attribution follows the current `ownerOf(expressionTokenId)` when settlement books accrual.
-- Governance updates protocol configuration through the governor and timelock instead of per-engine admin flows.
+## The Scuro Lifecycle
 
-## Current Implementation Examples
+The protocol abstracts complex settlement logic away from the player, providing a seamless experience across diverse game types.
 
-- `NumberPickerAdapter` + `NumberPickerEngine` provide a simple solo flow backed by VRF-style randomness.
-- `TournamentController` and `PvPController` each route into a `SingleDraw2To7Engine` module deployment, so tournament and head-to-head poker can carry distinct catalog entries and immutable config.
-- `BlackjackController` + `SingleDeckBlackjackEngine` provide a solo blackjack flow with Groth16 proof verification.
-- The local stack also seeds example expression NFTs for number picker, poker, and blackjack so the full developer-attribution path is exercised in tests and deploy smoke flows.
+1.  **Entry**: Players engage with game-specific **Controllers** using `SCU`. They don't interact with settlement logic directly; instead, they enter via gameplay or staking.
+2.  **Attribution**: Every session is tagged with an `expressionTokenId`. This ensures that the original developers are rewarded for every interaction their logic facilitates.
+3.  **Execution**: **Engines** enforce game-specific rules. Whether it's a VRF-backed solo game or a ZK-proven poker match, the engine ensures integrity while the controller manages the session flow.
+4.  **Settlement**: When a game concludes, the controller calls the shared **Settlement** layer. Settlement validates the module's status via the **Catalog**, moves value, and books developer rewards to the current holder of the expression NFT.
+5.  **Governance**: The community uses the **Governor** to tune reward rates, manage the catalog, and guide the protocol's evolution without needing to redeploy core logic.
 
-## Builder Quickstart
+## Supported Game Modules
 
-- `forge build` compiles the contracts. See the [command quick reference](./docs/local-deployment-testing.md#command-quick-reference).
-- `forge test --offline` runs the full suite in this environment. See the [recommended order](./docs/local-deployment-testing.md#recommended-order).
-- `./script/e2e_deploy_smoke.sh` runs the highest-signal local integration check. See [Deploy Smoke](./docs/local-deployment-testing.md#deploy-smoke).
+Scuro's architecture is flexible enough to support a wide array of gaming experiences out of the box:
 
-For prerequisites, zk artifact guidance, manual deployment, and suite selection, see [Local Deployment and Testing](./docs/local-deployment-testing.md).
+- **Solo Randomness**: `NumberPicker` demonstrates simple VRF-backed gameplay.
+- **Competitive Poker**: `TournamentController` and `PvPController` power poker sessions with Groth16 proof verification.
+- **ZK Blackjack**: `BlackjackController` offers a secure solo blackjack experience using zero-knowledge proofs.
+- **Developer Sandbox**: The local stack includes example expression NFTs, allowing developers to test the full attribution path immediately.
+
+## Developer Quickstart
+
+Get the Scuro protocol running locally in minutes:
+
+- **Build**: `forge build` compiles the smart contracts.
+- **Test**: `forge test --offline` runs the comprehensive test suite.
+- **Smoke Check**: `./script/e2e_deploy_smoke.sh` performs a full-stack local integration test.
+
+For detailed setup instructions and ZK artifact guidance, see [Local Deployment and Testing](./docs/local-deployment-testing.md).
 
 ## Documentation Map
 
-- [Docs index](./docs/README.md): short guide to the internal documentation set.
-- [Protocol architecture](./docs/protocol-architecture.md): full component diagram, developer-expression flow, and code map.
-- [Local deployment and testing](./docs/local-deployment-testing.md): setup, build, deploy, smoke, and suite selection.
-- [E2E scenario matrix](./test/e2e/MATRIX.md): coverage gate for the end-to-end suite.
+- **[Docs Index](./docs/README.md)**: Your entry point to the full documentation suite.
+- **[Protocol Architecture](./docs/protocol-architecture.md)**: Deep dive into the system design, component layers, and code map.
+- **[Local Deployment](./docs/local-deployment-testing.md)**: Technical guide for environment setup, building, and running tests.
+- **[E2E Scenario Matrix](./test/e2e/MATRIX.md)**: A detailed mapping of user stories to automated test cases.
 
 ## License
 
-Unless a file header or [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) says otherwise, this repository is proprietary and public for inspection only. It is not licensed for personal, internal, academic, or commercial use. See [LICENSE](./LICENSE).
+Unless otherwise specified in a file header or [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md), this repository is proprietary and provided for inspection only. See [LICENSE](./LICENSE) for details.
