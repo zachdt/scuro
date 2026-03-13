@@ -1,0 +1,22 @@
+[package]
+name = "scuro-node-bin"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Scuro node binary"
+publish = false
+default-run = "scuro-node"
+
+[lints]
+workspace = true
+
+[dependencies]
+reth-cli-util.workspace = true
+scuro-node.workspace = true
+
+[[bin]]
+name = "scuro-node"
+path = "src/main.rs"

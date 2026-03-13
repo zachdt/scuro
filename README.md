@@ -1,56 +1,78 @@
 # Scuro
 
-Scuro is a next-generation on-chain gaming protocol designed as a shared economic backbone for decentralized games. Unlike traditional models that rely on isolated, one-off contracts, Scuro provides a unified infrastructure for play, staking, governance, and developer incentives—allowing game developers to focus on logic while inheriting a robust, secure settlement layer.
+Scuro is now structured as an in-repo fork of `reth`, pinned to upstream `v1.11.3` (`d6324d63e27ef6b7c49cdc9b1977c1b808234c7b`). The active runtime is a Rust-first EVM-fork L1, while the previous Solidity/Foundry protocol implementation is preserved under [`reference/solidity`](./reference/solidity) as behavioral reference only.
 
-## Core Primitives
+## Active Layout
 
-A single protocol token (`SCU`) powers the entire ecosystem, ensuring deep liquidity and shared utility across all hosted modules.
+- `bin/scuro-node`: Scuro-first node entrypoint.
+- `crates/scuro/config`: Scuro-native protocol config seam.
+- `crates/scuro/chainspec`: Scuro devnet chain spec and CLI parser.
+- `crates/scuro/node`: Scuro launcher and reserved protocol hooks.
+- `reference/solidity`: Previous contract implementation, tests, docs, and ZK assets kept for porting reference.
 
-- **`ScuroToken` (`SCU`)**: The native protocol asset used for wagers, rewards, and developer payouts.
-- **`ScuroStakingToken` (`sSCU`)**: A liquid representation of staked SCU that confers governance voting power.
-- **`ProtocolSettlement`**: The central authority for value movement, managing wagers, payouts, and accruals.
-- **`GameCatalog`**: A registry of authorized game modules, engines, and verifiers, enforcing protocol-level policy.
-- **`GameDeploymentFactory`**: A streamlined tool for deploying and registering new controller/engine bundles.
-- **`DeveloperExpressionRegistry`**: An ERC721 registry for developer-owned "expressions"—logical identities used for reward attribution.
-- **`DeveloperRewards`**: An automated system that tracks and distributes inflationary rewards to developers based on activity.
-- **`ScuroGovernor` & `TimelockController`**: The decentralized governance layer that manages global protocol parameters.
+## Current Milestone
 
-## The Scuro Lifecycle
+The repository currently targets the first `reth`-fork milestone:
 
-The protocol abstracts complex settlement logic away from the player, providing a seamless experience across diverse game types.
+- `scuro-node` boots a local Scuro devnet on chain id `31338`.
+- Standard EVM execution remains intact.
+- Native verifier and verification-key registry behavior are not implemented yet; the Scuro hook layer only reserves the integration seam for the next milestone.
 
-1.  **Entry**: Players engage with game-specific **Controllers** using `SCU`. They don't interact with settlement logic directly; instead, they enter via gameplay or staking.
-2.  **Attribution**: Every session is tagged with an `expressionTokenId`. This ensures that the original developers are rewarded for every interaction their logic facilitates.
-3.  **Execution**: **Engines** enforce game-specific rules. Whether it's a VRF-backed solo game or a ZK-proven poker match, the engine ensures integrity while the controller manages the session flow.
-4.  **Settlement**: When a game concludes, the controller calls the shared **Settlement** layer. Settlement validates the module's status via the **Catalog**, moves value, and books developer rewards to the current holder of the expression NFT.
-5.  **Governance**: The community uses the **Governor** to tune reward rates, manage the catalog, and guide the protocol's evolution without needing to redeploy core logic.
+## Quickstart
 
-## Supported Game Modules
+```bash
+cargo run --bin scuro-node -- node --chain scuro-dev --http
+```
 
-Scuro's architecture is flexible enough to support a wide array of gaming experiences out of the box:
+`--dev` also resolves to the Scuro dev chain.
 
-- **Solo Randomness**: `NumberPicker` demonstrates simple VRF-backed gameplay.
-- **Competitive Poker**: `TournamentController` and `PvPController` power poker sessions with Groth16 proof verification.
-- **ZK Blackjack**: `BlackjackController` offers a secure solo blackjack experience using zero-knowledge proofs.
-- **Developer Sandbox**: The local stack includes example expression NFTs, allowing developers to test the full attribution path immediately.
+## Docs
 
-## Developer Quickstart
+- [`docs/scuro-fork.md`](./docs/scuro-fork.md): Scuro fork overview and runtime layout.
+- [`docs/README.md`](./docs/README.md): Upstream contributor docs plus Scuro-specific additions.
+- [`etc/scuro-upstream.toml`](./etc/scuro-upstream.toml): Exact upstream pin and reference paths.
 
-Get the Scuro protocol running locally in minutes:
+## Reference Solidity Stack
 
-- **Build**: `forge build` compiles the smart contracts.
-- **Test**: `forge test --offline` runs the comprehensive test suite.
-- **Smoke Check**: `./script/e2e_deploy_smoke.sh` performs a full-stack local integration test.
+The Solidity implementation is no longer the active runtime, but it is still preserved for:
 
-For detailed setup instructions and ZK artifact guidance, see [Local Deployment and Testing](./docs/local-deployment-testing.md).
+- protocol behavior reference
+- test fixture reference
+- future native-port parity work
 
-## Documentation Map
+See [`reference/solidity/README.md`](./reference/solidity/README.md) for the original contract-oriented overview.
 
-- **[Docs Index](./docs/README.md)**: Your entry point to the full documentation suite.
-- **[Protocol Architecture](./docs/protocol-architecture.md)**: Deep dive into the system design, component layers, and code map.
-- **[Local Deployment](./docs/local-deployment-testing.md)**: Technical guide for environment setup, building, and running tests.
-- **[E2E Scenario Matrix](./test/e2e/MATRIX.md)**: A detailed mapping of user stories to automated test cases.
+> **Note**
+>
+> Some tests use random number generators to generate test data. If you want to use a deterministic seed, you can set the `SEED` environment variable.
 
-## License
+## Getting Help
 
-Unless otherwise specified in a file header or [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md), this repository is proprietary and provided for inspection only. See [LICENSE](./LICENSE) for details.
+If you have any questions, first see if the answer to your question can be found in the [docs][book].
+
+If the answer is not there:
+
+- Join the [Telegram][tg-url] to get help, or
+- Open a [discussion](https://github.com/paradigmxyz/reth/discussions/new) with your question, or
+- Open an issue with [the bug](https://github.com/paradigmxyz/reth/issues/new?assignees=&labels=C-bug%2CS-needs-triage&projects=&template=bug.yml)
+
+## Security
+
+See [`SECURITY.md`](./SECURITY.md).
+
+## Acknowledgements
+
+Reth is a new implementation of the Ethereum protocol. In the process of developing the node we investigated the design decisions other nodes have made to understand what is done well, what is not, and where we can improve the status quo.
+
+None of this would have been possible without them, so big shoutout to the teams below:
+
+- [Geth](https://github.com/ethereum/go-ethereum/): We would like to express our heartfelt gratitude to the go-ethereum team for their outstanding contributions to Ethereum over the years. Their tireless efforts and dedication have helped to shape the Ethereum ecosystem and make it the vibrant and innovative community it is today. Thank you for your hard work and commitment to the project.
+- [Erigon](https://github.com/ledgerwatch/erigon) (fka Turbo-Geth): Erigon pioneered the ["Staged Sync" architecture](https://erigon.substack.com/p/erigon-stage-sync-and-control-flows) that Reth is using, as well as [introduced MDBX](https://github.com/ledgerwatch/erigon/wiki/Choice-of-storage-engine) as the database of choice. We thank Erigon for pushing the state of the art research on the performance limits of Ethereum nodes.
+- [Akula](https://github.com/akula-bft/akula/): Reth uses forks of the Apache versions of Akula's [MDBX Bindings](https://github.com/paradigmxyz/reth/pull/132), [FastRLP](https://github.com/paradigmxyz/reth/pull/63) and [ECIES](https://github.com/paradigmxyz/reth/pull/80). Given that these packages were already released under the Apache License, and they implement standardized solutions, we decided not to reimplement them to iterate faster. We thank the Akula team for their contributions to the Rust Ethereum ecosystem and for publishing these packages.
+
+## Warning
+
+The `NippyJar` and `Compact` encoding formats and their implementations are designed for storing and retrieving data internally. They are not hardened to safely read potentially malicious data.
+
+[book]: https://reth.rs/
+[tg-url]: https://t.me/paradigm_reth

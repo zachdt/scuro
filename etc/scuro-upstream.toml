@@ -1,0 +1,10 @@
+[upstream]
+repository = "https://github.com/paradigmxyz/reth"
+tag = "v1.11.3"
+commit = "d6324d63e27ef6b7c49cdc9b1977c1b808234c7b"
+import_strategy = "vendored-source"
+
+[scuro]
+reference_solidity_path = "reference/solidity"
+default_chain = "scuro-dev"
+default_chain_id = 31338

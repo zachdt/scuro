@@ -1,0 +1,27 @@
+[package]
+name = "scuro-chainspec"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Scuro chain spec helpers and parser for the reth fork"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+scuro-config.workspace = true
+reth-chainspec.workspace = true
+reth-cli.workspace = true
+reth-primitives.workspace = true
+alloy-genesis.workspace = true
+alloy-primitives.workspace = true
+eyre.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

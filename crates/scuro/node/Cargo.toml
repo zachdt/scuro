@@ -1,0 +1,35 @@
+[package]
+name = "scuro-node"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Scuro node launcher and protocol hook seam for the reth fork"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+scuro-chainspec.workspace = true
+scuro-config.workspace = true
+reth-ethereum = { workspace = true, features = ["node"] }
+reth-ethereum-cli.workspace = true
+clap = { workspace = true, features = ["derive", "env"] }
+eyre.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+alloy-eips.workspace = true
+alloy-primitives.workspace = true
+futures-util.workspace = true
+reth-node-api.workspace = true
+reth-node-builder = { workspace = true, features = ["test-utils"] }
+reth-node-ethereum.workspace = true
+reth-provider.workspace = true
+reth-rpc-eth-api.workspace = true
+reth-tasks.workspace = true
+reth-tracing.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
