@@ -29,8 +29,20 @@ cargo run --bin scuro-node -- node --chain scuro-dev --http
 ## Docs
 
 - [`docs/scuro-fork.md`](./docs/scuro-fork.md): Scuro fork overview and runtime layout.
+- [`docs/scuro-pr-review.md`](./docs/scuro-pr-review.md): PR review order, validation checklist, and merge strategy.
 - [`docs/README.md`](./docs/README.md): Upstream contributor docs plus Scuro-specific additions.
 - [`etc/scuro-upstream.toml`](./etc/scuro-upstream.toml): Exact upstream pin and reference paths.
+
+## Pre-PR Verification
+
+Use the Scuro-specific verification target before opening or refreshing a PR:
+
+```bash
+make scuro-pr
+```
+
+This runs the focused Scuro lint/test suite, a full workspace `cargo check`, a CLI smoke check for
+the documented `scuro-node` command, and the reference Solidity suite via `forge test --offline`.
 
 ## Reference Solidity Stack
 

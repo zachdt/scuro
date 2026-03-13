@@ -3,6 +3,7 @@
 Scuro now rides on a vendored `reth` fork. The Scuro-specific fork notes live here:
 
 - [Scuro Fork Overview](./scuro-fork.md)
+- [Scuro PR Review Guide](./scuro-pr-review.md)
 
 The upstream `reth` contributor docs remain available below.
 

@@ -25,3 +25,36 @@ cargo run --bin scuro-node -- node --chain scuro-dev --http
 ```
 
 `--dev` also resolves to the Scuro dev chain.
+
+## Validation
+
+Run the focused pre-PR verification suite from the repository root:
+
+```bash
+make scuro-pr
+```
+
+That command is mirrored by the dedicated `scuro` GitHub Actions workflow and covers:
+
+- Scuro-owned linting and formatting checks
+- Rust tests for `scuro-config`, `scuro-chainspec`, and `scuro-node`
+- A full workspace `cargo check`
+- A CLI smoke check for the documented `scuro-node` invocation
+- The reference Solidity suite under `reference/solidity` with `forge test --offline`
+
+## Review and Merge
+
+Use [`docs/scuro-pr-review.md`](./scuro-pr-review.md) as the PR review guide. The intended merge
+shape is:
+
+- preserve the vendored `reth` import boundary
+- keep the Scuro overlay and pre-PR hardening work reviewable as separate layers
+- merge without squashing
+
+## Non-Goals
+
+This milestone does not include:
+
+- native verifier or verifier-registry parity
+- Scuro-specific RPC namespaces
+- reintroducing the old geth precompile runtime path into the active root

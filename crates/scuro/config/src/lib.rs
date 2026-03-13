@@ -35,3 +35,15 @@ impl Default for ScuroProtocolConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_reserve_future_native_surfaces() {
+        let config = ScuroProtocolConfig::default();
+        assert_eq!(config.native_verifier, ReservedSurfaceMode::Reserved);
+        assert_eq!(config.verifier_registry, ReservedSurfaceMode::Reserved);
+    }
+}

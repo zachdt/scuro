@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+//! Binary entrypoint for `scuro-node`.
 
 fn main() {
     reth_cli_util::sigsegv_handler::install();

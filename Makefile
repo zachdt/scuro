@@ -337,3 +337,48 @@ pr:
 	make update-book-cli && \
 	cargo docs --document-private-items && \
 	make test
+
+.PHONY: scuro-fmt
+scuro-fmt: ## Check formatting for the Scuro fork surfaces.
+	rustup run nightly cargo fmt \
+	-p scuro-config \
+	-p scuro-chainspec \
+	-p scuro-node \
+	-p scuro-node-bin \
+	--check
+
+.PHONY: scuro-clippy
+scuro-clippy: ## Run clippy on Scuro-owned crates and the Scuro binary.
+	cargo clippy \
+	-p scuro-config \
+	-p scuro-chainspec \
+	-p scuro-node \
+	-p scuro-node-bin \
+	--all-targets \
+	--locked \
+	-- -D warnings
+
+.PHONY: scuro-test
+scuro-test: ## Run Scuro-owned Rust tests, including the devnet smoke test.
+	cargo test --locked -p scuro-config -p scuro-chainspec -p scuro-node
+
+.PHONY: scuro-cli-smoke
+scuro-cli-smoke: ## Check that the documented Scuro node command still parses.
+	cargo run --locked --bin scuro-node -- node --chain scuro-dev --help > /dev/null
+
+.PHONY: scuro-workspace-check
+scuro-workspace-check: ## Ensure the vendored reth workspace still compiles as a whole.
+	cargo check --locked --workspace
+
+.PHONY: scuro-reference-test
+scuro-reference-test: ## Run the reference Solidity suite in offline mode.
+	cd reference/solidity && forge test --offline
+
+.PHONY: scuro-pr
+scuro-pr: ## Run the full Scuro pre-PR verification suite.
+	make scuro-fmt && \
+	make scuro-clippy && \
+	make scuro-test && \
+	make scuro-cli-smoke && \
+	make scuro-workspace-check && \
+	make scuro-reference-test

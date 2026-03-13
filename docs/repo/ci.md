@@ -6,6 +6,7 @@ The CI runs a couple of workflows:
 
 - **[unit]**: Runs unit tests (tests in `src/`) and doc tests
 - **[integration]**: Runs integration tests (tests in `tests/` and sync tests)
+- **[scuro]**: Runs Scuro-specific linting, Rust tests, workspace compile checks, and the reference Solidity suite
 - **[bench]**: Runs benchmarks
 - **[sync]**: Runs sync tests
 - **[stage]**: Runs all `stage run` commands
@@ -32,8 +33,15 @@ The CI runs a couple of workflows:
 - **[lint-actions]**: Lints GitHub Actions workflows
 - **[label-pr]**: Automatically labels PRs
 
+### Scuro Notes
+
+- The `scuro` workflow is the focused PR gate for the Scuro fork surfaces.
+- The reference Solidity suite runs via `forge test --offline` because the reference tree should
+  stay hermetic and plain `forge test` can pull in environment-dependent network behavior.
+
 [unit]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/unit.yml
 [integration]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/integration.yml
+[scuro]: ../../.github/workflows/scuro.yml
 [bench]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/bench.yml
 [sync]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/sync.yml
 [stage]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/stage.yml

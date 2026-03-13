@@ -45,6 +45,9 @@ Get the Scuro protocol running locally in minutes:
 - **Test**: `forge test --offline` runs the comprehensive test suite.
 - **Smoke Check**: `./script/e2e_deploy_smoke.sh` performs a full-stack local integration test.
 
+`forge test --offline` is the canonical command for this tree in CI as well. The reference suite is
+kept hermetic on purpose and should not depend on the active Rust node runtime.
+
 For detailed setup instructions and ZK artifact guidance, see [Local Deployment and Testing](./docs/local-deployment-testing.md).
 
 ## Documentation Map

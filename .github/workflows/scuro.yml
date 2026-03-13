@@ -1,0 +1,106 @@
+name: scuro
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTC_WRAPPER: "sccache"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: lint / scuro
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: rui314/setup-mold@v1
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, clippy
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            -p scuro-config \
+            -p scuro-chainspec \
+            -p scuro-node \
+            -p scuro-node-bin \
+            --check
+      - name: Lint Scuro-owned crates
+        run: |
+          cargo clippy \
+            -p scuro-config \
+            -p scuro-chainspec \
+            -p scuro-node \
+            -p scuro-node-bin \
+            --all-targets \
+            --locked \
+            -- -D warnings
+      - name: Validate documented Scuro node command
+        run: cargo run --locked --bin scuro-node -- node --chain scuro-dev --help > /dev/null
+
+  test:
+    name: test / scuro
+    runs-on: depot-ubuntu-latest-4
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: rui314/setup-mold@v1
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Run Scuro Rust tests
+        run: cargo test --locked -p scuro-config -p scuro-chainspec -p scuro-node
+
+  workspace:
+    name: workspace / scuro
+    runs-on: depot-ubuntu-latest-4
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - uses: rui314/setup-mold@v1
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Check full workspace
+        run: cargo check --locked --workspace
+
+  reference-solidity:
+    name: reference / solidity
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: reference/solidity
+    steps:
+      - uses: actions/checkout@v6
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Run reference Foundry suite
+        run: forge test --offline
+
+  scuro-success:
+    name: scuro success
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [lint, test, workspace, reference-solidity]
+    timeout-minutes: 30
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}
