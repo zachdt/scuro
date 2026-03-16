@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
+/// @title Blackjack verifier bundle interface
+/// @notice Defines the ordered public-input shapes consumed by blackjack proof verifiers.
 interface IBlackjackVerifierBundle {
+    /// @notice Public inputs for the blackjack initial-deal proof.
     struct InitialDealPublicInputs {
         uint256 sessionId;
         uint256 handNonce;
@@ -22,6 +25,7 @@ interface IBlackjackVerifierBundle {
         uint256[4] allowedActionMasks;
     }
 
+    /// @notice Public inputs for the blackjack action-resolution proof.
     struct ActionPublicInputs {
         uint256 sessionId;
         uint256 proofSequence;
@@ -42,6 +46,7 @@ interface IBlackjackVerifierBundle {
         uint256[4] allowedActionMasks;
     }
 
+    /// @notice Public inputs for the blackjack showdown proof.
     struct ShowdownPublicInputs {
         uint256 sessionId;
         uint256 proofSequence;
@@ -54,9 +59,12 @@ interface IBlackjackVerifierBundle {
         uint256[4] handStatuses;
     }
 
+    /// @notice Verifies the initial-deal proof against the supplied public inputs.
     function verifyInitialDeal(bytes calldata proof, InitialDealPublicInputs calldata inputs) external view returns (bool);
 
+    /// @notice Verifies the action proof against the supplied public inputs.
     function verifyAction(bytes calldata proof, ActionPublicInputs calldata inputs) external view returns (bool);
 
+    /// @notice Verifies the showdown proof against the supplied public inputs.
     function verifyShowdown(bytes calldata proof, ShowdownPublicInputs calldata inputs) external view returns (bool);
 }

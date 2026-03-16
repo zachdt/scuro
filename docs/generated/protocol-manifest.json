@@ -1,0 +1,694 @@
+{
+  "contracts": [
+    {
+      "name": "ProtocolSettlement",
+      "category": "core",
+      "source": "src/ProtocolSettlement.sol",
+      "artifact": "out/ProtocolSettlement.sol/ProtocolSettlement.json",
+      "reference_doc": "docs/reference/protocol-settlement.md",
+      "abi_path": "docs/generated/contracts/ProtocolSettlement.abi.json",
+      "functions": [
+        "accrueDeveloperForExpression",
+        "burnPlayerWager",
+        "catalog",
+        "developerRewards",
+        "expressionRegistry",
+        "mintPlayerReward",
+        "token"
+      ],
+      "events": [
+        "DeveloperAccrualRecorded",
+        "PlayerRewardMinted",
+        "PlayerWagerBurned"
+      ]
+    },
+    {
+      "name": "GameCatalog",
+      "category": "core",
+      "source": "src/GameCatalog.sol",
+      "artifact": "out/GameCatalog.sol/GameCatalog.json",
+      "reference_doc": "docs/reference/game-catalog.md",
+      "abi_path": "docs/generated/contracts/GameCatalog.abi.json",
+      "functions": [
+        "getModule",
+        "getModuleByController",
+        "getModuleByEngine",
+        "isAuthorizedControllerForEngine",
+        "isLaunchableController",
+        "isLaunchableEngine",
+        "isSettlableController",
+        "isSettlableEngine",
+        "registerModule",
+        "setModuleStatus"
+      ],
+      "events": [
+        "ModuleRegistered",
+        "ModuleStatusUpdated"
+      ]
+    },
+    {
+      "name": "GameDeploymentFactory",
+      "category": "core",
+      "source": "src/GameDeploymentFactory.sol",
+      "artifact": "out/GameDeploymentFactory.sol/GameDeploymentFactory.json",
+      "reference_doc": "docs/reference/game-deployment-factory.md",
+      "abi_path": "docs/generated/contracts/GameDeploymentFactory.abi.json",
+      "functions": [
+        "catalog",
+        "deployPvPModule",
+        "deploySoloModule",
+        "deployTournamentModule",
+        "settlement"
+      ],
+      "events": [
+        "ModuleDeployed"
+      ]
+    },
+    {
+      "name": "GameEngineRegistry",
+      "category": "core",
+      "source": "src/GameEngineRegistry.sol",
+      "artifact": "out/GameEngineRegistry.sol/GameEngineRegistry.json",
+      "reference_doc": "docs/reference/game-engine-registry.md",
+      "abi_path": "docs/generated/contracts/GameEngineRegistry.abi.json",
+      "functions": [
+        "getDeveloperRewardConfig",
+        "getEngineMetadata",
+        "isActive",
+        "isRegisteredForPvP",
+        "isRegisteredForSolo",
+        "isRegisteredForTournament",
+        "registerEngine",
+        "setEngineActive"
+      ],
+      "events": [
+        "EngineDeactivated",
+        "EngineRegistered"
+      ]
+    },
+    {
+      "name": "DeveloperExpressionRegistry",
+      "category": "economics",
+      "source": "src/DeveloperExpressionRegistry.sol",
+      "artifact": "out/DeveloperExpressionRegistry.sol/DeveloperExpressionRegistry.json",
+      "reference_doc": "docs/reference/developer-expression-registry.md",
+      "abi_path": "docs/generated/contracts/DeveloperExpressionRegistry.abi.json",
+      "functions": [
+        "getExpressionMetadata",
+        "isExpressionCompatible",
+        "mintExpression",
+        "setExpressionActive",
+        "supportsInterface"
+      ],
+      "events": [
+        "ExpressionActiveSet",
+        "ExpressionMinted"
+      ]
+    },
+    {
+      "name": "DeveloperRewards",
+      "category": "economics",
+      "source": "src/DeveloperRewards.sol",
+      "artifact": "out/DeveloperRewards.sol/DeveloperRewards.json",
+      "reference_doc": "docs/reference/developer-rewards.md",
+      "abi_path": "docs/generated/contracts/DeveloperRewards.abi.json",
+      "functions": [
+        "accrue",
+        "claim",
+        "closeCurrentEpoch",
+        "setEpochDuration",
+        "token"
+      ],
+      "events": [
+        "DeveloperAccrued",
+        "DeveloperClaimed",
+        "EpochClosed"
+      ]
+    },
+    {
+      "name": "ScuroToken",
+      "category": "economics",
+      "source": "src/ScuroToken.sol",
+      "artifact": "out/ScuroToken.sol/ScuroToken.json",
+      "reference_doc": "docs/reference/scuro-token.md",
+      "abi_path": "docs/generated/contracts/ScuroToken.abi.json",
+      "functions": [
+        "mint",
+        "nonces"
+      ],
+      "events": [
+
+      ]
+    },
+    {
+      "name": "ScuroStakingToken",
+      "category": "economics",
+      "source": "src/ScuroStakingToken.sol",
+      "artifact": "out/ScuroStakingToken.sol/ScuroStakingToken.json",
+      "reference_doc": "docs/reference/scuro-staking-token.md",
+      "abi_path": "docs/generated/contracts/ScuroStakingToken.abi.json",
+      "functions": [
+        "asset",
+        "nonces",
+        "stake",
+        "unstake"
+      ],
+      "events": [
+
+      ]
+    },
+    {
+      "name": "ScuroGovernor",
+      "category": "governance",
+      "source": "src/ScuroGovernor.sol",
+      "artifact": "out/ScuroGovernor.sol/ScuroGovernor.json",
+      "reference_doc": "docs/reference/scuro-governor.md",
+      "abi_path": "docs/generated/contracts/ScuroGovernor.abi.json",
+      "functions": [
+        "proposalNeedsQueuing",
+        "proposalThreshold",
+        "quorum",
+        "state",
+        "votingDelay",
+        "votingPeriod"
+      ],
+      "events": [
+
+      ]
+    },
+    {
+      "name": "NumberPickerAdapter",
+      "category": "controller",
+      "source": "src/controllers/NumberPickerAdapter.sol",
+      "artifact": "out/NumberPickerAdapter.sol/NumberPickerAdapter.json",
+      "reference_doc": "docs/reference/number-picker-adapter.md",
+      "abi_path": "docs/generated/contracts/NumberPickerAdapter.abi.json",
+      "functions": [
+        "engine",
+        "finalize",
+        "play",
+        "requestExpressionTokenId",
+        "requestSettled"
+      ],
+      "events": [
+        "PlayFinalized"
+      ]
+    },
+    {
+      "name": "TournamentController",
+      "category": "controller",
+      "source": "src/controllers/TournamentController.sol",
+      "artifact": "out/TournamentController.sol/TournamentController.json",
+      "reference_doc": "docs/reference/tournament-controller.md",
+      "abi_path": "docs/generated/contracts/TournamentController.abi.json",
+      "functions": [
+        "catalog",
+        "createTournament",
+        "engine",
+        "reportOutcome",
+        "setTournamentActive",
+        "settlement",
+        "startGameForPlayers"
+      ],
+      "events": [
+        "GameSettled",
+        "GameStarted",
+        "TournamentActiveSet",
+        "TournamentCreated"
+      ]
+    },
+    {
+      "name": "PvPController",
+      "category": "controller",
+      "source": "src/controllers/PvPController.sol",
+      "artifact": "out/PvPController.sol/PvPController.json",
+      "reference_doc": "docs/reference/pvp-controller.md",
+      "abi_path": "docs/generated/contracts/PvPController.abi.json",
+      "functions": [
+        "catalog",
+        "createSession",
+        "engine",
+        "settleSession",
+        "settlement"
+      ],
+      "events": [
+        "SessionCreated",
+        "SessionSettled"
+      ]
+    },
+    {
+      "name": "BlackjackController",
+      "category": "controller",
+      "source": "src/controllers/BlackjackController.sol",
+      "artifact": "out/BlackjackController.sol/BlackjackController.json",
+      "reference_doc": "docs/reference/blackjack-controller.md",
+      "abi_path": "docs/generated/contracts/BlackjackController.abi.json",
+      "functions": [
+        "claimPlayerTimeout",
+        "doubleDown",
+        "engine",
+        "hit",
+        "sessionExpressionTokenId",
+        "sessionSettled",
+        "settle",
+        "split",
+        "stand",
+        "startHand"
+      ],
+      "events": [
+        "HandStarted",
+        "SessionSettled"
+      ]
+    },
+    {
+      "name": "NumberPickerEngine",
+      "category": "engine",
+      "source": "src/engines/NumberPickerEngine.sol",
+      "artifact": "out/NumberPickerEngine.sol/NumberPickerEngine.json",
+      "reference_doc": "docs/reference/number-picker-engine.md",
+      "abi_path": "docs/generated/contracts/NumberPickerEngine.abi.json",
+      "functions": [
+        "catalog",
+        "engineType",
+        "getOutcome",
+        "getSettlementOutcome",
+        "rawFulfillRandomWords",
+        "requestPlay"
+      ],
+      "events": [
+        "PlayRequested",
+        "PlayResolved"
+      ]
+    },
+    {
+      "name": "SingleDeckBlackjackEngine",
+      "category": "engine",
+      "source": "src/engines/SingleDeckBlackjackEngine.sol",
+      "artifact": "out/SingleDeckBlackjackEngine.sol/SingleDeckBlackjackEngine.json",
+      "reference_doc": "docs/reference/single-deck-blackjack-engine.md",
+      "abi_path": "docs/generated/contracts/SingleDeckBlackjackEngine.abi.json",
+      "functions": [
+        "catalog",
+        "claimPlayerTimeout",
+        "declareAction",
+        "engineType",
+        "getSession",
+        "getSettlementOutcome",
+        "openSession",
+        "requiredAdditionalBurn",
+        "submitActionProof",
+        "submitInitialDealProof",
+        "submitShowdownProof"
+      ],
+      "events": [
+        "ActionDeclared",
+        "ActionResolved",
+        "InitialDealResolved",
+        "PlayerTimeoutClaimed",
+        "SessionOpened",
+        "ShowdownResolved"
+      ]
+    },
+    {
+      "name": "SingleDraw2To7Engine",
+      "category": "engine",
+      "source": "src/engines/SingleDraw2To7Engine.sol",
+      "artifact": "out/SingleDraw2To7Engine.sol/SingleDraw2To7Engine.json",
+      "reference_doc": "docs/reference/single-draw-2-7-engine.md",
+      "abi_path": "docs/generated/contracts/SingleDraw2To7Engine.abi.json",
+      "functions": [
+        "bet",
+        "catalog",
+        "claimTimeout",
+        "declareDraw",
+        "engineType",
+        "fold",
+        "getCurrentPhase",
+        "getHandState",
+        "getOutcomes",
+        "getProofDeadline",
+        "handleTimeout",
+        "initializeGame",
+        "isGameOver",
+        "submitDrawProof",
+        "submitInitialDealProof",
+        "submitShowdownProof"
+      ],
+      "events": [
+        "DrawDeclared",
+        "DrawResolved",
+        "HandAwaitingInitialDeal",
+        "PublicActionTaken",
+        "ShowdownSubmitted"
+      ]
+    },
+    {
+      "name": "PokerVerifierBundle",
+      "category": "verifier",
+      "source": "src/verifiers/PokerVerifierBundle.sol",
+      "artifact": "out/PokerVerifierBundle.sol/PokerVerifierBundle.json",
+      "reference_doc": "docs/reference/poker-verifier-bundle.md",
+      "abi_path": "docs/generated/contracts/PokerVerifierBundle.abi.json",
+      "functions": [
+        "setVerifiers",
+        "verifyDraw",
+        "verifyInitialDeal",
+        "verifyShowdown"
+      ],
+      "events": [
+
+      ]
+    },
+    {
+      "name": "BlackjackVerifierBundle",
+      "category": "verifier",
+      "source": "src/verifiers/BlackjackVerifierBundle.sol",
+      "artifact": "out/BlackjackVerifierBundle.sol/BlackjackVerifierBundle.json",
+      "reference_doc": "docs/reference/blackjack-verifier-bundle.md",
+      "abi_path": "docs/generated/contracts/BlackjackVerifierBundle.abi.json",
+      "functions": [
+        "setVerifiers",
+        "verifyAction",
+        "verifyInitialDeal",
+        "verifyShowdown"
+      ],
+      "events": [
+
+      ]
+    },
+    {
+      "name": "IScuroGameEngine",
+      "category": "interface",
+      "source": "src/interfaces/IScuroGameEngine.sol",
+      "artifact": "out/IScuroGameEngine.sol/IScuroGameEngine.json",
+      "reference_doc": "docs/reference/gameplay-interfaces.md",
+      "abi_path": "docs/generated/contracts/IScuroGameEngine.abi.json",
+      "functions": [
+        "engineType"
+      ],
+      "events": [
+
+      ]
+    },
+    {
+      "name": "ISoloLifecycleEngine",
+      "category": "interface",
+      "source": "src/interfaces/ISoloLifecycleEngine.sol",
+      "artifact": "out/ISoloLifecycleEngine.sol/ISoloLifecycleEngine.json",
+      "reference_doc": "docs/reference/gameplay-interfaces.md",
+      "abi_path": "docs/generated/contracts/ISoloLifecycleEngine.abi.json",
+      "functions": [
+        "getSettlementOutcome"
+      ],
+      "events": [
+
+      ]
+    },
+    {
+      "name": "ITournamentGameEngine",
+      "category": "interface",
+      "source": "src/interfaces/ITournamentGameEngine.sol",
+      "artifact": "out/ITournamentGameEngine.sol/ITournamentGameEngine.json",
+      "reference_doc": "docs/reference/gameplay-interfaces.md",
+      "abi_path": "docs/generated/contracts/ITournamentGameEngine.abi.json",
+      "functions": [
+        "getOutcomes",
+        "handleTimeout",
+        "initializeGame",
+        "isGameOver"
+      ],
+      "events": [
+
+      ]
+    },
+    {
+      "name": "IPokerEngine",
+      "category": "interface",
+      "source": "src/interfaces/IPokerEngine.sol",
+      "artifact": "out/IPokerEngine.sol/IPokerEngine.json",
+      "reference_doc": "docs/reference/gameplay-interfaces.md",
+      "abi_path": "docs/generated/contracts/IPokerEngine.abi.json",
+      "functions": [
+        "declareDraw",
+        "getCurrentPhase",
+        "getHandState",
+        "submitInitialDealProof"
+      ],
+      "events": [
+
+      ]
+    },
+    {
+      "name": "IPokerZKEngine",
+      "category": "interface",
+      "source": "src/interfaces/IPokerZKEngine.sol",
+      "artifact": "out/IPokerZKEngine.sol/IPokerZKEngine.json",
+      "reference_doc": "docs/reference/gameplay-interfaces.md",
+      "abi_path": "docs/generated/contracts/IPokerZKEngine.abi.json",
+      "functions": [
+        "claimTimeout",
+        "getProofDeadline",
+        "submitDrawProof",
+        "submitShowdownProof"
+      ],
+      "events": [
+
+      ]
+    },
+    {
+      "name": "IPokerVerifierBundle",
+      "category": "interface",
+      "source": "src/interfaces/IPokerVerifierBundle.sol",
+      "artifact": "out/IPokerVerifierBundle.sol/IPokerVerifierBundle.json",
+      "reference_doc": "docs/reference/proof-interfaces.md",
+      "abi_path": "docs/generated/contracts/IPokerVerifierBundle.abi.json",
+      "functions": [
+        "verifyDraw",
+        "verifyInitialDeal",
+        "verifyShowdown"
+      ],
+      "events": [
+
+      ]
+    },
+    {
+      "name": "IBlackjackVerifierBundle",
+      "category": "interface",
+      "source": "src/interfaces/IBlackjackVerifierBundle.sol",
+      "artifact": "out/IBlackjackVerifierBundle.sol/IBlackjackVerifierBundle.json",
+      "reference_doc": "docs/reference/proof-interfaces.md",
+      "abi_path": "docs/generated/contracts/IBlackjackVerifierBundle.abi.json",
+      "functions": [
+        "verifyAction",
+        "verifyInitialDeal",
+        "verifyShowdown"
+      ],
+      "events": [
+
+      ]
+    }
+  ],
+  "enum_labels": {
+    "GameCatalog.GameMode": {
+      "0": "Solo",
+      "1": "PvP",
+      "2": "Tournament"
+    },
+    "GameCatalog.ModuleStatus": {
+      "0": "LIVE",
+      "1": "RETIRED",
+      "2": "DISABLED"
+    },
+    "SingleDeckBlackjackEngine.SessionPhase": {
+      "0": "Inactive",
+      "1": "AwaitingInitialDeal",
+      "2": "AwaitingPlayerAction",
+      "3": "AwaitingCoordinator",
+      "4": "Completed"
+    },
+    "SingleDeckBlackjackEngine.Action": {
+      "1": "ACTION_HIT",
+      "2": "ACTION_STAND",
+      "3": "ACTION_DOUBLE",
+      "4": "ACTION_SPLIT"
+    },
+    "SingleDeckBlackjackEngine.ActionMask": {
+      "1": "ALLOW_HIT",
+      "2": "ALLOW_STAND",
+      "4": "ALLOW_DOUBLE",
+      "8": "ALLOW_SPLIT"
+    },
+    "SingleDraw2To7Engine.MatchState": {
+      "0": "Inactive",
+      "1": "Active",
+      "2": "Completed"
+    },
+    "SingleDraw2To7Engine.HandPhase": {
+      "0": "None",
+      "1": "AwaitingInitialDeal",
+      "2": "PreDrawBetting",
+      "3": "DrawDeclaration",
+      "4": "DrawProofPending",
+      "5": "PostDrawBetting",
+      "6": "ShowdownProofPending",
+      "7": "HandComplete"
+    }
+  },
+  "proof_inputs": {
+    "IPokerVerifierBundle.InitialDealPublicInputs": [
+      "gameId",
+      "handNumber",
+      "handNonce",
+      "deckCommitment",
+      "handCommitments",
+      "encryptionKeyCommitments",
+      "ciphertextRefs"
+    ],
+    "IPokerVerifierBundle.DrawPublicInputs": [
+      "gameId",
+      "handNumber",
+      "handNonce",
+      "playerIndex",
+      "deckCommitment",
+      "oldCommitment",
+      "newCommitment",
+      "newEncryptionKeyCommitment",
+      "newCiphertextRef",
+      "discardMask",
+      "proofSequence"
+    ],
+    "IPokerVerifierBundle.ShowdownPublicInputs": [
+      "gameId",
+      "handNumber",
+      "handNonce",
+      "handCommitments",
+      "winnerIndex",
+      "isTie"
+    ],
+    "IBlackjackVerifierBundle.InitialDealPublicInputs": [
+      "sessionId",
+      "handNonce",
+      "deckCommitment",
+      "playerStateCommitment",
+      "dealerStateCommitment",
+      "playerKeyCommitment",
+      "playerCiphertextRef",
+      "dealerCiphertextRef",
+      "dealerUpValue",
+      "handCount",
+      "activeHandIndex",
+      "payout",
+      "immediateResultCode",
+      "handValues",
+      "softMask",
+      "handStatuses",
+      "allowedActionMasks"
+    ],
+    "IBlackjackVerifierBundle.ActionPublicInputs": [
+      "sessionId",
+      "proofSequence",
+      "pendingAction",
+      "oldPlayerStateCommitment",
+      "newPlayerStateCommitment",
+      "dealerStateCommitment",
+      "playerKeyCommitment",
+      "playerCiphertextRef",
+      "dealerCiphertextRef",
+      "dealerUpValue",
+      "handCount",
+      "activeHandIndex",
+      "nextPhase",
+      "handValues",
+      "softMask",
+      "handStatuses",
+      "allowedActionMasks"
+    ],
+    "IBlackjackVerifierBundle.ShowdownPublicInputs": [
+      "sessionId",
+      "proofSequence",
+      "playerStateCommitment",
+      "dealerStateCommitment",
+      "payout",
+      "dealerFinalValue",
+      "handCount",
+      "activeHandIndex",
+      "handStatuses"
+    ]
+  },
+  "local_defaults": {
+    "number_picker": {
+      "config_hash_label": "number-picker-auto",
+      "developer_reward_bps": 500,
+      "vrf_mode": "auto-callback mock"
+    },
+    "tournament_poker": {
+      "config_hash_label": "single-draw-2-7-tournament",
+      "small_blind": 10,
+      "big_blind": 20,
+      "blind_escalation_interval": 180,
+      "action_window": 60,
+      "developer_reward_bps": 1000
+    },
+    "pvp_poker": {
+      "config_hash_label": "single-draw-2-7-pvp",
+      "small_blind": 10,
+      "big_blind": 20,
+      "blind_escalation_interval": 180,
+      "action_window": 60,
+      "developer_reward_bps": 1000
+    },
+    "blackjack": {
+      "config_hash_label": "single-deck-blackjack-zk",
+      "default_action_window": 60,
+      "developer_reward_bps": 500
+    }
+  },
+  "deployment_output_labels": {
+    "core": [
+      "ScuroToken",
+      "ScuroStakingToken",
+      "TimelockController",
+      "ScuroGovernor",
+      "GameCatalog",
+      "GameDeploymentFactory",
+      "DeveloperExpressionRegistry",
+      "DeveloperRewards",
+      "ProtocolSettlement"
+    ],
+    "controllers": [
+      "NumberPickerAdapter",
+      "TournamentController",
+      "PvPController",
+      "BlackjackController"
+    ],
+    "engines": [
+      "NumberPickerEngine",
+      "TournamentPokerEngine",
+      "PvPPokerEngine",
+      "SingleDeckBlackjackEngine"
+    ],
+    "verifiers": [
+      "TournamentPokerVerifierBundle",
+      "PvPPokerVerifierBundle",
+      "BlackjackVerifierBundle"
+    ],
+    "module_ids": [
+      "NumberPickerModuleId",
+      "TournamentPokerModuleId",
+      "PvPPokerModuleId",
+      "BlackjackModuleId"
+    ],
+    "actors": [
+      "Admin",
+      "Player1",
+      "Player2",
+      "SoloDeveloper",
+      "PokerDeveloper"
+    ],
+    "expressions": [
+      "NumberPickerExpressionTokenId",
+      "PokerExpressionTokenId",
+      "BlackjackExpressionTokenId"
+    ]
+  }
+}

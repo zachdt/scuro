@@ -6,16 +6,20 @@ import {IPokerEngine} from "../interfaces/IPokerEngine.sol";
 import {IPokerVerifierBundle} from "../interfaces/IPokerVerifierBundle.sol";
 import {IPokerZKEngine} from "../interfaces/IPokerZKEngine.sol";
 
+/// @title Single draw 2-7 poker engine
+/// @notice Manages heads-up poker games, hand phases, coordinator proofs, and final match outcomes.
 contract SingleDraw2To7Engine is IPokerZKEngine {
     bytes32 public constant ENGINE_TYPE = keccak256("POKER_2_7_SINGLE_DRAW");
     uint8 internal constant COORDINATOR_ACTOR = type(uint8).max;
 
+    /// @notice Match lifecycle values exposed to clients as raw `uint8` data.
     enum MatchState {
         Inactive,
         Active,
         Completed
     }
 
+    /// @notice Hand lifecycle values exposed to clients as raw `uint8` data.
     enum HandPhase {
         None,
         AwaitingInitialDeal,
@@ -27,6 +31,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         HandComplete
     }
 
+    /// @notice Mutable state for one player in a poker game.
     struct PlayerState {
         address addr;
         uint256 stack;
@@ -35,6 +40,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         bool hasActed;
     }
 
+    /// @notice Full game state stored for a poker match.
     struct Game {
         MatchState matchState;
         uint256 buyIn;
@@ -67,10 +73,15 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
 
     mapping(uint256 => Game) public games;
 
+    /// @notice Emitted when a new hand is ready for its initial-deal proof.
     event HandAwaitingInitialDeal(uint256 indexed gameId, uint256 indexed handNumber);
+    /// @notice Emitted when a player takes a public betting or checking action.
     event PublicActionTaken(uint256 indexed gameId, address indexed player, uint8 phase, uint256 amount);
+    /// @notice Emitted when a player declares their draw mask.
     event DrawDeclared(uint256 indexed gameId, address indexed player, uint8 discardMask);
+    /// @notice Emitted when a draw proof updates a player's encrypted hand commitment.
     event DrawResolved(uint256 indexed gameId, address indexed player, bytes32 newCommitment);
+    /// @notice Emitted when a showdown proof completes a hand.
     event ShowdownSubmitted(uint256 indexed gameId, address indexed submitter, address indexed winner, bool isTie);
 
     modifier onlyController(uint256 gameId) {
@@ -86,6 +97,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         _;
     }
 
+    /// @notice Initializes the engine with blind, timeout, verifier, and coordinator defaults.
     constructor(
         address catalogAddress,
         uint256 smallBlind,
@@ -104,14 +116,17 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         HAND_COORDINATOR = handCoordinator;
     }
 
+    /// @notice Returns the catalog used for controller authorization and lifecycle gating.
     function catalog() public view returns (GameCatalog) {
         return CATALOG;
     }
 
+    /// @notice Returns the engine type tag for the single-draw 2-7 poker family.
     function engineType() external pure override returns (bytes32) {
         return ENGINE_TYPE;
     }
 
+    /// @notice Initializes a new heads-up poker match on behalf of an authorized controller.
     function initializeGame(
         uint256 gameId,
         address[] calldata players,
@@ -141,6 +156,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         _startNextHand(gameId, game);
     }
 
+    /// @notice Applies a public betting or checking action during a betting phase.
     function bet(uint256 gameId, uint256 amount) external {
         _requireSettlableModule();
 
@@ -175,6 +191,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         _advanceAfterBettingAction(game, false);
     }
 
+    /// @notice Folds the current player's hand and awards the pot to the opponent.
     function fold(uint256 gameId) external {
         _requireSettlableModule();
 
@@ -192,6 +209,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         _completeHand(gameId, game, game.players[1 - game.currentTurn].addr, false);
     }
 
+    /// @notice Applies the coordinator initial-deal proof for the active hand.
     function submitInitialDealProof(
         uint256 gameId,
         bytes32 deckCommitment,
@@ -254,6 +272,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         game.hand.expectedActor = uint8(game.currentTurn);
     }
 
+    /// @notice Declares the discard mask for the current player during the draw phase.
     function declareDraw(uint256 gameId, uint8[] calldata cardIndices) external override {
         _requireSettlableModule();
         _declareDraw(gameId, cardIndices);
@@ -285,6 +304,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         }
     }
 
+    /// @notice Applies a draw-resolution proof for one player.
     function submitDrawProof(
         uint256 gameId,
         address player,
@@ -352,6 +372,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         }
     }
 
+    /// @notice Applies a showdown proof and completes the current hand.
     function submitShowdownProof(uint256 gameId, address winnerAddr, bool isTie, bytes calldata proof)
         external
         override
@@ -382,6 +403,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         _completeHand(gameId, game, winnerAddr, isTie);
     }
 
+    /// @notice Claims a timeout during an active player-clock phase.
     function claimTimeout(uint256 gameId) external override {
         _requireSettlableModule();
 
@@ -391,6 +413,7 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         _completeHand(gameId, game, game.players[1 - game.currentTurn].addr, false);
     }
 
+    /// @notice Allows the registered controller to force-resolve an expired player action.
     function handleTimeout(uint256 gameId, address player) external override onlyController(gameId) {
         _requireSettlableModule();
 
@@ -401,10 +424,12 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         _completeHand(gameId, game, game.players[1 - game.currentTurn].addr, false);
     }
 
+    /// @notice Returns whether the match is complete and ready for controller settlement.
     function isGameOver(uint256 gameId) public view override returns (bool isOver) {
         return games[gameId].matchState == MatchState.Completed;
     }
 
+    /// @notice Returns the winners and payouts for a completed match.
     function getOutcomes(uint256 gameId)
         external
         view
@@ -429,14 +454,17 @@ contract SingleDraw2To7Engine is IPokerZKEngine {
         }
     }
 
+    /// @notice Returns the current hand-state snapshot for the supplied game.
     function getHandState(uint256 gameId) external view override returns (HandStateView memory) {
         return games[gameId].hand;
     }
 
+    /// @notice Returns the current hand phase as a raw enum-backed value.
     function getCurrentPhase(uint256 gameId) external view override returns (uint8) {
         return games[gameId].hand.handPhase;
     }
 
+    /// @notice Returns the current player deadline for the active hand phase.
     function getProofDeadline(uint256 gameId) external view override returns (uint256) {
         return games[gameId].hand.deadlineAt;
     }

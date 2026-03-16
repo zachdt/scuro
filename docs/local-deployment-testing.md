@@ -64,6 +64,13 @@ forge test --match-path 'test/e2e/*.t.sol' --offline
 
 # Perform a targeted contract test
 forge test --match-path 'test/ProtocolCore.t.sol' --offline
+
+# Regenerate SDK-facing protocol metadata
+ruby script/docs/generate_protocol_docs_metadata.rb
+
+# Validate docs coverage, generated metadata, and the Node smoke consumer
+ruby script/docs/check_sdk_docs_coverage.rb
+node script/docs/smoke_manifest_node.mjs
 ```
 
 ### Integration Smoke Test

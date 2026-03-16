@@ -4,6 +4,8 @@
 /.env
 /.env.*
 /archive/
+/reference/
+/target/
 /zk/node_modules/
 /zk/.cache/
 /zk/tmp/

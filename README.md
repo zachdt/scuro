@@ -47,6 +47,10 @@ For detailed setup instructions and ZK artifact guidance, see [Local Deployment 
 ## Documentation Map
 
 - **[Docs Index](./docs/README.md)**: Your entry point to the full documentation suite.
+- **[Concepts Lane](./docs/concepts/README.md)**: Canonical terminology, enum mappings, event indexing, and deployment metadata for SDK authors.
+- **[Reference Lane](./docs/reference/README.md)**: Contract-by-contract API reference for core services, controllers, engines, and proof bundles.
+- **[Integration Lane](./docs/integration/README.md)**: Transaction playbooks for Node and Rust API implementers.
+- **[Generated Metadata](./docs/generated/README.md)**: Machine-readable manifest, ABIs, event signatures, and proof-input field maps.
 - **[Protocol Architecture](./docs/protocol-architecture.md)**: Deep dive into the system design, component layers, and code map.
 - **[Game Module User Flows](./docs/game-module-user-flows.md)**: Detailed per-module sequence diagrams for the shipped gameplay controllers and engines.
 - **[Local Deployment](./docs/local-deployment-testing.md)**: Technical guide for environment setup, building, and running tests.

@@ -1,0 +1,200 @@
+[
+  {
+    "type": "function",
+    "name": "verifyDraw",
+    "inputs": [
+      {
+        "name": "proof",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "inputs",
+        "type": "tuple",
+        "internalType": "struct IPokerVerifierBundle.DrawPublicInputs",
+        "components": [
+          {
+            "name": "gameId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "handNumber",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "handNonce",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "playerIndex",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "deckCommitment",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "oldCommitment",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "newCommitment",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "newEncryptionKeyCommitment",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "newCiphertextRef",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "discardMask",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "proofSequence",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "verifyInitialDeal",
+    "inputs": [
+      {
+        "name": "proof",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "inputs",
+        "type": "tuple",
+        "internalType": "struct IPokerVerifierBundle.InitialDealPublicInputs",
+        "components": [
+          {
+            "name": "gameId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "handNumber",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "handNonce",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "deckCommitment",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "handCommitments",
+            "type": "uint256[2]",
+            "internalType": "uint256[2]"
+          },
+          {
+            "name": "encryptionKeyCommitments",
+            "type": "uint256[2]",
+            "internalType": "uint256[2]"
+          },
+          {
+            "name": "ciphertextRefs",
+            "type": "uint256[2]",
+            "internalType": "uint256[2]"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "verifyShowdown",
+    "inputs": [
+      {
+        "name": "proof",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "inputs",
+        "type": "tuple",
+        "internalType": "struct IPokerVerifierBundle.ShowdownPublicInputs",
+        "components": [
+          {
+            "name": "gameId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "handNumber",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "handNonce",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "handCommitments",
+            "type": "uint256[2]",
+            "internalType": "uint256[2]"
+          },
+          {
+            "name": "winnerIndex",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "isTie",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  }
+]

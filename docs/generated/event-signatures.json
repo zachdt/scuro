@@ -1,0 +1,519 @@
+{
+  "ProtocolSettlement": [
+    {
+      "name": "DeveloperAccrualRecorded",
+      "signature": "DeveloperAccrualRecorded(address,uint256,address,uint256,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "PlayerRewardMinted",
+      "signature": "PlayerRewardMinted(address,uint256,address)",
+      "anonymous": false
+    },
+    {
+      "name": "PlayerWagerBurned",
+      "signature": "PlayerWagerBurned(address,uint256,address)",
+      "anonymous": false
+    }
+  ],
+  "GameCatalog": [
+    {
+      "name": "ModuleRegistered",
+      "signature": "ModuleRegistered(uint256,uint8,address,address,bytes32,address,bytes32,uint16,uint8)",
+      "anonymous": false
+    },
+    {
+      "name": "ModuleStatusUpdated",
+      "signature": "ModuleStatusUpdated(uint256,uint8)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleAdminChanged",
+      "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleGranted",
+      "signature": "RoleGranted(bytes32,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleRevoked",
+      "signature": "RoleRevoked(bytes32,address,address)",
+      "anonymous": false
+    }
+  ],
+  "GameDeploymentFactory": [
+    {
+      "name": "ModuleDeployed",
+      "signature": "ModuleDeployed(uint256,uint8,uint8,address,address,address,bytes32)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleAdminChanged",
+      "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleGranted",
+      "signature": "RoleGranted(bytes32,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleRevoked",
+      "signature": "RoleRevoked(bytes32,address,address)",
+      "anonymous": false
+    }
+  ],
+  "GameEngineRegistry": [
+    {
+      "name": "EngineDeactivated",
+      "signature": "EngineDeactivated(address,bool)",
+      "anonymous": false
+    },
+    {
+      "name": "EngineRegistered",
+      "signature": "EngineRegistered(address,bytes32,uint16)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleAdminChanged",
+      "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleGranted",
+      "signature": "RoleGranted(bytes32,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleRevoked",
+      "signature": "RoleRevoked(bytes32,address,address)",
+      "anonymous": false
+    }
+  ],
+  "DeveloperExpressionRegistry": [
+    {
+      "name": "Approval",
+      "signature": "Approval(address,address,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "ApprovalForAll",
+      "signature": "ApprovalForAll(address,address,bool)",
+      "anonymous": false
+    },
+    {
+      "name": "BatchMetadataUpdate",
+      "signature": "BatchMetadataUpdate(uint256,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "ExpressionActiveSet",
+      "signature": "ExpressionActiveSet(uint256,bool)",
+      "anonymous": false
+    },
+    {
+      "name": "ExpressionMinted",
+      "signature": "ExpressionMinted(uint256,bytes32,address,bytes32,string)",
+      "anonymous": false
+    },
+    {
+      "name": "MetadataUpdate",
+      "signature": "MetadataUpdate(uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleAdminChanged",
+      "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleGranted",
+      "signature": "RoleGranted(bytes32,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleRevoked",
+      "signature": "RoleRevoked(bytes32,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "Transfer",
+      "signature": "Transfer(address,address,uint256)",
+      "anonymous": false
+    }
+  ],
+  "DeveloperRewards": [
+    {
+      "name": "DeveloperAccrued",
+      "signature": "DeveloperAccrued(uint256,address,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "DeveloperClaimed",
+      "signature": "DeveloperClaimed(uint256,address,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "EpochClosed",
+      "signature": "EpochClosed(uint256,uint256,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleAdminChanged",
+      "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleGranted",
+      "signature": "RoleGranted(bytes32,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleRevoked",
+      "signature": "RoleRevoked(bytes32,address,address)",
+      "anonymous": false
+    }
+  ],
+  "ScuroToken": [
+    {
+      "name": "Approval",
+      "signature": "Approval(address,address,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "DelegateChanged",
+      "signature": "DelegateChanged(address,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "DelegateVotesChanged",
+      "signature": "DelegateVotesChanged(address,uint256,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "EIP712DomainChanged",
+      "signature": "EIP712DomainChanged()",
+      "anonymous": false
+    },
+    {
+      "name": "RoleAdminChanged",
+      "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleGranted",
+      "signature": "RoleGranted(bytes32,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleRevoked",
+      "signature": "RoleRevoked(bytes32,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "Transfer",
+      "signature": "Transfer(address,address,uint256)",
+      "anonymous": false
+    }
+  ],
+  "ScuroStakingToken": [
+    {
+      "name": "Approval",
+      "signature": "Approval(address,address,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "DelegateChanged",
+      "signature": "DelegateChanged(address,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "DelegateVotesChanged",
+      "signature": "DelegateVotesChanged(address,uint256,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "EIP712DomainChanged",
+      "signature": "EIP712DomainChanged()",
+      "anonymous": false
+    },
+    {
+      "name": "Transfer",
+      "signature": "Transfer(address,address,uint256)",
+      "anonymous": false
+    }
+  ],
+  "ScuroGovernor": [
+    {
+      "name": "EIP712DomainChanged",
+      "signature": "EIP712DomainChanged()",
+      "anonymous": false
+    },
+    {
+      "name": "ProposalCanceled",
+      "signature": "ProposalCanceled(uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "ProposalCreated",
+      "signature": "ProposalCreated(uint256,address,address[],uint256[],string[],bytes[],uint256,uint256,string)",
+      "anonymous": false
+    },
+    {
+      "name": "ProposalExecuted",
+      "signature": "ProposalExecuted(uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "ProposalQueued",
+      "signature": "ProposalQueued(uint256,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "ProposalThresholdSet",
+      "signature": "ProposalThresholdSet(uint256,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "QuorumNumeratorUpdated",
+      "signature": "QuorumNumeratorUpdated(uint256,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "TimelockChange",
+      "signature": "TimelockChange(address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "VoteCast",
+      "signature": "VoteCast(address,uint256,uint8,uint256,string)",
+      "anonymous": false
+    },
+    {
+      "name": "VoteCastWithParams",
+      "signature": "VoteCastWithParams(address,uint256,uint8,uint256,string,bytes)",
+      "anonymous": false
+    },
+    {
+      "name": "VotingDelaySet",
+      "signature": "VotingDelaySet(uint256,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "VotingPeriodSet",
+      "signature": "VotingPeriodSet(uint256,uint256)",
+      "anonymous": false
+    }
+  ],
+  "NumberPickerAdapter": [
+    {
+      "name": "PlayFinalized",
+      "signature": "PlayFinalized(uint256,address,uint256,uint256,uint256,bool)",
+      "anonymous": false
+    }
+  ],
+  "TournamentController": [
+    {
+      "name": "GameSettled",
+      "signature": "GameSettled(uint256,address,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "GameStarted",
+      "signature": "GameStarted(uint256,uint256,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleAdminChanged",
+      "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleGranted",
+      "signature": "RoleGranted(bytes32,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleRevoked",
+      "signature": "RoleRevoked(bytes32,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "TournamentActiveSet",
+      "signature": "TournamentActiveSet(uint256,bool)",
+      "anonymous": false
+    },
+    {
+      "name": "TournamentCreated",
+      "signature": "TournamentCreated(uint256,address,uint256,uint256,uint256)",
+      "anonymous": false
+    }
+  ],
+  "PvPController": [
+    {
+      "name": "RoleAdminChanged",
+      "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleGranted",
+      "signature": "RoleGranted(bytes32,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleRevoked",
+      "signature": "RoleRevoked(bytes32,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "SessionCreated",
+      "signature": "SessionCreated(uint256,address,uint256,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "SessionSettled",
+      "signature": "SessionSettled(uint256,address,uint256)",
+      "anonymous": false
+    }
+  ],
+  "BlackjackController": [
+    {
+      "name": "HandStarted",
+      "signature": "HandStarted(uint256,address,uint256,uint256,bytes32)",
+      "anonymous": false
+    },
+    {
+      "name": "SessionSettled",
+      "signature": "SessionSettled(uint256,address,uint256,uint256,uint256)",
+      "anonymous": false
+    }
+  ],
+  "NumberPickerEngine": [
+    {
+      "name": "PlayRequested",
+      "signature": "PlayRequested(uint256,address,bytes32,uint256,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "PlayResolved",
+      "signature": "PlayResolved(uint256,address,uint256,uint256,bool)",
+      "anonymous": false
+    }
+  ],
+  "SingleDeckBlackjackEngine": [
+    {
+      "name": "ActionDeclared",
+      "signature": "ActionDeclared(uint256,address,uint8,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "ActionResolved",
+      "signature": "ActionResolved(uint256,uint8,uint8)",
+      "anonymous": false
+    },
+    {
+      "name": "InitialDealResolved",
+      "signature": "InitialDealResolved(uint256,bytes32,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "PlayerTimeoutClaimed",
+      "signature": "PlayerTimeoutClaimed(uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "SessionOpened",
+      "signature": "SessionOpened(uint256,address,uint256,bytes32)",
+      "anonymous": false
+    },
+    {
+      "name": "ShowdownResolved",
+      "signature": "ShowdownResolved(uint256,uint256)",
+      "anonymous": false
+    }
+  ],
+  "SingleDraw2To7Engine": [
+    {
+      "name": "DrawDeclared",
+      "signature": "DrawDeclared(uint256,address,uint8)",
+      "anonymous": false
+    },
+    {
+      "name": "DrawResolved",
+      "signature": "DrawResolved(uint256,address,bytes32)",
+      "anonymous": false
+    },
+    {
+      "name": "HandAwaitingInitialDeal",
+      "signature": "HandAwaitingInitialDeal(uint256,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "PublicActionTaken",
+      "signature": "PublicActionTaken(uint256,address,uint8,uint256)",
+      "anonymous": false
+    },
+    {
+      "name": "ShowdownSubmitted",
+      "signature": "ShowdownSubmitted(uint256,address,address,bool)",
+      "anonymous": false
+    }
+  ],
+  "PokerVerifierBundle": [
+    {
+      "name": "RoleAdminChanged",
+      "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleGranted",
+      "signature": "RoleGranted(bytes32,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleRevoked",
+      "signature": "RoleRevoked(bytes32,address,address)",
+      "anonymous": false
+    }
+  ],
+  "BlackjackVerifierBundle": [
+    {
+      "name": "RoleAdminChanged",
+      "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleGranted",
+      "signature": "RoleGranted(bytes32,address,address)",
+      "anonymous": false
+    },
+    {
+      "name": "RoleRevoked",
+      "signature": "RoleRevoked(bytes32,address,address)",
+      "anonymous": false
+    }
+  ],
+  "IScuroGameEngine": [
+
+  ],
+  "ISoloLifecycleEngine": [
+
+  ],
+  "ITournamentGameEngine": [
+
+  ],
+  "IPokerEngine": [
+
+  ],
+  "IPokerZKEngine": [
+
+  ],
+  "IPokerVerifierBundle": [
+
+  ],
+  "IBlackjackVerifierBundle": [
+
+  ]
+}

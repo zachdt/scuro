@@ -4,9 +4,12 @@ pragma solidity ^0.8.24;
 import {GameCatalog} from "../GameCatalog.sol";
 import {ISoloLifecycleEngine} from "../interfaces/ISoloLifecycleEngine.sol";
 
+/// @title NumberPicker engine
+/// @notice Tracks NumberPicker request state and payout logic while delegating value movement to controllers.
 contract NumberPickerEngine is ISoloLifecycleEngine {
     bytes32 public constant ENGINE_TYPE = keccak256("NUMBER_PICKER");
 
+    /// @notice Stored state for an individual NumberPicker request.
     struct PlayRequest {
         address player;
         uint256 wager;
@@ -26,6 +29,7 @@ contract NumberPickerEngine is ISoloLifecycleEngine {
 
     mapping(uint256 => PlayRequest) public playRequests;
 
+    /// @notice Emitted when the controller requests a new NumberPicker round.
     event PlayRequested(
         uint256 indexed requestId,
         address indexed player,
@@ -33,6 +37,7 @@ contract NumberPickerEngine is ISoloLifecycleEngine {
         uint256 wager,
         uint256 selection
     );
+    /// @notice Emitted when the VRF callback resolves a NumberPicker round.
     event PlayResolved(
         uint256 indexed requestId,
         address indexed player,
@@ -41,19 +46,23 @@ contract NumberPickerEngine is ISoloLifecycleEngine {
         bool isWin
     );
 
+    /// @notice Initializes the engine with the catalog and VRF coordinator address.
     constructor(address catalogAddress, address vrfCoordinatorAddress) {
         CATALOG = GameCatalog(catalogAddress);
         vrfCoordinator = vrfCoordinatorAddress;
     }
 
+    /// @notice Returns the catalog used for controller authorization and lifecycle gating.
     function catalog() public view returns (GameCatalog) {
         return CATALOG;
     }
 
+    /// @notice Returns the engine type tag for NumberPicker.
     function engineType() external pure returns (bytes32) {
         return ENGINE_TYPE;
     }
 
+    /// @notice Opens a new NumberPicker request on behalf of an authorized controller.
     function requestPlay(
         address player,
         uint256 wager,
@@ -85,6 +94,7 @@ contract NumberPickerEngine is ISoloLifecycleEngine {
         require(actualId == requestId, "NumberPicker: request mismatch");
     }
 
+    /// @notice Resolves a pending request when called by the configured VRF coordinator.
     function rawFulfillRandomWords(uint256 requestId, uint256[] memory randomWords) external {
         require(CATALOG.isSettlableEngine(address(this)), "NumberPicker: module inactive");
         require(msg.sender == vrfCoordinator, "NumberPicker: bad coordinator");
@@ -108,6 +118,7 @@ contract NumberPickerEngine is ISoloLifecycleEngine {
         emit PlayResolved(requestId, playRequest.player, rollResult, payout, isWin);
     }
 
+    /// @notice Returns the full request outcome for client inspection.
     function getOutcome(uint256 requestId)
         external
         view
@@ -133,6 +144,7 @@ contract NumberPickerEngine is ISoloLifecycleEngine {
         );
     }
 
+    /// @notice Returns the normalized solo-settlement tuple for a request id.
     function getSettlementOutcome(uint256 requestId)
         external
         view

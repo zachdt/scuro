@@ -5,6 +5,8 @@ import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessContr
 import {IBlackjackVerifierBundle} from "../interfaces/IBlackjackVerifierBundle.sol";
 import {Groth16ProofCodec} from "../libraries/Groth16ProofCodec.sol";
 
+/// @title Blackjack verifier bundle
+/// @notice Decodes blackjack proof blobs and dispatches them to generated verifier contracts.
 contract BlackjackVerifierBundle is AccessControl, IBlackjackVerifierBundle {
     using Groth16ProofCodec for bytes;
 
@@ -14,6 +16,7 @@ contract BlackjackVerifierBundle is AccessControl, IBlackjackVerifierBundle {
     address public actionVerifier;
     address public showdownVerifier;
 
+    /// @notice Initializes the bundle and grants verifier-config rights to the admin.
     constructor(address admin, address initialDealVerifierAddress, address actionVerifierAddress, address showdownVerifierAddress) {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(CONFIG_ROLE, admin);
@@ -22,6 +25,7 @@ contract BlackjackVerifierBundle is AccessControl, IBlackjackVerifierBundle {
         showdownVerifier = showdownVerifierAddress;
     }
 
+    /// @notice Rotates the generated verifier contract addresses used by the bundle.
     function setVerifiers(address initialDealVerifierAddress, address actionVerifierAddress, address showdownVerifierAddress)
         external
         onlyRole(CONFIG_ROLE)
@@ -31,6 +35,7 @@ contract BlackjackVerifierBundle is AccessControl, IBlackjackVerifierBundle {
         showdownVerifier = showdownVerifierAddress;
     }
 
+    /// @notice Verifies a blackjack initial-deal proof.
     function verifyInitialDeal(bytes calldata proofData, InitialDealPublicInputs calldata inputs)
         external
         view
@@ -69,6 +74,7 @@ contract BlackjackVerifierBundle is AccessControl, IBlackjackVerifierBundle {
         return _verify26(initialDealVerifier, proof, signals);
     }
 
+    /// @notice Verifies a blackjack action-resolution proof.
     function verifyAction(bytes calldata proofData, ActionPublicInputs calldata inputs) external view override returns (bool) {
         Groth16ProofCodec.Groth16Proof memory proof = proofData.decode();
         uint256[26] memory signals = [
@@ -102,6 +108,7 @@ contract BlackjackVerifierBundle is AccessControl, IBlackjackVerifierBundle {
         return _verify26(actionVerifier, proof, signals);
     }
 
+    /// @notice Verifies a blackjack showdown proof.
     function verifyShowdown(bytes calldata proofData, ShowdownPublicInputs calldata inputs)
         external
         view

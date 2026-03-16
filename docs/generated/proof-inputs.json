@@ -1,0 +1,81 @@
+{
+  "IPokerVerifierBundle.InitialDealPublicInputs": [
+    "gameId",
+    "handNumber",
+    "handNonce",
+    "deckCommitment",
+    "handCommitments",
+    "encryptionKeyCommitments",
+    "ciphertextRefs"
+  ],
+  "IPokerVerifierBundle.DrawPublicInputs": [
+    "gameId",
+    "handNumber",
+    "handNonce",
+    "playerIndex",
+    "deckCommitment",
+    "oldCommitment",
+    "newCommitment",
+    "newEncryptionKeyCommitment",
+    "newCiphertextRef",
+    "discardMask",
+    "proofSequence"
+  ],
+  "IPokerVerifierBundle.ShowdownPublicInputs": [
+    "gameId",
+    "handNumber",
+    "handNonce",
+    "handCommitments",
+    "winnerIndex",
+    "isTie"
+  ],
+  "IBlackjackVerifierBundle.InitialDealPublicInputs": [
+    "sessionId",
+    "handNonce",
+    "deckCommitment",
+    "playerStateCommitment",
+    "dealerStateCommitment",
+    "playerKeyCommitment",
+    "playerCiphertextRef",
+    "dealerCiphertextRef",
+    "dealerUpValue",
+    "handCount",
+    "activeHandIndex",
+    "payout",
+    "immediateResultCode",
+    "handValues",
+    "softMask",
+    "handStatuses",
+    "allowedActionMasks"
+  ],
+  "IBlackjackVerifierBundle.ActionPublicInputs": [
+    "sessionId",
+    "proofSequence",
+    "pendingAction",
+    "oldPlayerStateCommitment",
+    "newPlayerStateCommitment",
+    "dealerStateCommitment",
+    "playerKeyCommitment",
+    "playerCiphertextRef",
+    "dealerCiphertextRef",
+    "dealerUpValue",
+    "handCount",
+    "activeHandIndex",
+    "nextPhase",
+    "handValues",
+    "softMask",
+    "handStatuses",
+    "allowedActionMasks"
+  ],
+  "IBlackjackVerifierBundle.ShowdownPublicInputs": [
+    "sessionId",
+    "proofSequence",
+    "playerStateCommitment",
+    "dealerStateCommitment",
+    "payout",
+    "dealerFinalValue",
+    "handCount",
+    "activeHandIndex",
+    "handStatuses"
+  ]
+}

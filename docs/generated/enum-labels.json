@@ -1,0 +1,46 @@
+{
+  "GameCatalog.GameMode": {
+    "0": "Solo",
+    "1": "PvP",
+    "2": "Tournament"
+  },
+  "GameCatalog.ModuleStatus": {
+    "0": "LIVE",
+    "1": "RETIRED",
+    "2": "DISABLED"
+  },
+  "SingleDeckBlackjackEngine.SessionPhase": {
+    "0": "Inactive",
+    "1": "AwaitingInitialDeal",
+    "2": "AwaitingPlayerAction",
+    "3": "AwaitingCoordinator",
+    "4": "Completed"
+  },
+  "SingleDeckBlackjackEngine.Action": {
+    "1": "ACTION_HIT",
+    "2": "ACTION_STAND",
+    "3": "ACTION_DOUBLE",
+    "4": "ACTION_SPLIT"
+  },
+  "SingleDeckBlackjackEngine.ActionMask": {
+    "1": "ALLOW_HIT",
+    "2": "ALLOW_STAND",
+    "4": "ALLOW_DOUBLE",
+    "8": "ALLOW_SPLIT"
+  },
+  "SingleDraw2To7Engine.MatchState": {
+    "0": "Inactive",
+    "1": "Active",
+    "2": "Completed"
+  },
+  "SingleDraw2To7Engine.HandPhase": {
+    "0": "None",
+    "1": "AwaitingInitialDeal",
+    "2": "PreDrawBetting",
+    "3": "DrawDeclaration",
+    "4": "DrawProofPending",
+    "5": "PostDrawBetting",
+    "6": "ShowdownProofPending",
+    "7": "HandComplete"
+  }
+}
