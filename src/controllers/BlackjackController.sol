@@ -5,9 +5,12 @@ import {BaseSoloController} from "./BaseSoloController.sol";
 import {SingleDeckBlackjackEngine} from "../engines/SingleDeckBlackjackEngine.sol";
 import {ISoloLifecycleEngine} from "../interfaces/ISoloLifecycleEngine.sol";
 
+/// @title Blackjack controller
+/// @notice Opens blackjack sessions, forwards player actions, and settles completed sessions.
 contract BlackjackController is BaseSoloController {
     SingleDeckBlackjackEngine internal immutable ENGINE;
 
+    /// @notice Emitted when a new blackjack session is created.
     event HandStarted(
         uint256 indexed sessionId,
         address indexed player,
@@ -15,6 +18,7 @@ contract BlackjackController is BaseSoloController {
         uint256 wager,
         bytes32 playRef
     );
+    /// @notice Emitted when a completed blackjack session is settled through the controller.
     event SessionSettled(
         uint256 indexed sessionId,
         address indexed player,
@@ -23,24 +27,29 @@ contract BlackjackController is BaseSoloController {
         uint256 totalBurned
     );
 
+    /// @notice Initializes the controller with settlement, catalog, and engine addresses.
     constructor(address settlementAddress, address catalogAddress, address engineAddress)
         BaseSoloController(settlementAddress, catalogAddress, engineAddress)
     {
         ENGINE = SingleDeckBlackjackEngine(engineAddress);
     }
 
+    /// @notice Returns the concrete blackjack engine.
     function engine() public view returns (SingleDeckBlackjackEngine) {
         return ENGINE;
     }
 
+    /// @notice Returns whether the session has already been settled.
     function sessionSettled(uint256 sessionId) public view returns (bool) {
         return _isSettled(sessionId);
     }
 
+    /// @notice Returns the expression token id associated with the session.
     function sessionExpressionTokenId(uint256 sessionId) public view returns (uint256) {
         return _expressionTokenId(sessionId);
     }
 
+    /// @notice Opens a blackjack session for the caller.
     function startHand(uint256 wager, bytes32 playRef, bytes32 playerKeyCommitment, uint256 expressionTokenId)
         external
         returns (uint256 sessionId)
@@ -52,27 +61,33 @@ contract BlackjackController is BaseSoloController {
         emit HandStarted(sessionId, msg.sender, expressionTokenId, wager, playRef);
     }
 
+    /// @notice Declares a hit action for the caller.
     function hit(uint256 sessionId) external {
         _declareAction(msg.sender, sessionId, ENGINE.ACTION_HIT());
     }
 
+    /// @notice Declares a stand action for the caller.
     function stand(uint256 sessionId) external {
         _declareAction(msg.sender, sessionId, ENGINE.ACTION_STAND());
     }
 
+    /// @notice Declares a double-down action for the caller.
     function doubleDown(uint256 sessionId) external {
         _declareAction(msg.sender, sessionId, ENGINE.ACTION_DOUBLE());
     }
 
+    /// @notice Declares a split action for the caller.
     function split(uint256 sessionId) external {
         _declareAction(msg.sender, sessionId, ENGINE.ACTION_SPLIT());
     }
 
+    /// @notice Forces a stand after the player action window has expired.
     function claimPlayerTimeout(uint256 sessionId) external {
         _requireSettlable("BlackjackController: module inactive");
         ENGINE.claimPlayerTimeout(sessionId);
     }
 
+    /// @notice Settles a completed blackjack session.
     function settle(uint256 sessionId) external {
         _requireSettlable("BlackjackController: module inactive");
         _markSettled(sessionId, "BlackjackController: settled");

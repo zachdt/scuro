@@ -7,9 +7,12 @@ import {GameCatalog} from "../GameCatalog.sol";
 import {ProtocolSettlement} from "../ProtocolSettlement.sol";
 import {ITournamentGameEngine} from "../interfaces/ITournamentGameEngine.sol";
 
+/// @title PvP poker controller
+/// @notice Launches single-session heads-up matches and settles them through shared settlement.
 contract PvPController is AccessControl, ReentrancyGuard {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
+    /// @notice Stored metadata for a PvP session.
     struct Session {
         bool active;
         address player1;
@@ -27,6 +30,7 @@ contract PvPController is AccessControl, ReentrancyGuard {
     mapping(uint256 => Session) public sessions;
     mapping(uint256 => bool) public sessionSettled;
 
+    /// @notice Emitted when a new PvP session is created.
     event SessionCreated(
         uint256 indexed sessionId,
         address indexed engine,
@@ -34,8 +38,10 @@ contract PvPController is AccessControl, ReentrancyGuard {
         address player1,
         address player2
     );
+    /// @notice Emitted when a completed PvP session is settled.
     event SessionSettled(uint256 indexed sessionId, address indexed engine, uint256 indexed expressionTokenId);
 
+    /// @notice Initializes the controller and grants operator permissions to the admin.
     constructor(address admin, address settlementAddress, address catalogAddress, address engineAddress) {
         SETTLEMENT = ProtocolSettlement(settlementAddress);
         CATALOG = GameCatalog(catalogAddress);
@@ -44,18 +50,22 @@ contract PvPController is AccessControl, ReentrancyGuard {
         _grantRole(OPERATOR_ROLE, admin);
     }
 
+    /// @notice Returns the shared settlement contract.
     function settlement() public view returns (ProtocolSettlement) {
         return SETTLEMENT;
     }
 
+    /// @notice Returns the shared module catalog.
     function catalog() public view returns (GameCatalog) {
         return CATALOG;
     }
 
+    /// @notice Returns the competitive engine controlled by this controller.
     function engine() public view returns (ITournamentGameEngine) {
         return ENGINE;
     }
 
+    /// @notice Creates a new PvP session and initializes the engine state.
     function createSession(
         address player1,
         address player2,
@@ -94,6 +104,7 @@ contract PvPController is AccessControl, ReentrancyGuard {
         emit SessionCreated(sessionId, address(ENGINE), expressionTokenId, player1, player2);
     }
 
+    /// @notice Settles a completed PvP session by minting payouts and booking developer accrual.
     function settleSession(uint256 sessionId) external nonReentrant {
         require(CATALOG.isSettlableController(address(this)), "PvPController: module inactive");
         require(!sessionSettled[sessionId], "PvPController: settled");

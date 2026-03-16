@@ -7,9 +7,12 @@ import {GameCatalog} from "../GameCatalog.sol";
 import {ProtocolSettlement} from "../ProtocolSettlement.sol";
 import {ITournamentGameEngine} from "../interfaces/ITournamentGameEngine.sol";
 
+/// @title Tournament poker controller
+/// @notice Stores tournament configs, launches two-player matches, and settles completed games.
 contract TournamentController is AccessControl, ReentrancyGuard {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
+    /// @notice Reusable tournament configuration stored by tournament id.
     struct Tournament {
         bool active;
         uint256 entryFee;
@@ -29,6 +32,7 @@ contract TournamentController is AccessControl, ReentrancyGuard {
     mapping(uint256 => uint256) public gameToTournament;
     mapping(uint256 => bool) public gameReported;
 
+    /// @notice Emitted when a new tournament configuration is created.
     event TournamentCreated(
         uint256 indexed tournamentId,
         address indexed engine,
@@ -36,10 +40,14 @@ contract TournamentController is AccessControl, ReentrancyGuard {
         uint256 entryFee,
         uint256 rewardPool
     );
+    /// @notice Emitted when a tournament configuration is toggled active or inactive.
     event TournamentActiveSet(uint256 indexed tournamentId, bool active);
+    /// @notice Emitted when the controller launches a concrete game for two players.
     event GameStarted(uint256 indexed tournamentId, uint256 indexed gameId, address player1, address player2);
+    /// @notice Emitted when a completed game is settled through shared settlement.
     event GameSettled(uint256 indexed gameId, address indexed engine, uint256 indexed expressionTokenId);
 
+    /// @notice Initializes the controller and grants operator permissions to the admin.
     constructor(address admin, address settlementAddress, address catalogAddress, address engineAddress) {
         SETTLEMENT = ProtocolSettlement(settlementAddress);
         CATALOG = GameCatalog(catalogAddress);
@@ -48,18 +56,22 @@ contract TournamentController is AccessControl, ReentrancyGuard {
         _grantRole(OPERATOR_ROLE, admin);
     }
 
+    /// @notice Returns the shared settlement contract.
     function settlement() public view returns (ProtocolSettlement) {
         return SETTLEMENT;
     }
 
+    /// @notice Returns the shared module catalog.
     function catalog() public view returns (GameCatalog) {
         return CATALOG;
     }
 
+    /// @notice Returns the competitive engine controlled by this controller.
     function engine() public view returns (ITournamentGameEngine) {
         return ENGINE;
     }
 
+    /// @notice Creates a reusable tournament configuration and returns its id.
     function createTournament(uint256 entryFee, uint256 rewardPool, uint256 startingStack, uint256 expressionTokenId)
         external
         onlyRole(OPERATOR_ROLE)
@@ -77,11 +89,13 @@ contract TournamentController is AccessControl, ReentrancyGuard {
         emit TournamentCreated(tournamentId, address(ENGINE), expressionTokenId, entryFee, rewardPool);
     }
 
+    /// @notice Toggles whether a tournament configuration can launch new games.
     function setTournamentActive(uint256 tournamentId, bool active) external onlyRole(OPERATOR_ROLE) {
         tournaments[tournamentId].active = active;
         emit TournamentActiveSet(tournamentId, active);
     }
 
+    /// @notice Starts a concrete two-player game using a stored tournament configuration.
     function startGameForPlayers(uint256 tournamentId, address p1, address p2)
         external
         onlyRole(OPERATOR_ROLE)
@@ -113,6 +127,7 @@ contract TournamentController is AccessControl, ReentrancyGuard {
         emit GameStarted(tournamentId, gameId, p1, p2);
     }
 
+    /// @notice Settles a completed game by minting payouts and booking developer accrual.
     function reportOutcome(uint256 gameId) external nonReentrant {
         require(CATALOG.isSettlableController(address(this)), "TournamentController: module inactive");
         require(!gameReported[gameId], "TournamentController: reported");

@@ -5,9 +5,12 @@ import {BaseSoloController} from "./BaseSoloController.sol";
 import {NumberPickerEngine} from "../engines/NumberPickerEngine.sol";
 import {ISoloLifecycleEngine} from "../interfaces/ISoloLifecycleEngine.sol";
 
+/// @title NumberPicker controller
+/// @notice Burns wagers, records expression attribution, and settles NumberPicker rounds.
 contract NumberPickerAdapter is BaseSoloController {
     NumberPickerEngine internal immutable ENGINE;
 
+    /// @notice Emitted when a NumberPicker request is fully settled through the controller.
     event PlayFinalized(
         uint256 indexed requestId,
         address indexed player,
@@ -17,24 +20,29 @@ contract NumberPickerAdapter is BaseSoloController {
         bool isWin
     );
 
+    /// @notice Initializes the controller with settlement, catalog, and engine addresses.
     constructor(address settlementAddress, address catalogAddress, address engineAddress)
         BaseSoloController(settlementAddress, catalogAddress, engineAddress)
     {
         ENGINE = NumberPickerEngine(engineAddress);
     }
 
+    /// @notice Returns the concrete NumberPicker engine.
     function engine() public view returns (NumberPickerEngine) {
         return ENGINE;
     }
 
+    /// @notice Returns whether the given request id has already been finalized.
     function requestSettled(uint256 requestId) public view returns (bool) {
         return _isSettled(requestId);
     }
 
+    /// @notice Returns the expression token id associated with the given request.
     function requestExpressionTokenId(uint256 requestId) public view returns (uint256) {
         return _expressionTokenId(requestId);
     }
 
+    /// @notice Starts a NumberPicker play and eagerly finalizes it when the engine is already resolved.
     function play(uint256 wager, uint256 selection, bytes32 playRef, uint256 expressionTokenId)
         external
         returns (uint256 requestId)
@@ -46,6 +54,7 @@ contract NumberPickerAdapter is BaseSoloController {
         _finalize(requestId);
     }
 
+    /// @notice Finalizes a previously created request once the engine reports completion.
     function finalize(uint256 requestId) external {
         _finalize(requestId);
     }

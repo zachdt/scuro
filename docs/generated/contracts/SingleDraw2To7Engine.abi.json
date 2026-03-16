@@ -1,0 +1,887 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "catalogAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "smallBlind",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "bigBlind",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "blindInterval",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "actionWindow",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "verifierBundle",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "handCoordinator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "ACTION_WINDOW",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "BLIND_ESCALATION_INTERVAL",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "DEFAULT_BIG_BLIND",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "DEFAULT_SMALL_BLIND",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ENGINE_TYPE",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "HAND_COORDINATOR",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "VERIFIER_BUNDLE",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "bet",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "catalog",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract GameCatalog"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "claimTimeout",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "declareDraw",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "cardIndices",
+        "type": "uint8[]",
+        "internalType": "uint8[]"
+      }
+    ],
+    "outputs": [
+
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "engineType",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "fold",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "games",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "matchState",
+        "type": "uint8",
+        "internalType": "enum SingleDraw2To7Engine.MatchState"
+      },
+      {
+        "name": "buyIn",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "reward",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "pot",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "highestBet",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "currentTurn",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "dealerIdx",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "currentSmallBlind",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "currentBigBlind",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "blindEscalationInterval",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "actionWindow",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "gameStartTime",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "tournamentController",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "verifierBundle",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "handCoordinator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "matchWinner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "isTie",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "hand",
+        "type": "tuple",
+        "internalType": "struct IPokerEngine.HandStateView",
+        "components": [
+          {
+            "name": "handNumber",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "handPhase",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "deckCommitment",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "handNonce",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "handCommitments",
+            "type": "bytes32[2]",
+            "internalType": "bytes32[2]"
+          },
+          {
+            "name": "encryptionKeyCommitments",
+            "type": "bytes32[2]",
+            "internalType": "bytes32[2]"
+          },
+          {
+            "name": "ciphertextRefs",
+            "type": "bytes32[2]",
+            "internalType": "bytes32[2]"
+          },
+          {
+            "name": "proofSequences",
+            "type": "uint256[2]",
+            "internalType": "uint256[2]"
+          },
+          {
+            "name": "drawResolved",
+            "type": "bool[2]",
+            "internalType": "bool[2]"
+          },
+          {
+            "name": "drawDeclared",
+            "type": "bool[2]",
+            "internalType": "bool[2]"
+          },
+          {
+            "name": "declaredDrawMasks",
+            "type": "uint8[2]",
+            "internalType": "uint8[2]"
+          },
+          {
+            "name": "deadlineAt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "expectedActor",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCurrentPhase",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getHandState",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct IPokerEngine.HandStateView",
+        "components": [
+          {
+            "name": "handNumber",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "handPhase",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "deckCommitment",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "handNonce",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "handCommitments",
+            "type": "bytes32[2]",
+            "internalType": "bytes32[2]"
+          },
+          {
+            "name": "encryptionKeyCommitments",
+            "type": "bytes32[2]",
+            "internalType": "bytes32[2]"
+          },
+          {
+            "name": "ciphertextRefs",
+            "type": "bytes32[2]",
+            "internalType": "bytes32[2]"
+          },
+          {
+            "name": "proofSequences",
+            "type": "uint256[2]",
+            "internalType": "uint256[2]"
+          },
+          {
+            "name": "drawResolved",
+            "type": "bool[2]",
+            "internalType": "bool[2]"
+          },
+          {
+            "name": "drawDeclared",
+            "type": "bool[2]",
+            "internalType": "bool[2]"
+          },
+          {
+            "name": "declaredDrawMasks",
+            "type": "uint8[2]",
+            "internalType": "uint8[2]"
+          },
+          {
+            "name": "deadlineAt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "expectedActor",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getOutcomes",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "winners",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "payouts",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getProofDeadline",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "handleTimeout",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "player",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "initializeGame",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "players",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "startingStacks",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "buyIn",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "reward",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "isGameOver",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "isOver",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "submitDrawProof",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "player",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "newCommitment",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newEncryptionKeyCommitment",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newCiphertextRef",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "proof",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "submitInitialDealProof",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "deckCommitment",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "handNonce",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "handCommitments",
+        "type": "bytes32[2]",
+        "internalType": "bytes32[2]"
+      },
+      {
+        "name": "encryptionKeyCommitments",
+        "type": "bytes32[2]",
+        "internalType": "bytes32[2]"
+      },
+      {
+        "name": "ciphertextRefs",
+        "type": "bytes32[2]",
+        "internalType": "bytes32[2]"
+      },
+      {
+        "name": "proof",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "submitShowdownProof",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "winnerAddr",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "isTie",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "proof",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "DrawDeclared",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "player",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "discardMask",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DrawResolved",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "player",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newCommitment",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "HandAwaitingInitialDeal",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "handNumber",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PublicActionTaken",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "player",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "phase",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ShowdownSubmitted",
+    "inputs": [
+      {
+        "name": "gameId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "submitter",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "winner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "isTie",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  }
+]

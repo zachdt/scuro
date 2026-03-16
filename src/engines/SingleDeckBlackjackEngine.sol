@@ -5,6 +5,8 @@ import {GameCatalog} from "../GameCatalog.sol";
 import {IBlackjackVerifierBundle} from "../interfaces/IBlackjackVerifierBundle.sol";
 import {ISoloLifecycleEngine} from "../interfaces/ISoloLifecycleEngine.sol";
 
+/// @title Single-deck blackjack engine
+/// @notice Manages blackjack session state, player actions, coordinator proofs, and solo settlement outcomes.
 contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
     bytes32 public constant ENGINE_TYPE = keccak256("BLACKJACK_SINGLE_DECK_ZK");
 
@@ -18,6 +20,7 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
     uint8 public constant ALLOW_DOUBLE = 4;
     uint8 public constant ALLOW_SPLIT = 8;
 
+    /// @notice Session lifecycle values exposed to clients as raw `uint8` data.
     enum SessionPhase {
         Inactive,
         AwaitingInitialDeal,
@@ -26,6 +29,7 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         Completed
     }
 
+    /// @notice Lightweight view of one blackjack hand within a session.
     struct HandView {
         uint256 wager;
         uint256 value;
@@ -33,6 +37,7 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         uint8 allowedActionMask;
     }
 
+    /// @notice Stored mutable session state.
     struct Session {
         address player;
         uint256 wager;
@@ -60,6 +65,7 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         HandView[4] hands;
     }
 
+    /// @notice Fully expanded read-only session snapshot returned by `getSession`.
     struct SessionView {
         address player;
         uint256 wager;
@@ -94,13 +100,20 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
 
     mapping(uint256 => Session) internal sessions;
 
+    /// @notice Emitted when a new blackjack session is opened.
     event SessionOpened(uint256 indexed sessionId, address indexed player, uint256 wager, bytes32 playRef);
+    /// @notice Emitted when the initial-deal proof resolves the first visible blackjack state.
     event InitialDealResolved(uint256 indexed sessionId, bytes32 deckCommitment, uint256 dealerVisibleValue);
+    /// @notice Emitted when the controller records a player action and any extra burn.
     event ActionDeclared(uint256 indexed sessionId, address indexed player, uint8 indexed action, uint256 additionalBurn);
+    /// @notice Emitted when an action proof advances the session state.
     event ActionResolved(uint256 indexed sessionId, uint8 indexed action, uint8 nextPhase);
+    /// @notice Emitted when a player timeout is converted into a forced stand.
     event PlayerTimeoutClaimed(uint256 indexed sessionId);
+    /// @notice Emitted when the showdown proof fixes the payout and completes the session.
     event ShowdownResolved(uint256 indexed sessionId, uint256 payout);
 
+    /// @notice Initializes the engine with catalog, verifier, coordinator, and action-window config.
     constructor(address catalogAddress, address verifierBundleAddress, address coordinatorAddress, uint256 defaultActionWindow) {
         CATALOG = GameCatalog(catalogAddress);
         COORDINATOR = coordinatorAddress;
@@ -108,14 +121,17 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         VERIFIER_BUNDLE = IBlackjackVerifierBundle(verifierBundleAddress);
     }
 
+    /// @notice Returns the catalog used for controller authorization and lifecycle gating.
     function catalog() public view returns (GameCatalog) {
         return CATALOG;
     }
 
+    /// @notice Returns the engine type tag for blackjack sessions.
     function engineType() external pure returns (bytes32) {
         return ENGINE_TYPE;
     }
 
+    /// @notice Opens a new blackjack session on behalf of an authorized controller.
     function openSession(address player, uint256 wager, bytes32 playRef, bytes32 playerKeyCommitment)
         external
         returns (uint256 sessionId)
@@ -136,6 +152,7 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         emit SessionOpened(sessionId, player, wager, playRef);
     }
 
+    /// @notice Applies the initial-deal proof and transitions the session into player or completed state.
     function submitInitialDealProof(
         uint256 sessionId,
         bytes32 deckCommitment,
@@ -215,6 +232,7 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         emit InitialDealResolved(sessionId, deckCommitment, dealerVisibleValue);
     }
 
+    /// @notice Returns the extra burn required for a pending double-down or split action.
     function requiredAdditionalBurn(uint256 sessionId, uint8 action) public view returns (uint256 additionalBurn) {
         Session storage session = sessions[sessionId];
         if (session.phase != SessionPhase.AwaitingPlayerAction || session.pendingAction != 0) {
@@ -231,6 +249,7 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         return 0;
     }
 
+    /// @notice Records a validated player action on behalf of the controller.
     function declareAction(uint256 sessionId, address player, uint8 action, uint256 additionalBurn) external {
         _requireAuthorizedController();
 
@@ -255,6 +274,7 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         emit ActionDeclared(sessionId, player, action, additionalBurn);
     }
 
+    /// @notice Converts an expired player-clock step into a forced stand.
     function claimPlayerTimeout(uint256 sessionId) external {
         _requireAuthorizedController();
 
@@ -270,6 +290,7 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         emit PlayerTimeoutClaimed(sessionId);
     }
 
+    /// @notice Applies a coordinator action proof and advances the session state.
     function submitActionProof(
         uint256 sessionId,
         bytes32 newPlayerStateCommitment,
@@ -346,6 +367,7 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         emit ActionResolved(sessionId, uint8(inputs.pendingAction), nextPhase);
     }
 
+    /// @notice Applies the final showdown proof and marks the session completed.
     function submitShowdownProof(
         uint256 sessionId,
         bytes32 playerStateCommitment,
@@ -396,6 +418,7 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         emit ShowdownResolved(sessionId, payout);
     }
 
+    /// @notice Returns a fully expanded session snapshot for client reads.
     function getSession(uint256 sessionId) external view returns (SessionView memory viewState) {
         Session storage session = sessions[sessionId];
         viewState.player = session.player;
@@ -425,6 +448,7 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         }
     }
 
+    /// @notice Returns the normalized solo-settlement tuple for a session id.
     function getSettlementOutcome(uint256 sessionId)
         external
         view

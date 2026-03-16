@@ -5,6 +5,8 @@ import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessContr
 import {IPokerVerifierBundle} from "../interfaces/IPokerVerifierBundle.sol";
 import {Groth16ProofCodec} from "../libraries/Groth16ProofCodec.sol";
 
+/// @title Poker verifier bundle
+/// @notice Decodes poker proof blobs and dispatches them to generated verifier contracts.
 contract PokerVerifierBundle is AccessControl, IPokerVerifierBundle {
     using Groth16ProofCodec for bytes;
 
@@ -14,6 +16,7 @@ contract PokerVerifierBundle is AccessControl, IPokerVerifierBundle {
     address public drawVerifier;
     address public showdownVerifier;
 
+    /// @notice Initializes the bundle and grants verifier-config rights to the admin.
     constructor(address admin, address initialDealVerifierAddress, address drawVerifierAddress, address showdownVerifierAddress) {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(CONFIG_ROLE, admin);
@@ -22,6 +25,7 @@ contract PokerVerifierBundle is AccessControl, IPokerVerifierBundle {
         showdownVerifier = showdownVerifierAddress;
     }
 
+    /// @notice Rotates the generated verifier contract addresses used by the bundle.
     function setVerifiers(address initialDealVerifierAddress, address drawVerifierAddress, address showdownVerifierAddress)
         external
         onlyRole(CONFIG_ROLE)
@@ -31,6 +35,7 @@ contract PokerVerifierBundle is AccessControl, IPokerVerifierBundle {
         showdownVerifier = showdownVerifierAddress;
     }
 
+    /// @notice Verifies a poker initial-deal proof.
     function verifyInitialDeal(bytes calldata proofData, InitialDealPublicInputs calldata inputs)
         external
         view
@@ -53,6 +58,7 @@ contract PokerVerifierBundle is AccessControl, IPokerVerifierBundle {
         return _verify10(initialDealVerifier, proof, signals);
     }
 
+    /// @notice Verifies a poker draw-resolution proof.
     function verifyDraw(bytes calldata proofData, DrawPublicInputs calldata inputs) external view override returns (bool) {
         Groth16ProofCodec.Groth16Proof memory proof = proofData.decode();
         uint256[11] memory signals = [
@@ -71,6 +77,7 @@ contract PokerVerifierBundle is AccessControl, IPokerVerifierBundle {
         return _verify11(drawVerifier, proof, signals);
     }
 
+    /// @notice Verifies a poker showdown proof.
     function verifyShowdown(bytes calldata proofData, ShowdownPublicInputs calldata inputs)
         external
         view

@@ -20,24 +20,30 @@ import {PokerDrawResolveVerifier} from "./verifiers/generated/PokerDrawResolveVe
 import {PokerInitialDealVerifier} from "./verifiers/generated/PokerInitialDealVerifier.sol";
 import {PokerShowdownVerifier} from "./verifiers/generated/PokerShowdownVerifier.sol";
 
+/// @title Scuro game deployment factory
+/// @notice Deploys shipped controller/engine/verifier bundles and registers them in the catalog.
 contract GameDeploymentFactory is AccessControl {
     bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
 
+    /// @notice Supported solo module families.
     enum SoloFamily {
         NumberPicker,
         Blackjack
     }
 
+    /// @notice Supported competitive module families.
     enum MatchFamily {
         PokerSingleDraw2To7
     }
 
+    /// @notice ABI shape for deploying a NumberPicker module.
     struct NumberPickerDeployment {
         address vrfCoordinator;
         bytes32 configHash;
         uint16 developerRewardBps;
     }
 
+    /// @notice ABI shape for deploying a blackjack module.
     struct BlackjackDeployment {
         address coordinator;
         uint256 defaultActionWindow;
@@ -45,6 +51,7 @@ contract GameDeploymentFactory is AccessControl {
         uint16 developerRewardBps;
     }
 
+    /// @notice ABI shape for deploying poker modules.
     struct PokerDeployment {
         address coordinator;
         uint256 smallBlind;
@@ -58,6 +65,7 @@ contract GameDeploymentFactory is AccessControl {
     GameCatalog internal immutable CATALOG;
     ProtocolSettlement internal immutable SETTLEMENT;
 
+    /// @notice Emitted when the factory deploys a new module bundle.
     event ModuleDeployed(
         uint256 indexed moduleId,
         GameCatalog.GameMode indexed mode,
@@ -68,6 +76,7 @@ contract GameDeploymentFactory is AccessControl {
         bytes32 configHash
     );
 
+    /// @notice Initializes the factory and grants deploy permissions to the admin.
     constructor(address admin, address catalogAddress, address settlementAddress) {
         CATALOG = GameCatalog(catalogAddress);
         SETTLEMENT = ProtocolSettlement(settlementAddress);
@@ -75,14 +84,17 @@ contract GameDeploymentFactory is AccessControl {
         _grantRole(DEPLOYER_ROLE, admin);
     }
 
+    /// @notice Returns the catalog used for module registration.
     function catalog() public view returns (GameCatalog) {
         return CATALOG;
     }
 
+    /// @notice Returns the settlement contract injected into newly deployed controllers.
     function settlement() public view returns (ProtocolSettlement) {
         return SETTLEMENT;
     }
 
+    /// @notice Deploys a supported solo-family module and registers it in the catalog.
     function deploySoloModule(uint8 family, bytes calldata deploymentParams)
         external
         onlyRole(DEPLOYER_ROLE)
@@ -149,6 +161,7 @@ contract GameDeploymentFactory is AccessControl {
         emit ModuleDeployed(moduleId, GameCatalog.GameMode.Solo, family, controller, engine, verifier, CATALOG.getModule(moduleId).configHash);
     }
 
+    /// @notice Deploys a supported PvP-family module and registers it in the catalog.
     function deployPvPModule(uint8 family, bytes calldata deploymentParams)
         external
         onlyRole(DEPLOYER_ROLE)
@@ -176,6 +189,7 @@ contract GameDeploymentFactory is AccessControl {
         emit ModuleDeployed(moduleId, GameCatalog.GameMode.PvP, family, controller, engine, verifier, params.configHash);
     }
 
+    /// @notice Deploys a supported tournament-family module and registers it in the catalog.
     function deployTournamentModule(uint8 family, bytes calldata deploymentParams)
         external
         onlyRole(DEPLOYER_ROLE)
