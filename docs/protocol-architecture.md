@@ -4,6 +4,7 @@ Scuro is a high-performance, shared settlement and governance layer designed to 
 
 The current implementation showcases this versatility through a variety of modules:
 - **VRF-backed Solo Play**: A foundational example of provably fair single-player interaction.
+- **EV-Neutral Baccarat**: Automated solo and player-banked baccarat modules built around a shared rules library and VRF-backed fresh shoes.
 - **ZK-Proven Poker & Blackjack**: Advanced examples leveraging Groth16 proof verification for secure, private gameplay.
 - **Developer Attribution**: A robust system using transferable "Expression NFTs" and a centralized Catalog/Factory pair to manage module registration and reward distribution.
 
@@ -27,7 +28,9 @@ graph TB
 
     subgraph ControllerLayer [Controller Layer]
         Solo[NumberPickerAdapter]
+        BaccSolo[SuperBaccaratController]
         PvP[PvPController]
+        CDF[CheminDeFerController]
         Tourn[TournamentController]
         BjCtrl[BlackjackController]
     end
@@ -47,6 +50,8 @@ graph TB
 
     subgraph EngineLayer [Engine Layer]
         NumberPicker[NumberPickerEngine]
+        BaccaratSolo[SuperBaccaratEngine]
+        BaccaratPvP[CheminDeFerEngine]
         Poker[SingleDraw2To7Engine]
         Blackjack[SingleDeckBlackjackEngine]
     end
@@ -57,7 +62,9 @@ graph TB
     end
 
     Player --> Solo
+    Player --> BaccSolo
     Player --> PvP
+    Player --> CDF
     Player --> Tourn
     Player --> BjCtrl
     Player --> Stake
@@ -75,9 +82,17 @@ graph TB
     Solo --> Catalog
     Solo --> NumberPicker
 
+    BaccSolo --> Settlement
+    BaccSolo --> Catalog
+    BaccSolo --> BaccaratSolo
+
     PvP --> Settlement
     PvP --> Catalog
     PvP --> Poker
+
+    CDF --> Settlement
+    CDF --> Catalog
+    CDF --> BaccaratPvP
 
     Tourn --> Settlement
     Tourn --> Catalog
@@ -96,6 +111,8 @@ graph TB
     Stake --> Token
 
     NumberPicker --> VRF
+    BaccaratSolo --> VRF
+    BaccaratPvP --> VRF
     Poker --> ZK
     Blackjack --> ZK
 ```
@@ -113,6 +130,7 @@ The foundation of the protocol ensures economic stability and decentralized cont
 ### Controllers
 Controllers are the entry points for players, orchestrating the lifecycle of specific game modes.
 - **Mode-Specific Logic**: From solo play (`NumberPickerAdapter`) to complex multi-player tournaments (`TournamentController`), controllers manage the transition from user action to engine execution.
+- **Mode-Specific Logic**: From solo play (`NumberPickerAdapter`, `SuperBaccaratController`) to banker-opened many-player tables (`CheminDeFerController`) and complex tournaments (`TournamentController`), controllers manage the transition from user action to engine execution.
 - **Attribution Persistence**: They track the `expressionTokenId` across multi-step flows, ensuring that developers receive their rightful rewards upon settlement.
 
 ### Protocol Services
@@ -126,6 +144,7 @@ The "brains" of Scuro, these services handle high-level logic and value settleme
 ### Engines & Integrations
 Engines contain the pure rules of the game, isolated from economic logic.
 - **Game Integrity**: Engines handle the core "physics" of the game, whether it's evaluating a poker hand or processing blackjack actions.
+- **Game Integrity**: Engines handle the core "physics" of the game, whether it's evaluating a poker hand, resolving baccarat tableau draws, or processing blackjack actions.
 - **External Signals**: They interface with external providers like VRF coordinators for randomness or Groth16 verifiers for zero-knowledge proofs.
 
 ---

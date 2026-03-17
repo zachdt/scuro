@@ -4,13 +4,18 @@ pragma solidity ^0.8.24;
 import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
 import {GameCatalog} from "./GameCatalog.sol";
 import {ProtocolSettlement} from "./ProtocolSettlement.sol";
+import {CheminDeFerController} from "./controllers/CheminDeFerController.sol";
 import {BlackjackController} from "./controllers/BlackjackController.sol";
 import {NumberPickerAdapter} from "./controllers/NumberPickerAdapter.sol";
 import {PvPController} from "./controllers/PvPController.sol";
+import {SuperBaccaratController} from "./controllers/SuperBaccaratController.sol";
 import {TournamentController} from "./controllers/TournamentController.sol";
+import {CheminDeFerEngine} from "./engines/CheminDeFerEngine.sol";
 import {NumberPickerEngine} from "./engines/NumberPickerEngine.sol";
 import {SingleDeckBlackjackEngine} from "./engines/SingleDeckBlackjackEngine.sol";
 import {SingleDraw2To7Engine} from "./engines/SingleDraw2To7Engine.sol";
+import {SuperBaccaratEngine} from "./engines/SuperBaccaratEngine.sol";
+import {IScuroGameEngine} from "./interfaces/IScuroGameEngine.sol";
 import {BlackjackVerifierBundle} from "./verifiers/BlackjackVerifierBundle.sol";
 import {PokerVerifierBundle} from "./verifiers/PokerVerifierBundle.sol";
 import {BlackjackActionResolveVerifier} from "./verifiers/generated/BlackjackActionResolveVerifier.sol";
@@ -28,12 +33,14 @@ contract GameDeploymentFactory is AccessControl {
     /// @notice Supported solo module families.
     enum SoloFamily {
         NumberPicker,
-        Blackjack
+        Blackjack,
+        SuperBaccarat
     }
 
     /// @notice Supported competitive module families.
     enum MatchFamily {
-        PokerSingleDraw2To7
+        PokerSingleDraw2To7,
+        CheminDeFerBaccarat
     }
 
     /// @notice ABI shape for deploying a NumberPicker module.
@@ -51,6 +58,13 @@ contract GameDeploymentFactory is AccessControl {
         uint16 developerRewardBps;
     }
 
+    /// @notice ABI shape for deploying a solo baccarat module.
+    struct BaccaratDeployment {
+        address vrfCoordinator;
+        bytes32 configHash;
+        uint16 developerRewardBps;
+    }
+
     /// @notice ABI shape for deploying poker modules.
     struct PokerDeployment {
         address coordinator;
@@ -58,6 +72,14 @@ contract GameDeploymentFactory is AccessControl {
         uint256 bigBlind;
         uint256 blindEscalationInterval;
         uint256 actionWindow;
+        bytes32 configHash;
+        uint16 developerRewardBps;
+    }
+
+    /// @notice ABI shape for deploying chemin de fer modules.
+    struct CheminDeFerDeployment {
+        address vrfCoordinator;
+        uint256 joinWindow;
         bytes32 configHash;
         uint16 developerRewardBps;
     }
@@ -154,6 +176,29 @@ contract GameDeploymentFactory is AccessControl {
                     status: GameCatalog.ModuleStatus.LIVE
                 })
             );
+        } else if (family == uint8(SoloFamily.SuperBaccarat)) {
+            BaccaratDeployment memory params = abi.decode(deploymentParams, (BaccaratDeployment));
+
+            SuperBaccaratEngine baccaratEngine = new SuperBaccaratEngine(address(CATALOG), params.vrfCoordinator);
+            SuperBaccaratController baccaratController =
+                new SuperBaccaratController(address(SETTLEMENT), address(CATALOG), address(baccaratEngine));
+
+            controller = address(baccaratController);
+            engine = address(baccaratEngine);
+            verifier = address(0);
+
+            moduleId = CATALOG.registerModule(
+                GameCatalog.Module({
+                    mode: GameCatalog.GameMode.Solo,
+                    controller: controller,
+                    engine: engine,
+                    engineType: baccaratEngine.engineType(),
+                    verifier: verifier,
+                    configHash: params.configHash,
+                    developerRewardBps: params.developerRewardBps,
+                    status: GameCatalog.ModuleStatus.LIVE
+                })
+            );
         } else {
             revert("Factory: unsupported solo family");
         }
@@ -167,26 +212,53 @@ contract GameDeploymentFactory is AccessControl {
         onlyRole(DEPLOYER_ROLE)
         returns (uint256 moduleId, address controller, address engine, address verifier)
     {
-        require(family == uint8(MatchFamily.PokerSingleDraw2To7), "Factory: unsupported pvp family");
-        PokerDeployment memory params = abi.decode(deploymentParams, (PokerDeployment));
+        if (family == uint8(MatchFamily.PokerSingleDraw2To7)) {
+            PokerDeployment memory params = abi.decode(deploymentParams, (PokerDeployment));
 
-        (engine, verifier) = _deployPokerEngine(params);
-        controller = address(new PvPController(msg.sender, address(SETTLEMENT), address(CATALOG), engine));
+            (engine, verifier) = _deployPokerEngine(params);
+            controller = address(new PvPController(msg.sender, address(SETTLEMENT), address(CATALOG), engine));
 
-        moduleId = CATALOG.registerModule(
-            GameCatalog.Module({
-                mode: GameCatalog.GameMode.PvP,
-                controller: controller,
-                engine: engine,
-                engineType: SingleDraw2To7Engine(engine).engineType(),
-                verifier: verifier,
-                configHash: params.configHash,
-                developerRewardBps: params.developerRewardBps,
-                status: GameCatalog.ModuleStatus.LIVE
-            })
-        );
+            moduleId = CATALOG.registerModule(
+                GameCatalog.Module({
+                    mode: GameCatalog.GameMode.PvP,
+                    controller: controller,
+                    engine: engine,
+                    engineType: IScuroGameEngine(engine).engineType(),
+                    verifier: verifier,
+                    configHash: params.configHash,
+                    developerRewardBps: params.developerRewardBps,
+                    status: GameCatalog.ModuleStatus.LIVE
+                })
+            );
 
-        emit ModuleDeployed(moduleId, GameCatalog.GameMode.PvP, family, controller, engine, verifier, params.configHash);
+            emit ModuleDeployed(moduleId, GameCatalog.GameMode.PvP, family, controller, engine, verifier, params.configHash);
+        } else if (family == uint8(MatchFamily.CheminDeFerBaccarat)) {
+            CheminDeFerDeployment memory params = abi.decode(deploymentParams, (CheminDeFerDeployment));
+
+            CheminDeFerEngine baccaratEngine = new CheminDeFerEngine(address(CATALOG), params.vrfCoordinator);
+            controller = address(
+                new CheminDeFerController(address(SETTLEMENT), address(CATALOG), address(baccaratEngine), params.joinWindow)
+            );
+            engine = address(baccaratEngine);
+            verifier = address(0);
+
+            moduleId = CATALOG.registerModule(
+                GameCatalog.Module({
+                    mode: GameCatalog.GameMode.PvP,
+                    controller: controller,
+                    engine: engine,
+                    engineType: baccaratEngine.engineType(),
+                    verifier: verifier,
+                    configHash: params.configHash,
+                    developerRewardBps: params.developerRewardBps,
+                    status: GameCatalog.ModuleStatus.LIVE
+                })
+            );
+
+            emit ModuleDeployed(moduleId, GameCatalog.GameMode.PvP, family, controller, engine, verifier, params.configHash);
+        } else {
+            revert("Factory: unsupported pvp family");
+        }
     }
 
     /// @notice Deploys a supported tournament-family module and registers it in the catalog.
@@ -206,7 +278,7 @@ contract GameDeploymentFactory is AccessControl {
                 mode: GameCatalog.GameMode.Tournament,
                 controller: controller,
                 engine: engine,
-                engineType: SingleDraw2To7Engine(engine).engineType(),
+                engineType: IScuroGameEngine(engine).engineType(),
                 verifier: verifier,
                 configHash: params.configHash,
                 developerRewardBps: params.developerRewardBps,

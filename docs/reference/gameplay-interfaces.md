@@ -9,6 +9,7 @@ These interfaces define the stable gameplay surface that SDKs and alternate impl
 - `IScuroGameEngine`
 - `ISoloLifecycleEngine`
 - `ITournamentGameEngine`
+- `ICheminDeFerEngine`
 - `IPokerEngine`
 - `IPokerZKEngine`
 
@@ -34,6 +35,12 @@ These interfaces define the stable gameplay surface that SDKs and alternate impl
 - `isGameOver(gameId)`
 - `getOutcomes(gameId)`
 
+### `ICheminDeFerEngine`
+
+- `requestResolution(tableId, playRef)`
+- `isResolved(tableId)`
+- `getRound(tableId)`
+
 ### `IPokerEngine`
 
 - `submitInitialDealProof(...)`
@@ -51,6 +58,7 @@ These interfaces define the stable gameplay surface that SDKs and alternate impl
 ## State And Lifecycle Notes
 
 - `ISoloLifecycleEngine.getSettlementOutcome` is the bridge between solo engines and settlement-capable controllers
+- `ICheminDeFerEngine` is the dedicated baccarat PvP surface for banker-opened, many-taker, one-shot tables
 - `IPokerEngine.HandStateView` is the canonical snapshot for poker hand indexing
 - `IPokerZKEngine` extends `IPokerEngine` with coordinator-only proof transitions and timeout support
 
@@ -58,4 +66,6 @@ These interfaces define the stable gameplay surface that SDKs and alternate impl
 
 - `test/TournamentController.t.sol`
 - `test/BlackjackController.t.sol`
+- `test/SuperBaccaratController.t.sol`
+- `test/CheminDeFerController.t.sol`
 - `test/e2e/UserFlowsE2E.t.sol`

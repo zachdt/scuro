@@ -31,6 +31,7 @@ Scuro's architecture is flexible enough to support a wide array of gaming experi
 
 - **Solo Randomness**: `NumberPicker` demonstrates simple VRF-backed gameplay.
 - **Competitive Poker**: `TournamentController` and `PvPController` power poker sessions with Groth16 proof verification.
+- **Automated Baccarat**: `SuperBaccaratController` and `CheminDeFerController` add EV-neutral solo and player-banked baccarat over VRF-backed fresh shoes.
 - **ZK Blackjack**: `BlackjackController` offers a secure solo blackjack experience using zero-knowledge proofs.
 - **Developer Sandbox**: The local stack includes example expression NFTs, allowing developers to test the full attribution path immediately.
 

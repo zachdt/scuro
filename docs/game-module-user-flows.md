@@ -7,8 +7,10 @@ This guide captures the current controller and engine flows for each shipped gam
 | Module | Mode | Controller | Engine | External dependency | Local default config |
 | --- | --- | --- | --- | --- | --- |
 | NumberPicker | Solo | `NumberPickerAdapter` | `NumberPickerEngine` | VRF coordinator | auto-callback VRF mock |
+| Super Baccarat | Solo | `SuperBaccaratController` | `SuperBaccaratEngine` | VRF coordinator | auto-callback VRF mock |
 | Tournament Poker | Tournament | `TournamentController` | `SingleDraw2To7Engine` | coordinator + Groth16 proofs | SB `10`, BB `20`, blind interval `180s`, action window `60s` |
 | PvP Poker | PvP | `PvPController` | `SingleDraw2To7Engine` | coordinator + Groth16 proofs | SB `10`, BB `20`, blind interval `180s`, action window `60s` |
+| Chemin de Fer | PvP | `CheminDeFerController` | `CheminDeFerEngine` | VRF coordinator | join window `60s` |
 | Blackjack | Solo | `BlackjackController` | `SingleDeckBlackjackEngine` | coordinator + Groth16 proofs | action window `60s` |
 
 ## NumberPicker
@@ -111,6 +113,41 @@ sequenceDiagram
     Controller->>Engine: getOutcomes(gameId)
     Controller->>Settlement: mintPlayerReward(winner(s), rewardPool split)
     Controller->>Settlement: accrueDeveloperForExpression(expressionTokenId, rewardPool + 2 * entryFee)
+```
+
+## Super Baccarat
+
+Key runtime notes:
+- `SuperBaccaratController` is a standard solo controller: it burns the wager up front, records the `expressionTokenId`, and settles after the engine resolves.
+- The engine deals a fresh eight-deck punto banco shoe for every round and applies the classic automated tableau. No manual draw decisions are exposed.
+- Player and banker picks treat ties as pushes. Gross-return multipliers are hardcoded so player, banker, and tie selections are EV-neutral over the exact eight-deck odds.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Player
+    actor Caller as Any caller
+    participant Controller as SuperBaccaratController
+    participant Catalog as GameCatalog
+    participant Settlement as ProtocolSettlement
+    participant Engine as SuperBaccaratEngine
+    participant VRF as VRF Coordinator
+
+    Player->>Controller: play(wager, side, playRef, expressionTokenId)
+    Controller->>Catalog: isLaunchableController(this)
+    Controller->>Settlement: burnPlayerWager(player, wager)
+    Controller->>Engine: requestPlay(player, wager, side, playRef)
+    Engine->>Catalog: isAuthorizedControllerForEngine(controller, engine)
+    Engine->>VRF: requestRandomWords(...)
+    VRF->>Engine: rawFulfillRandomWords(requestId, randomWords)
+    Note over Engine: Resolve fresh 8-deck baccarat round<br/>Apply automated tableau<br/>Compute EV-neutral payout or push
+
+    Caller->>Controller: settle(sessionId)
+    Controller->>Catalog: isSettlableController(this)
+    Controller->>Engine: getSettlementOutcome(sessionId)
+    Controller->>Engine: getRound(sessionId)
+    Controller->>Settlement: mintPlayerReward(player, payout)
+    Controller->>Settlement: accrueDeveloperForExpression(expressionTokenId, wager)
 ```
 
 ## PvP Poker
@@ -219,6 +256,57 @@ sequenceDiagram
     Controller->>Engine: getSettlementOutcome(sessionId)
     Controller->>Settlement: mintPlayerReward(player, payout)
     Controller->>Settlement: accrueDeveloperForExpression(expressionTokenId, totalBurned)
+```
+
+## Chemin De Fer
+
+Key runtime notes:
+- `CheminDeFerController` does not use the generic `PvPController`; it owns its own banker-opened table lifecycle.
+- The banker escrows the full table limit up front. Takers can join permissionlessly until the banker closes, the join window expires, or the table auto-closes at full capacity.
+- Resolution is a single automated baccarat round. The only “chemin de fer” element preserved here is the player-banked table shape; there are no manual draw decisions.
+- Developer accrual is booked only on matched exposure, not on any refunded unmatched banker capacity.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Banker
+    actor Taker1 as Taker
+    actor Taker2 as Taker
+    actor Caller as Any caller
+    participant Controller as CheminDeFerController
+    participant Catalog as GameCatalog
+    participant Settlement as ProtocolSettlement
+    participant Engine as CheminDeFerEngine
+    participant VRF as VRF Coordinator
+
+    Banker->>Controller: openTable(bankerMaxBet, playRef, expressionTokenId)
+    Controller->>Catalog: isLaunchableController(this)
+    Controller->>Settlement: burnPlayerWager(banker, bankerMaxBet)
+
+    Taker1->>Controller: take(tableId, amount)
+    Taker2->>Controller: take(tableId, amount)
+    Controller->>Settlement: burnPlayerWager(taker, amount)
+    Note over Controller: totalPlayerTake <= playerTakeCap(bankerEscrow)
+
+    alt banker closes or join window expires or table fills
+        Banker->>Controller: closeTable(tableId)
+        Caller->>Controller: forceCloseTable(tableId)
+        Note over Controller: matchedBankerRisk and unmatched refund are frozen
+        Controller->>Engine: requestResolution(tableId, playRef)
+        Engine->>Catalog: isAuthorizedControllerForEngine(controller, engine)
+        Engine->>VRF: requestRandomWords(...)
+        VRF->>Engine: rawFulfillRandomWords(requestId, randomWords)
+    else no takers join
+        Banker->>Controller: cancelTable(tableId)
+        Controller->>Settlement: mintPlayerReward(banker, bankerEscrow)
+    end
+
+    Caller->>Controller: settle(tableId)
+    Controller->>Catalog: isSettlableController(this)
+    Controller->>Engine: getRound(tableId)
+    Note over Controller: Banker win -> banker receives matched pot + refund<br/>Player win -> takers split matched pot pro rata<br/>Tie -> matched exposure refunds
+    Controller->>Settlement: mintPlayerReward(...)
+    Controller->>Settlement: accrueDeveloperForExpression(expressionTokenId, matchedExposure)
 ```
 
 ## Shared Lifecycle Rules
