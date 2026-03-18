@@ -11,30 +11,82 @@ contract SmokeBlackjackFixture is FixtureLoaders {
     uint256 internal constant BLACKJACK_WAGER = 100;
     uint256 internal constant BLACKJACK_DEVELOPER_ACCRUAL = 5;
 
+    struct RuntimeContext {
+        address player;
+        address soloDeveloper;
+        uint256 expressionTokenId;
+        ScuroToken token;
+        DeveloperRewards developerRewards;
+        BlackjackController controller;
+        SingleDeckBlackjackEngine engine;
+    }
+
     function run() external {
         uint256 adminKey = vm.envUint("PRIVATE_KEY");
         uint256 player1Key = vm.envOr("PLAYER1_PRIVATE_KEY", DEFAULT_ANVIL_PLAYER1_KEY);
-        address player1 = vm.addr(player1Key);
-        address soloDeveloper = vm.envAddress("SOLO_DEVELOPER");
+        RuntimeContext memory runtime = RuntimeContext({
+            player: vm.addr(player1Key),
+            soloDeveloper: vm.envAddress("SOLO_DEVELOPER"),
+            expressionTokenId: vm.envUint("BLACKJACK_EXPRESSION_TOKEN_ID"),
+            token: ScuroToken(vm.envAddress("SCURO_TOKEN")),
+            developerRewards: DeveloperRewards(vm.envAddress("DEVELOPER_REWARDS")),
+            controller: BlackjackController(vm.envAddress("BLACKJACK_CONTROLLER")),
+            engine: SingleDeckBlackjackEngine(vm.envAddress("BLACKJACK_ENGINE"))
+        });
 
-        ScuroToken token = ScuroToken(vm.envAddress("SCURO_TOKEN"));
-        DeveloperRewards developerRewards = DeveloperRewards(vm.envAddress("DEVELOPER_REWARDS"));
-        BlackjackController controller = BlackjackController(vm.envAddress("BLACKJACK_CONTROLLER"));
-        SingleDeckBlackjackEngine engine = SingleDeckBlackjackEngine(vm.envAddress("BLACKJACK_ENGINE"));
-        uint256 expressionTokenId = vm.envUint("BLACKJACK_EXPRESSION_TOKEN_ID");
+        _runScenario(adminKey, player1Key, runtime);
 
+        require(runtime.token.balanceOf(runtime.player) == (10_000 ether + 100), "SmokeBlackjackFixture: player1 balance");
+        require(
+            runtime.developerRewards.epochAccrual(runtime.developerRewards.currentEpoch(), runtime.soloDeveloper)
+                == BLACKJACK_DEVELOPER_ACCRUAL,
+            "SmokeBlackjackFixture: accrual"
+        );
+    }
+
+    function _runScenario(uint256 adminKey, uint256 playerKey, RuntimeContext memory runtime) internal {
         BlackjackInitialDealFixture memory initialDeal = _loadBlackjackInitialDealFixture();
+        uint256 sessionId =
+            _startBlackjackHand(playerKey, runtime.controller, runtime.token, initialDeal.playerKeyCommitment, runtime.expressionTokenId);
+        _submitInitialDeal(adminKey, runtime.engine, sessionId, initialDeal);
 
-        vm.startBroadcast(player1Key);
+        vm.startBroadcast(playerKey);
+        runtime.controller.hit(sessionId);
+        vm.stopBroadcast();
+
+        _submitAction(adminKey, runtime.engine, sessionId, _loadBlackjackActionFixture());
+
+        vm.startBroadcast(playerKey);
+        runtime.controller.stand(sessionId);
+        vm.stopBroadcast();
+
+        _submitShowdown(adminKey, runtime.controller, runtime.engine, sessionId, _loadBlackjackShowdownFixture());
+    }
+
+    function _startBlackjackHand(
+        uint256 playerKey,
+        BlackjackController controller,
+        ScuroToken token,
+        bytes32 playerKeyCommitment,
+        uint256 expressionTokenId
+    ) internal returns (uint256 sessionId) {
+        vm.startBroadcast(playerKey);
         token.approve(address(controller.settlement()), type(uint256).max);
-        uint256 sessionId = controller.startHand(
+        sessionId = controller.startHand(
             BLACKJACK_WAGER,
             keccak256("aws-blackjack-smoke"),
-            initialDeal.playerKeyCommitment,
+            playerKeyCommitment,
             expressionTokenId
         );
         vm.stopBroadcast();
+    }
 
+    function _submitInitialDeal(
+        uint256 adminKey,
+        SingleDeckBlackjackEngine engine,
+        uint256 sessionId,
+        BlackjackInitialDealFixture memory initialDeal
+    ) internal {
         vm.startBroadcast(adminKey);
         engine.submitInitialDealProof(
             sessionId,
@@ -56,12 +108,14 @@ contract SmokeBlackjackFixture is FixtureLoaders {
             initialDeal.proof
         );
         vm.stopBroadcast();
+    }
 
-        vm.startBroadcast(player1Key);
-        controller.hit(sessionId);
-        vm.stopBroadcast();
-
-        BlackjackActionFixture memory actionFixture = _loadBlackjackActionFixture();
+    function _submitAction(
+        uint256 adminKey,
+        SingleDeckBlackjackEngine engine,
+        uint256 sessionId,
+        BlackjackActionFixture memory actionFixture
+    ) internal {
         vm.startBroadcast(adminKey);
         engine.submitActionProof(
             sessionId,
@@ -80,12 +134,15 @@ contract SmokeBlackjackFixture is FixtureLoaders {
             actionFixture.proof
         );
         vm.stopBroadcast();
+    }
 
-        vm.startBroadcast(player1Key);
-        controller.stand(sessionId);
-        vm.stopBroadcast();
-
-        BlackjackShowdownFixture memory showdownFixture = _loadBlackjackShowdownFixture();
+    function _submitShowdown(
+        uint256 adminKey,
+        BlackjackController controller,
+        SingleDeckBlackjackEngine engine,
+        uint256 sessionId,
+        BlackjackShowdownFixture memory showdownFixture
+    ) internal {
         vm.startBroadcast(adminKey);
         engine.submitShowdownProof(
             sessionId,
@@ -100,11 +157,5 @@ contract SmokeBlackjackFixture is FixtureLoaders {
         );
         controller.settle(sessionId);
         vm.stopBroadcast();
-
-        require(token.balanceOf(player1) == (10_000 ether + 100), "SmokeBlackjackFixture: player1 balance");
-        require(
-            developerRewards.epochAccrual(developerRewards.currentEpoch(), soloDeveloper) == BLACKJACK_DEVELOPER_ACCRUAL,
-            "SmokeBlackjackFixture: accrual"
-        );
     }
 }

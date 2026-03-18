@@ -34,6 +34,17 @@ This guide covers the new private AWS-hosted Scuro testnet runtime added under:
    - `script/aws/smoke.sh poker`
    - `script/aws/smoke.sh blackjack`
 
+## Local Verification
+
+- Run the local verification matrix without AWS:
+  - `script/aws/verify_local.sh`
+- This covers:
+  - Bun checks and Bun tests for the operator/worker logic
+  - targeted `forge build` for `script/aws`
+  - focused `forge test` coverage for fixture loading
+  - Anvil-backed deploy and smoke passes for NumberPicker, poker, and blackjack when local listeners are available
+  - automatic in-process Forge smoke fallback when the environment blocks Anvil startup
+
 ## Operator API
 
 - `GET /health`

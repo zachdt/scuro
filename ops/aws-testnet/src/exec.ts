@@ -10,7 +10,13 @@ export interface CommandResult {
   exitCode: number;
 }
 
-export async function runCommand(
+export type CommandRunner = (
+  cmd: string,
+  args: string[],
+  options?: CommandOptions
+) => Promise<CommandResult>;
+
+export const runCommand: CommandRunner = async function runCommand(
   cmd: string,
   args: string[],
   options: CommandOptions = {}
@@ -36,4 +42,4 @@ export async function runCommand(
   }
 
   return { stdout, stderr, exitCode };
-}
+};

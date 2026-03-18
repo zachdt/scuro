@@ -6,8 +6,28 @@ import {
   runNumberPickerSmoke,
   runPokerSmoke
 } from "./protocol";
+import type { CommandRunner } from "./exec";
 import { runCommand } from "./exec";
 import type { ProofJobRecord } from "./types";
+
+export interface WorkerJobDeps {
+  commandRunner: CommandRunner;
+  loadManifest: typeof loadManifest;
+  runNumberPickerSmoke: typeof runNumberPickerSmoke;
+  runPokerSmoke: typeof runPokerSmoke;
+  runBlackjackSmoke: typeof runBlackjackSmoke;
+}
+
+function withWorkerJobDeps(overrides: Partial<WorkerJobDeps> = {}): WorkerJobDeps {
+  return {
+    commandRunner: runCommand,
+    loadManifest,
+    runNumberPickerSmoke,
+    runPokerSmoke,
+    runBlackjackSmoke,
+    ...overrides
+  };
+}
 
 function envForProofJob(config: AppConfig, job: ProofJobRecord): Record<string, string> {
   const payload = job.payload ?? {};
@@ -49,9 +69,10 @@ function envForProofJob(config: AppConfig, job: ProofJobRecord): Record<string, 
 async function runFixtureScript(
   config: AppConfig,
   target: string,
-  job: ProofJobRecord
+  job: ProofJobRecord,
+  deps: WorkerJobDeps
 ): Promise<Record<string, string>> {
-  const manifest = await loadManifest(config.manifestPath);
+  const manifest = await deps.loadManifest(config.manifestPath);
   if (!manifest) {
     throw new Error("manifest not found");
   }
@@ -65,7 +86,7 @@ async function runFixtureScript(
     ...envForProofJob(config, job)
   };
 
-  await runCommand(
+  await deps.commandRunner(
     "forge",
     [
       "script",
@@ -90,16 +111,18 @@ async function runFixtureScript(
 export async function processJob(
   config: AppConfig,
   job: ProofJobRecord,
-  providers: Record<"fixture" | "live", ProofProvider>
+  providers: Record<"fixture" | "live", ProofProvider>,
+  depsOverrides: Partial<WorkerJobDeps> = {}
 ): Promise<unknown> {
+  const deps = withWorkerJobDeps(depsOverrides);
   if (job.jobType === "smoke-number-picker") {
-    return runNumberPickerSmoke(config);
+    return deps.runNumberPickerSmoke(config);
   }
   if (job.jobType === "smoke-poker") {
-    return runPokerSmoke(config);
+    return deps.runPokerSmoke(config);
   }
   if (job.jobType === "smoke-blackjack") {
-    return runBlackjackSmoke(config);
+    return deps.runBlackjackSmoke(config);
   }
 
   const provider = providers[job.mode];
@@ -112,13 +135,14 @@ export async function processJob(
         ...(await runFixtureScript(
           config,
           "script/aws/SubmitPokerInitialDeal.s.sol:SubmitPokerInitialDeal",
-          job
+          job,
+          deps
         ))
       };
     case "poker-draw":
       return {
         resolved,
-        ...(await runFixtureScript(config, "script/aws/SubmitPokerDraw.s.sol:SubmitPokerDraw", job))
+        ...(await runFixtureScript(config, "script/aws/SubmitPokerDraw.s.sol:SubmitPokerDraw", job, deps))
       };
     case "poker-showdown":
       return {
@@ -126,7 +150,8 @@ export async function processJob(
         ...(await runFixtureScript(
           config,
           "script/aws/SubmitPokerShowdown.s.sol:SubmitPokerShowdown",
-          job
+          job,
+          deps
         ))
       };
     case "blackjack-initial-deal":
@@ -135,7 +160,8 @@ export async function processJob(
         ...(await runFixtureScript(
           config,
           "script/aws/SubmitBlackjackInitialDeal.s.sol:SubmitBlackjackInitialDeal",
-          job
+          job,
+          deps
         ))
       };
     case "blackjack-action":
@@ -144,7 +170,8 @@ export async function processJob(
         ...(await runFixtureScript(
           config,
           "script/aws/SubmitBlackjackAction.s.sol:SubmitBlackjackAction",
-          job
+          job,
+          deps
         ))
       };
     case "blackjack-showdown":
@@ -153,7 +180,8 @@ export async function processJob(
         ...(await runFixtureScript(
           config,
           "script/aws/SubmitBlackjackShowdown.s.sol:SubmitBlackjackShowdown",
-          job
+          job,
+          deps
         ))
       };
     case "benchmark-live-proof":

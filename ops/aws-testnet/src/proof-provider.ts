@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { AppConfig } from "./config";
+import type { CommandRunner } from "./exec";
 import { runCommand } from "./exec";
 import type { ProofJobRecord } from "./types";
 
@@ -35,7 +36,10 @@ export class FixtureProofProvider implements ProofProvider {
 export class LiveProofProvider implements ProofProvider {
   readonly mode = "live" as const;
 
-  constructor(private readonly config: AppConfig) {}
+  constructor(
+    private readonly config: AppConfig,
+    private readonly commandRunner: CommandRunner = runCommand
+  ) {}
 
   async execute(job: ProofJobRecord): Promise<unknown> {
     if (job.jobType !== "benchmark-live-proof") {
@@ -43,7 +47,7 @@ export class LiveProofProvider implements ProofProvider {
     }
 
     const startedAt = Date.now();
-    await runCommand("bun", ["run", "--cwd", "zk", "prove"], {
+    await this.commandRunner("bun", ["run", "--cwd", "zk", "prove"], {
       cwd: this.config.repoRoot
     });
     return {

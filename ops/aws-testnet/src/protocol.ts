@@ -1,6 +1,8 @@
 import path from "node:path";
 import type { AppConfig } from "./config";
+import type { CommandRunner } from "./exec";
 import { runCommand } from "./exec";
+import { notFound } from "./errors";
 import { buildManifest, loadManifest, parseDeployOutput, writeManifest } from "./manifest";
 import type { DeploymentManifest } from "./types";
 
@@ -39,8 +41,28 @@ function smokeEnv(config: AppConfig, manifest: DeploymentManifest): Record<strin
   };
 }
 
-async function rpc(method: string, params: unknown[], config: AppConfig): Promise<unknown> {
-  const result = await runCommand("cast", [
+export interface ProtocolDeps {
+  commandRunner: CommandRunner;
+  loadManifest: typeof loadManifest;
+  writeManifest: typeof writeManifest;
+}
+
+function withProtocolDeps(overrides: Partial<ProtocolDeps> = {}): ProtocolDeps {
+  return {
+    commandRunner: runCommand,
+    loadManifest,
+    writeManifest,
+    ...overrides
+  };
+}
+
+async function rpc(
+  method: string,
+  params: unknown[],
+  config: AppConfig,
+  deps: ProtocolDeps
+): Promise<unknown> {
+  const result = await deps.commandRunner("cast", [
     "rpc",
     "--rpc-url",
     config.rpcUrl,
@@ -50,16 +72,24 @@ async function rpc(method: string, params: unknown[], config: AppConfig): Promis
   return result.stdout.trim();
 }
 
-export async function checkChainHealth(config: AppConfig): Promise<Record<string, unknown>> {
-  const chainId = await runCommand("cast", ["rpc", "--rpc-url", config.rpcUrl, "eth_chainId"]);
+export async function checkChainHealth(
+  config: AppConfig,
+  depsOverrides: Partial<ProtocolDeps> = {}
+): Promise<Record<string, unknown>> {
+  const deps = withProtocolDeps(depsOverrides);
+  const chainId = await deps.commandRunner("cast", ["rpc", "--rpc-url", config.rpcUrl, "eth_chainId"]);
   return {
     rpcUrl: config.rpcUrl,
     chainId: chainId.stdout.trim()
   };
 }
 
-export async function deployProtocol(config: AppConfig): Promise<DeploymentManifest> {
-  const result = await runCommand(
+export async function deployProtocol(
+  config: AppConfig,
+  depsOverrides: Partial<ProtocolDeps> = {}
+): Promise<DeploymentManifest> {
+  const deps = withProtocolDeps(depsOverrides);
+  const result = await deps.commandRunner(
     "forge",
     [
       "script",
@@ -87,14 +117,19 @@ export async function deployProtocol(config: AppConfig): Promise<DeploymentManif
   }
 
   const manifest = buildManifest(contracts, config);
-  await writeManifest(config.manifestPath, manifest);
+  await deps.writeManifest(config.manifestPath, manifest);
   return manifest;
 }
 
-export async function seedApprovals(config: AppConfig, manifest?: DeploymentManifest): Promise<void> {
-  const activeManifest = manifest ?? (await loadManifest(config.manifestPath));
+export async function seedApprovals(
+  config: AppConfig,
+  manifest?: DeploymentManifest,
+  depsOverrides: Partial<ProtocolDeps> = {}
+): Promise<void> {
+  const deps = withProtocolDeps(depsOverrides);
+  const activeManifest = manifest ?? (await deps.loadManifest(config.manifestPath));
   if (!activeManifest) {
-    throw new Error("manifest not found");
+    throw notFound("manifest not found");
   }
 
   const token = activeManifest.contracts.ScuroToken;
@@ -109,7 +144,7 @@ export async function seedApprovals(config: AppConfig, manifest?: DeploymentMani
   ] as const;
 
   for (const [privateKey, spender] of approvals) {
-    await runCommand("cast", [
+    await deps.commandRunner("cast", [
       "send",
       token,
       "approve(address,uint256)",
@@ -123,17 +158,26 @@ export async function seedApprovals(config: AppConfig, manifest?: DeploymentMani
   }
 }
 
-export async function resetAndDeploy(config: AppConfig): Promise<DeploymentManifest> {
-  await rpc("anvil_reset", [], config);
-  const manifest = await deployProtocol(config);
-  await seedApprovals(config, manifest);
+export async function resetAndDeploy(
+  config: AppConfig,
+  depsOverrides: Partial<ProtocolDeps> = {}
+): Promise<DeploymentManifest> {
+  const deps = withProtocolDeps(depsOverrides);
+  await rpc("anvil_reset", [], config, deps);
+  const manifest = await deployProtocol(config, deps);
+  await seedApprovals(config, manifest, deps);
   return manifest;
 }
 
-export async function exportSnapshot(config: AppConfig, name?: string): Promise<Record<string, string>> {
+export async function exportSnapshot(
+  config: AppConfig,
+  name?: string,
+  depsOverrides: Partial<ProtocolDeps> = {}
+): Promise<Record<string, string>> {
+  const deps = withProtocolDeps(depsOverrides);
   const snapshotName = name ?? new Date().toISOString().replace(/[:.]/g, "-");
   const localPath = path.join(config.snapshotsDir, `${snapshotName}.json`);
-  const state = (await runCommand("cast", [
+  const state = (await deps.commandRunner("cast", [
     "rpc",
     "--rpc-url",
     config.rpcUrl,
@@ -145,7 +189,7 @@ export async function exportSnapshot(config: AppConfig, name?: string): Promise<
   let s3Path: string | undefined;
   if (config.snapshotBucket) {
     s3Path = `s3://${config.snapshotBucket}/${config.snapshotPrefix}/${snapshotName}.json`;
-    await runCommand("aws", [
+    await deps.commandRunner("aws", [
       "s3",
       "cp",
       localPath,
@@ -159,13 +203,15 @@ export async function exportSnapshot(config: AppConfig, name?: string): Promise<
 
 export async function restoreSnapshot(
   config: AppConfig,
-  options: { name?: string; s3Key?: string }
+  options: { name?: string; s3Key?: string },
+  depsOverrides: Partial<ProtocolDeps> = {}
 ): Promise<Record<string, string>> {
+  const deps = withProtocolDeps(depsOverrides);
   const snapshotName = options.name ?? "latest";
   const localPath = path.join(config.snapshotsDir, `${snapshotName}.json`);
 
   if (options.s3Key) {
-    await runCommand("aws", [
+    await deps.commandRunner("aws", [
       "s3",
       "cp",
       `s3://${config.snapshotBucket}/${options.s3Key}`,
@@ -175,7 +221,7 @@ export async function restoreSnapshot(
   }
 
   const state = await Bun.file(localPath).text();
-  await runCommand("cast", [
+  await deps.commandRunner("cast", [
     "rpc",
     "--rpc-url",
     config.rpcUrl,
@@ -189,9 +235,10 @@ export async function restoreSnapshot(
 async function runSmokeScript(
   target: string,
   config: AppConfig,
-  manifest: DeploymentManifest
+  manifest: DeploymentManifest,
+  deps: ProtocolDeps
 ): Promise<Record<string, string>> {
-  await runCommand(
+  await deps.commandRunner(
     "forge",
     [
       "script",
@@ -214,33 +261,39 @@ async function runSmokeScript(
 
 export async function runNumberPickerSmoke(
   config: AppConfig,
-  manifest?: DeploymentManifest
+  manifest?: DeploymentManifest,
+  depsOverrides: Partial<ProtocolDeps> = {}
 ): Promise<Record<string, string>> {
-  const activeManifest = manifest ?? (await loadManifest(config.manifestPath));
+  const deps = withProtocolDeps(depsOverrides);
+  const activeManifest = manifest ?? (await deps.loadManifest(config.manifestPath));
   if (!activeManifest) {
-    throw new Error("manifest not found");
+    throw notFound("manifest not found");
   }
-  return runSmokeScript("script/aws/SmokeNumberPicker.s.sol:SmokeNumberPicker", config, activeManifest);
+  return runSmokeScript("script/aws/SmokeNumberPicker.s.sol:SmokeNumberPicker", config, activeManifest, deps);
 }
 
 export async function runPokerSmoke(
   config: AppConfig,
-  manifest?: DeploymentManifest
+  manifest?: DeploymentManifest,
+  depsOverrides: Partial<ProtocolDeps> = {}
 ): Promise<Record<string, string>> {
-  const activeManifest = manifest ?? (await loadManifest(config.manifestPath));
+  const deps = withProtocolDeps(depsOverrides);
+  const activeManifest = manifest ?? (await deps.loadManifest(config.manifestPath));
   if (!activeManifest) {
-    throw new Error("manifest not found");
+    throw notFound("manifest not found");
   }
-  return runSmokeScript("script/aws/SmokePokerFixture.s.sol:SmokePokerFixture", config, activeManifest);
+  return runSmokeScript("script/aws/SmokePokerFixture.s.sol:SmokePokerFixture", config, activeManifest, deps);
 }
 
 export async function runBlackjackSmoke(
   config: AppConfig,
-  manifest?: DeploymentManifest
+  manifest?: DeploymentManifest,
+  depsOverrides: Partial<ProtocolDeps> = {}
 ): Promise<Record<string, string>> {
-  const activeManifest = manifest ?? (await loadManifest(config.manifestPath));
+  const deps = withProtocolDeps(depsOverrides);
+  const activeManifest = manifest ?? (await deps.loadManifest(config.manifestPath));
   if (!activeManifest) {
-    throw new Error("manifest not found");
+    throw notFound("manifest not found");
   }
-  return runSmokeScript("script/aws/SmokeBlackjackFixture.s.sol:SmokeBlackjackFixture", config, activeManifest);
+  return runSmokeScript("script/aws/SmokeBlackjackFixture.s.sol:SmokeBlackjackFixture", config, activeManifest, deps);
 }
