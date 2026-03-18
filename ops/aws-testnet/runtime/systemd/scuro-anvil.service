@@ -1,0 +1,17 @@
+[Unit]
+Description=Scuro private testnet Anvil node
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/scuro-testnet/scuro.env
+WorkingDirectory=/opt/scuro-testnet/current
+ExecStart=/opt/scuro-testnet/tools/bin/anvil --host 127.0.0.1 --port 8545 --chain-id 31337 --disable-code-size-limit
+Restart=always
+RestartSec=3
+StandardOutput=append:/var/log/scuro-testnet/anvil.log
+StandardError=append:/var/log/scuro-testnet/anvil.log
+
+[Install]
+WantedBy=multi-user.target

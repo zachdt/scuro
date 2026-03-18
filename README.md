@@ -55,6 +55,7 @@ For detailed setup instructions and ZK artifact guidance, see [Local Deployment 
 - **[Protocol Architecture](./docs/protocol-architecture.md)**: Deep dive into the system design, component layers, and code map.
 - **[Game Module User Flows](./docs/game-module-user-flows.md)**: Detailed per-module sequence diagrams for the shipped gameplay controllers and engines.
 - **[Local Deployment](./docs/local-deployment-testing.md)**: Technical guide for environment setup, building, and running tests.
+- **[Private AWS Testnet](./docs/private-aws-testnet.md)**: Private single-host AWS deployment, operator API, and prover-worker guide.
 - **[E2E Scenario Matrix](./test/e2e/MATRIX.md)**: A detailed mapping of user stories to automated test cases.
 
 ## License

@@ -15,3 +15,7 @@
 /zk/**/*.sym
 /zk/**/*.r1cs
 /zk/**/*.wasm
+/.scuro-testnet/
+/infra/aws/testnet/.terraform/
+/infra/aws/testnet/*.tfstate
+/infra/aws/testnet/*.tfstate.*

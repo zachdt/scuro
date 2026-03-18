@@ -1,0 +1,18 @@
+#!/bin/bash
+set -euxo pipefail
+
+mkdir -p /opt/scuro-testnet /var/lib/scuro-testnet /var/log/scuro-testnet /etc/scuro-testnet
+
+cat >/etc/scuro-testnet/bootstrap.env <<EOF
+SCURO_AWS_STACK_NAME=${stack_name}
+AWS_REGION=${region}
+SCURO_SNAPSHOT_BUCKET=${bucket}
+SCURO_SNAPSHOT_PREFIX=snapshots
+SCURO_SQS_QUEUE_URL=${queue_url}
+EOF
+
+if [[ -n "${bundle_key}" ]]; then
+  echo "Bundle key configured: ${bundle_key}" >>/var/log/scuro-testnet/bootstrap.log
+else
+  echo "Bundle key not configured; run remote bootstrap after artifact upload." >>/var/log/scuro-testnet/bootstrap.log
+fi

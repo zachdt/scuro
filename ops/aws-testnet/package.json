@@ -1,0 +1,10 @@
+{
+  "name": "scuro-aws-testnet",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "operator": "bun run src/operator.ts",
+    "worker": "bun run src/worker.ts",
+    "check": "bun run src/check.ts"
+  }
+}

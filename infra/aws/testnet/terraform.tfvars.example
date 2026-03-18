@@ -1,0 +1,6 @@
+name              = "scuro-testnet"
+region            = "us-east-2"
+availability_zone = "us-east-2a"
+instance_type     = "c6i.large"
+root_volume_size  = 80
+bucket_force_destroy = false
