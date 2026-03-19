@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {DeveloperExpressionRegistry} from "../src/DeveloperExpressionRegistry.sol";
-import {DeveloperRewards} from "../src/DeveloperRewards.sol";
-import {GameCatalog} from "../src/GameCatalog.sol";
-import {GameDeploymentFactory} from "../src/GameDeploymentFactory.sol";
-import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
-import {ScuroToken} from "../src/ScuroToken.sol";
-import {SlotMachineController} from "../src/controllers/SlotMachineController.sol";
-import {SlotMachineEngine} from "../src/engines/SlotMachineEngine.sol";
-import {VRFCoordinatorMock} from "../src/mocks/VRFCoordinatorMock.sol";
-import {ManualVRFCoordinatorMock} from "./e2e/helpers/ManualVRFCoordinatorMock.sol";
-import {SlotMachineControllerHarness} from "./helpers/SlotMachineControllerHarness.sol";
+import { Test } from "forge-std/Test.sol";
+import { DeveloperExpressionRegistry } from "../src/DeveloperExpressionRegistry.sol";
+import { DeveloperRewards } from "../src/DeveloperRewards.sol";
+import { GameCatalog } from "../src/GameCatalog.sol";
+import { GameDeploymentFactory } from "../src/GameDeploymentFactory.sol";
+import { ProtocolSettlement } from "../src/ProtocolSettlement.sol";
+import { ScuroToken } from "../src/ScuroToken.sol";
+import { SlotMachineController } from "../src/controllers/SlotMachineController.sol";
+import { SlotMachineEngine } from "../src/engines/SlotMachineEngine.sol";
+import { VRFCoordinatorMock } from "../src/mocks/VRFCoordinatorMock.sol";
+import { ManualVRFCoordinatorMock } from "./e2e/helpers/ManualVRFCoordinatorMock.sol";
+import { SlotMachineControllerHarness } from "./helpers/SlotMachineControllerHarness.sol";
+import { SlotMachinePresetFactory } from "./helpers/SlotMachinePresetFactory.sol";
 
 contract SlotMachineControllerTest is Test {
     ScuroToken internal token;
@@ -39,7 +40,9 @@ contract SlotMachineControllerTest is Test {
         catalog = new GameCatalog(address(this));
         expressionRegistry = new DeveloperExpressionRegistry(address(this));
         developerRewards = new DeveloperRewards(address(this), address(token), 7 days);
-        settlement = new ProtocolSettlement(address(token), address(catalog), address(expressionRegistry), address(developerRewards));
+        settlement = new ProtocolSettlement(
+            address(token), address(catalog), address(expressionRegistry), address(developerRewards)
+        );
         factory = new GameDeploymentFactory(address(this), address(catalog), address(settlement));
         autoVrfCoordinator = new VRFCoordinatorMock();
         manualVrfCoordinator = new ManualVRFCoordinatorMock();
@@ -50,19 +53,18 @@ contract SlotMachineControllerTest is Test {
         developerRewards.grantRole(developerRewards.SETTLEMENT_ROLE(), address(settlement));
 
         GameDeploymentFactory.SlotDeployment memory params = GameDeploymentFactory.SlotDeployment({
-            vrfCoordinator: address(autoVrfCoordinator),
-            configHash: keccak256("slot-auto"),
-            developerRewardBps: 500
+            vrfCoordinator: address(autoVrfCoordinator), configHash: keccak256("slot-auto"), developerRewardBps: 500
         });
         address controllerAddress;
         address engineAddress;
-        (, controllerAddress, engineAddress, ) =
+        (, controllerAddress, engineAddress,) =
             factory.deploySoloModule(uint8(GameDeploymentFactory.SoloFamily.SlotMachine), abi.encode(params));
         autoController = SlotMachineController(controllerAddress);
         autoEngine = SlotMachineEngine(engineAddress);
 
         delayedEngine = new SlotMachineEngine(address(this), address(catalog), address(manualVrfCoordinator));
-        delayedController = new SlotMachineControllerHarness(address(settlement), address(catalog), address(delayedEngine));
+        delayedController =
+            new SlotMachineControllerHarness(address(settlement), address(catalog), address(delayedEngine));
         delayedModuleId = catalog.registerModule(
             GameCatalog.Module({
                 mode: GameCatalog.GameMode.Solo,
@@ -89,7 +91,7 @@ contract SlotMachineControllerTest is Test {
     }
 
     function test_RegisterPresetRejectsMalformedConfigAndPreservesImmutableReadback() public {
-        SlotMachineEngine.PresetConfig memory malformed = _basePresetConfig(1);
+        SlotMachineEngine.PresetConfig memory malformed = SlotMachinePresetFactory.basePreset(1);
         malformed.reelWeightOffsets = new uint16[](2);
         malformed.reelWeightOffsets[0] = 1;
         malformed.reelWeightOffsets[1] = 4;
@@ -141,13 +143,124 @@ contract SlotMachineControllerTest is Test {
 
         assertTrue(freeResult.triggeredFreeSpins);
         assertGt(freeResult.freeSpinPayout, 0);
+        assertGt(freeResult.freeSpinCount, 0);
+        assertLe(freeResult.totalEventCount, delayedEngine.getPresetSummary(2).maxTotalEvents);
         assertTrue(pickResult.triggeredPickBonus);
         assertGt(pickResult.pickBonusPayout, 0);
+        assertGt(pickResult.pickRevealCount, 0);
         assertTrue(holdResult.triggeredHoldAndSpin);
         assertGt(holdResult.holdAndSpinPayout, 0);
+        assertGt(holdResult.holdRespinsUsed, 0);
 
         vm.expectRevert("SlotMachineController: settled");
         delayedController.finalizeForTest(freeSpinId);
+    }
+
+    function testFuzz_DeterministicReplayMatchesForSameSeed(uint64 rawSeed) public {
+        uint256 seed = bound(uint256(rawSeed), 1, type(uint64).max);
+
+        vm.startPrank(player);
+        uint256 spinIdA = delayedController.spinWithoutFinalize(100 ether, 4, keccak256("fuzz-a"), expressionTokenId);
+        uint256 spinIdB = delayedController.spinWithoutFinalize(100 ether, 4, keccak256("fuzz-b"), expressionTokenId);
+        vm.stopPrank();
+
+        manualVrfCoordinator.fulfillRequestWithWord(spinIdA, seed);
+        manualVrfCoordinator.fulfillRequestWithWord(spinIdB, seed);
+        delayedController.finalizeForTest(spinIdA);
+        delayedController.finalizeForTest(spinIdB);
+
+        SlotMachineEngine.SpinResult memory resultA = delayedEngine.getSpinResult(spinIdA);
+        SlotMachineEngine.SpinResult memory resultB = delayedEngine.getSpinResult(spinIdB);
+        assertEq(resultA.totalPayout, resultB.totalPayout);
+        assertEq(resultA.jackpotPayout, resultB.jackpotPayout);
+        assertEq(resultA.totalEventCount, resultB.totalEventCount);
+    }
+
+    function testFuzz_SpinRejectsStakeOutsidePresetBounds(uint96 rawStake) public {
+        uint256 stake = bound(uint256(rawStake), 0, 10_000 ether);
+
+        vm.startPrank(player);
+        if (stake < 1 ether) {
+            vm.expectRevert("SlotMachine: stake too small");
+            delayedController.spinWithoutFinalize(stake, 1, keccak256("too-small"), expressionTokenId);
+        } else if (stake > 1_000 ether) {
+            vm.expectRevert("SlotMachine: stake too large");
+            delayedController.spinWithoutFinalize(stake, 1, keccak256("too-large"), expressionTokenId);
+        } else {
+            uint256 spinId = delayedController.spinWithoutFinalize(stake, 1, keccak256("bounded"), expressionTokenId);
+            assertEq(delayedEngine.getSpin(spinId).stake, stake);
+        }
+        vm.stopPrank();
+    }
+
+    function test_DeterministicReplayWithManualSeedProducesStableResults() public {
+        vm.startPrank(player);
+        uint256 spinIdA = delayedController.spinWithoutFinalize(100 ether, 3, keccak256("seed-a"), expressionTokenId);
+        uint256 spinIdB = delayedController.spinWithoutFinalize(100 ether, 3, keccak256("seed-b"), expressionTokenId);
+        vm.stopPrank();
+
+        manualVrfCoordinator.fulfillRequestWithWord(spinIdA, 42);
+        manualVrfCoordinator.fulfillRequestWithWord(spinIdB, 42);
+        delayedController.finalizeForTest(spinIdA);
+        delayedController.finalizeForTest(spinIdB);
+
+        SlotMachineEngine.SpinResult memory resultA = delayedEngine.getSpinResult(spinIdA);
+        SlotMachineEngine.SpinResult memory resultB = delayedEngine.getSpinResult(spinIdB);
+        assertEq(resultA.totalPayout, resultB.totalPayout);
+        assertEq(resultA.pickBonusPayout, resultB.pickBonusPayout);
+        assertEq(resultA.totalEventCount, resultB.totalEventCount);
+    }
+
+    function test_PayoutCapRevertsOverCapResolution() public {
+        delayedEngine.registerPreset(SlotMachinePresetFactory.lowCapPreset());
+
+        vm.prank(player);
+        uint256 spinId = delayedController.spinWithoutFinalize(100 ether, 5, keccak256("low-cap"), expressionTokenId);
+        vm.expectRevert("ManualVRF: callback failed");
+        manualVrfCoordinator.fulfillRequestWithWord(spinId, 1);
+    }
+
+    function test_EventCapRevertsOverCapResolution() public {
+        delayedEngine.registerPreset(SlotMachinePresetFactory.lowEventCapPreset());
+
+        vm.prank(player);
+        uint256 spinId = delayedController.spinWithoutFinalize(100 ether, 5, keccak256("low-events"), expressionTokenId);
+        vm.expectRevert("ManualVRF: callback failed");
+        manualVrfCoordinator.fulfillRequestWithWord(spinId, 1);
+    }
+
+    function test_GasBaseSpinNoWin() public {
+        vm.prank(player);
+        autoController.spin(100 ether, 1, keccak256("gas-base"), expressionTokenId);
+    }
+
+    function test_GasFreeSpinPath() public {
+        vm.prank(player);
+        uint256 spinId = delayedController.spinWithoutFinalize(100 ether, 2, keccak256("gas-free"), expressionTokenId);
+        manualVrfCoordinator.fulfillRequestWithWord(spinId, 1);
+        delayedController.finalizeForTest(spinId);
+    }
+
+    function test_GasPickBonusPath() public {
+        vm.prank(player);
+        uint256 spinId = delayedController.spinWithoutFinalize(100 ether, 3, keccak256("gas-pick"), expressionTokenId);
+        manualVrfCoordinator.fulfillRequestWithWord(spinId, 2);
+        delayedController.finalizeForTest(spinId);
+    }
+
+    function test_GasHoldAndSpinPath() public {
+        vm.prank(player);
+        uint256 spinId = delayedController.spinWithoutFinalize(100 ether, 4, keccak256("gas-hold"), expressionTokenId);
+        manualVrfCoordinator.fulfillRequestWithWord(spinId, 3);
+        delayedController.finalizeForTest(spinId);
+    }
+
+    function test_GasDelayedFinalizePath() public {
+        vm.prank(player);
+        uint256 spinId =
+            delayedController.spinWithoutFinalize(100 ether, 1, keccak256("gas-delayed"), expressionTokenId);
+        manualVrfCoordinator.fulfillRequestWithWord(spinId, 4);
+        delayedController.finalizeForTest(spinId);
     }
 
     function test_InactivePresetAndLifecycleGatesRevert() public {
@@ -175,122 +288,9 @@ contract SlotMachineControllerTest is Test {
     }
 
     function _registerPresets(SlotMachineEngine engine) internal {
-        engine.registerPreset(_basePresetConfig(1));
-        engine.registerPreset(_freeSpinPresetConfig(2));
-        engine.registerPreset(_pickPresetConfig(3));
-        engine.registerPreset(_holdPresetConfig(4));
-    }
-
-    function _basePresetConfig(uint8 volatility) internal pure returns (SlotMachineEngine.PresetConfig memory config) {
-        config.volatilityTier = volatility;
-        config.configHash = keccak256("base");
-        config.reelCount = 5;
-        config.rowCount = 3;
-        config.waysMode = 1;
-        config.minStake = 1 ether;
-        config.maxStake = 1_000 ether;
-        config.maxPayoutMultiplierBps = 10_000_000;
-        config.symbolIds = new uint16[](4);
-        config.symbolIds[0] = 1;
-        config.symbolIds[1] = 2;
-        config.symbolIds[2] = 3;
-        config.symbolIds[3] = 4;
-        config.wildSymbolId = 0;
-        config.scatterSymbolId = 2;
-        config.bonusSymbolId = 3;
-        config.jackpotSymbolId = 4;
-        config.reelWeightOffsets = new uint16[](6);
-        config.reelSymbolIds = new uint16[](5);
-        config.reelSymbolWeights = new uint16[](5);
-        for (uint256 i = 0; i < 5; i++) {
-            // forge-lint: disable-next-line(unsafe-typecast)
-            config.reelWeightOffsets[i] = uint16(i);
-            config.reelSymbolIds[i] = 1;
-            config.reelSymbolWeights[i] = 100;
-        }
-        config.reelWeightOffsets[5] = 5;
-        config.paytableSymbolIds = new uint16[](1);
-        config.paytableSymbolIds[0] = 1;
-        config.paytableMatchCounts = new uint8[](1);
-        config.paytableMatchCounts[0] = 3;
-        config.paytableMultiplierBps = new uint32[](1);
-        config.paytableMultiplierBps[0] = 1_000;
-        config.freeSpinTriggerCount = 3;
-        config.freeSpinAwardCounts = new uint8[](2);
-        config.freeSpinAwardCounts[0] = 3;
-        config.freeSpinAwardCounts[1] = 5;
-        config.maxFreeSpins = 8;
-        config.maxRetriggers = 2;
-        config.freeSpinMultiplierBps = 10_000;
-        config.pickTriggerCount = 20;
-        config.maxPickReveals = 3;
-        config.pickAwardMultiplierBps = new uint32[](2);
-        config.pickAwardMultiplierBps[0] = 500;
-        config.pickAwardMultiplierBps[1] = 1_500;
-        config.holdTriggerCount = 20;
-        config.holdBoardSize = 20;
-        config.initialRespins = 3;
-        config.maxRespins = 6;
-        config.holdValueMultiplierBps = new uint32[](1);
-        config.holdValueMultiplierBps[0] = 500;
-        config.jackpotTierIds = new uint8[](1);
-        config.jackpotTierIds[0] = 1;
-        config.jackpotAwardMultiplierBps = new uint32[](1);
-        config.jackpotAwardMultiplierBps[0] = 5_000;
-        config.jackpotTierWeights = new uint16[](1);
-        config.jackpotTierWeights[0] = 1;
-        config.maxTotalEvents = 24;
-    }
-
-    function _freeSpinPresetConfig(uint8 volatility) internal pure returns (SlotMachineEngine.PresetConfig memory config) {
-        config = _basePresetConfig(volatility);
-        config.configHash = keccak256("free");
-        for (uint256 i = 0; i < config.reelSymbolIds.length; i++) {
-            config.reelSymbolIds[i] = 2;
-        }
-        config.paytableSymbolIds[0] = 2;
-        config.paytableMatchCounts[0] = 5;
-        config.paytableMultiplierBps[0] = 2_000;
-        config.freeSpinMultiplierBps = 15_000;
-        config.maxFreeSpins = 6;
-        config.maxRetriggers = 1;
-        config.maxTotalEvents = 16;
-    }
-
-    function _pickPresetConfig(uint8 volatility) internal pure returns (SlotMachineEngine.PresetConfig memory config) {
-        config = _basePresetConfig(volatility);
-        config.configHash = keccak256("pick");
-        for (uint256 i = 0; i < config.reelSymbolIds.length; i++) {
-            config.reelSymbolIds[i] = 3;
-        }
-        config.pickTriggerCount = 1;
-        config.maxPickReveals = 4;
-        config.pickAwardMultiplierBps = new uint32[](2);
-        config.pickAwardMultiplierBps[0] = 1_000;
-        config.pickAwardMultiplierBps[1] = 2_000;
-        config.holdTriggerCount = 20;
-        config.maxTotalEvents = 16;
-    }
-
-    function _holdPresetConfig(uint8 volatility) internal pure returns (SlotMachineEngine.PresetConfig memory config) {
-        config = _basePresetConfig(volatility);
-        config.configHash = keccak256("hold");
-        for (uint256 i = 0; i < config.reelSymbolIds.length; i++) {
-            config.reelSymbolIds[i] = 3;
-        }
-        config.pickTriggerCount = 20;
-        config.holdTriggerCount = 1;
-        config.holdBoardSize = 20;
-        config.initialRespins = 3;
-        config.maxRespins = 5;
-        config.holdValueMultiplierBps = new uint32[](1);
-        config.holdValueMultiplierBps[0] = 2_500;
-        config.jackpotTierIds = new uint8[](1);
-        config.jackpotTierIds[0] = 1;
-        config.jackpotAwardMultiplierBps = new uint32[](1);
-        config.jackpotAwardMultiplierBps[0] = 7_500;
-        config.jackpotTierWeights = new uint16[](1);
-        config.jackpotTierWeights[0] = 60_000;
-        config.maxTotalEvents = 20;
+        engine.registerPreset(SlotMachinePresetFactory.basePreset(1));
+        engine.registerPreset(SlotMachinePresetFactory.freeSpinPreset(2));
+        engine.registerPreset(SlotMachinePresetFactory.pickPreset(3));
+        engine.registerPreset(SlotMachinePresetFactory.holdPreset(4));
     }
 }

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
-import {GameCatalog} from "../GameCatalog.sol";
-import {ISoloLifecycleEngine} from "../interfaces/ISoloLifecycleEngine.sol";
+import { AccessControl } from "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import { GameCatalog } from "../GameCatalog.sol";
+import { ISoloLifecycleEngine } from "../interfaces/ISoloLifecycleEngine.sol";
 
 /// @title Governed slot machine engine
 /// @notice Resolves one atomic slot spin per request from a governed on-chain preset.
@@ -104,11 +104,16 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
         bool triggeredPickBonus;
         bool triggeredHoldAndSpin;
         uint8 freeSpinCount;
+        uint8 freeSpinRetriggersUsed;
         uint256 freeSpinPayout;
+        uint8 pickRevealCount;
         uint256 pickBonusPayout;
+        uint8 holdFilledCount;
+        uint8 holdRespinsUsed;
         uint256 holdAndSpinPayout;
         uint8 jackpotTierHit;
         uint256 jackpotPayout;
+        uint8 totalEventCount;
         uint256 totalPayout;
     }
 
@@ -149,13 +154,11 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
     event PresetRegistered(uint256 indexed presetId, uint8 volatilityTier, bytes32 configHash);
     event PresetActiveSet(uint256 indexed presetId, bool active);
     event SpinRequested(
-        uint256 indexed spinId,
-        address indexed player,
-        uint256 indexed presetId,
-        uint256 stake,
-        bytes32 playRef
+        uint256 indexed spinId, address indexed player, uint256 indexed presetId, uint256 stake, bytes32 playRef
     );
-    event BaseGameResolved(uint256 indexed spinId, uint256 payout, bool freeSpinsTriggered, bool pickTriggered, bool holdTriggered);
+    event BaseGameResolved(
+        uint256 indexed spinId, uint256 payout, bool freeSpinsTriggered, bool pickTriggered, bool holdTriggered
+    );
     event FreeSpinsResolved(uint256 indexed spinId, uint8 awardedSpins, uint256 payout, uint8 retriggersUsed);
     event PickBonusResolved(uint256 indexed spinId, uint8 reveals, uint256 payout);
     event HoldAndSpinResolved(uint256 indexed spinId, uint8 filled, uint8 respinsUsed, uint256 payout);
@@ -177,7 +180,11 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
         return ENGINE_TYPE;
     }
 
-    function registerPreset(PresetConfig calldata config) external onlyRole(PRESET_MANAGER_ROLE) returns (uint256 presetId) {
+    function registerPreset(PresetConfig calldata config)
+        external
+        onlyRole(PRESET_MANAGER_ROLE)
+        returns (uint256 presetId)
+    {
         _validatePreset(config);
 
         presetId = nextPresetId++;
@@ -230,7 +237,10 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
         emit PresetActiveSet(presetId, active);
     }
 
-    function requestSpin(address player, uint256 stake, uint256 presetId, bytes32 playRef) external returns (uint256 spinId) {
+    function requestSpin(address player, uint256 stake, uint256 presetId, bytes32 playRef)
+        external
+        returns (uint256 spinId)
+    {
         require(CATALOG.isAuthorizedControllerForEngine(msg.sender, address(this)), "SlotMachine: not controller");
         PresetConfig storage preset = presets[presetId];
         require(presetActive[presetId], "SlotMachine: inactive preset");
@@ -293,6 +303,7 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
                 (uint8 awardedSpins, uint256 payout, uint8 retriggersUsed, uint8 eventCount) =
                     _resolveFreeSpins(preset, spin.stake, seed, state.eventCount);
                 result.freeSpinCount = awardedSpins;
+                result.freeSpinRetriggersUsed = retriggersUsed;
                 result.freeSpinPayout = payout;
                 state.payout += payout;
                 state.eventCount += eventCount;
@@ -303,6 +314,7 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
         if (result.triggeredPickBonus) {
             {
                 (uint256 payout, uint8 reveals) = _resolvePickBonus(preset, spin.stake, seed, state.eventCount);
+                result.pickRevealCount = reveals;
                 result.pickBonusPayout = payout;
                 state.payout += payout;
                 state.eventCount += reveals;
@@ -312,8 +324,16 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
 
         if (result.triggeredHoldAndSpin) {
             {
-                (uint256 payout, uint8 filled, uint8 respinsUsed, uint8 jackpotTierHit, uint256 jackpotPayout, uint8 eventCount)
-                = _resolveHoldAndSpin(preset, spin.stake, seed, state.eventCount, base.holdFillCount);
+                (
+                    uint256 payout,
+                    uint8 filled,
+                    uint8 respinsUsed,
+                    uint8 jackpotTierHit,
+                    uint256 jackpotPayout,
+                    uint8 eventCount
+                ) = _resolveHoldAndSpin(preset, spin.stake, seed, state.eventCount, base.holdFillCount);
+                result.holdFilledCount = filled;
+                result.holdRespinsUsed = respinsUsed;
                 result.holdAndSpinPayout = payout;
                 result.jackpotTierHit = jackpotTierHit;
                 result.jackpotPayout = jackpotPayout;
@@ -329,6 +349,7 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
         require(state.eventCount <= preset.maxTotalEvents, "SlotMachine: event cap");
         require(state.payout <= (spin.stake * preset.maxPayoutMultiplierBps) / 10_000, "SlotMachine: payout cap");
 
+        result.totalEventCount = state.eventCount;
         result.totalPayout = state.payout;
         spin.finalPayout = state.payout;
         spin.status = STATUS_RESOLVED;
@@ -391,24 +412,40 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
         require(config.reelCount >= 3 && config.reelCount <= MAX_REELS, "SlotMachine: bad reels");
         require(config.rowCount >= 3 && config.rowCount <= MAX_ROWS, "SlotMachine: bad rows");
         require(config.waysMode == WAYS_LEFT_TO_RIGHT, "SlotMachine: bad ways mode");
-        require(config.symbolIds.length > 0 && config.symbolIds.length <= MAX_SUPPORTED_SYMBOLS, "SlotMachine: bad symbols");
+        require(
+            config.symbolIds.length > 0 && config.symbolIds.length <= MAX_SUPPORTED_SYMBOLS, "SlotMachine: bad symbols"
+        );
         require(config.reelWeightOffsets.length == config.reelCount + 1, "SlotMachine: bad offsets");
         require(config.reelWeightOffsets[0] == 0, "SlotMachine: bad offset start");
-        require(config.reelWeightOffsets[config.reelWeightOffsets.length - 1] == config.reelSymbolIds.length, "SlotMachine: bad offset end");
+        require(
+            config.reelWeightOffsets[config.reelWeightOffsets.length - 1] == config.reelSymbolIds.length,
+            "SlotMachine: bad offset end"
+        );
         require(config.reelSymbolIds.length == config.reelSymbolWeights.length, "SlotMachine: bad weights");
         require(config.reelSymbolIds.length > 0, "SlotMachine: empty weights");
-        require(config.paytableSymbolIds.length > 0 && config.paytableSymbolIds.length <= MAX_PAYTABLE_ENTRIES, "SlotMachine: bad paytable");
+        require(
+            config.paytableSymbolIds.length > 0 && config.paytableSymbolIds.length <= MAX_PAYTABLE_ENTRIES,
+            "SlotMachine: bad paytable"
+        );
         require(
             config.paytableSymbolIds.length == config.paytableMatchCounts.length
                 && config.paytableSymbolIds.length == config.paytableMultiplierBps.length,
             "SlotMachine: bad paytable arrays"
         );
         require(config.freeSpinAwardCounts.length > 0, "SlotMachine: bad free spins");
-        require(config.maxFreeSpins > 0 && config.maxRetriggers <= config.maxFreeSpins, "SlotMachine: bad free spin caps");
+        require(
+            config.maxFreeSpins > 0 && config.maxRetriggers <= config.maxFreeSpins, "SlotMachine: bad free spin caps"
+        );
         require(config.maxPickReveals > 0 && config.maxPickReveals <= MAX_PICK_AWARDS, "SlotMachine: bad pick caps");
-        require(config.pickAwardMultiplierBps.length > 0 && config.pickAwardMultiplierBps.length <= MAX_PICK_AWARDS, "SlotMachine: bad pick awards");
+        require(
+            config.pickAwardMultiplierBps.length > 0 && config.pickAwardMultiplierBps.length <= MAX_PICK_AWARDS,
+            "SlotMachine: bad pick awards"
+        );
         require(config.holdBoardSize > 0, "SlotMachine: bad hold board");
-        require(config.holdValueMultiplierBps.length > 0 && config.holdValueMultiplierBps.length <= MAX_HOLD_VALUES, "SlotMachine: bad hold values");
+        require(
+            config.holdValueMultiplierBps.length > 0 && config.holdValueMultiplierBps.length <= MAX_HOLD_VALUES,
+            "SlotMachine: bad hold values"
+        );
         require(config.initialRespins > 0 && config.maxRespins > 0, "SlotMachine: bad respins");
         require(
             config.jackpotTierIds.length == config.jackpotAwardMultiplierBps.length
@@ -426,7 +463,11 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
         }
     }
 
-    function _generateGrid(PresetConfig storage preset, uint256 seed, uint256 salt) internal view returns (uint16[] memory grid) {
+    function _generateGrid(PresetConfig storage preset, uint256 seed, uint256 salt)
+        internal
+        view
+        returns (uint16[] memory grid)
+    {
         uint256 cells = uint256(preset.reelCount) * uint256(preset.rowCount);
         grid = new uint16[](cells);
 
@@ -461,10 +502,12 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
         }
     }
 
-    function _resolveBaseOutcome(PresetConfig storage preset, uint256 stake, uint16[] memory grid, SpinResult storage result)
-        internal
-        returns (BaseOutcome memory base)
-    {
+    function _resolveBaseOutcome(
+        PresetConfig storage preset,
+        uint256 stake,
+        uint16[] memory grid,
+        SpinResult storage result
+    ) internal returns (BaseOutcome memory base) {
         base.payout = _evaluateWays(preset, stake, grid, result);
 
         uint256 scatterCount = _countSymbol(grid, preset.scatterSymbolId);
@@ -473,7 +516,8 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
 
         base.triggeredFreeSpins = preset.freeSpinTriggerCount > 0 && scatterCount >= preset.freeSpinTriggerCount;
         base.triggeredPickBonus = preset.pickTriggerCount > 0 && bonusCount >= preset.pickTriggerCount;
-        base.triggeredHoldAndSpin = preset.holdTriggerCount > 0 && (bonusCount + jackpotCount) >= preset.holdTriggerCount;
+        base.triggeredHoldAndSpin =
+            preset.holdTriggerCount > 0 && (bonusCount + jackpotCount) >= preset.holdTriggerCount;
         // forge-lint: disable-next-line(unsafe-typecast)
         base.holdFillCount = uint8(bonusCount + jackpotCount);
     }
@@ -539,7 +583,10 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
             eventCount += 1;
 
             uint256 scatterCount = _countSymbol(grid, preset.scatterSymbolId);
-            if (scatterCount >= preset.freeSpinTriggerCount && retriggersUsed < preset.maxRetriggers && awardedSpins < preset.maxFreeSpins) {
+            if (
+                scatterCount >= preset.freeSpinTriggerCount && retriggersUsed < preset.maxRetriggers
+                    && awardedSpins < preset.maxFreeSpins
+            ) {
                 // forge-lint: disable-next-line(unsafe-typecast)
                 uint8 extra = _lookupFreeSpinCount(preset, uint8(scatterCount));
                 if (awardedSpins + extra > preset.maxFreeSpins) {
@@ -575,7 +622,18 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
         uint256 seed,
         uint8 startingEvents,
         uint8 initialFilled
-    ) internal view returns (uint256 payout, uint8 filled, uint8 respinsUsed, uint8 jackpotTierHit, uint256 jackpotPayout, uint8 eventCount) {
+    )
+        internal
+        view
+        returns (
+            uint256 payout,
+            uint8 filled,
+            uint8 respinsUsed,
+            uint8 jackpotTierHit,
+            uint256 jackpotPayout,
+            uint8 eventCount
+        )
+    {
         HoldSpinState memory state;
         state.spinsRemaining = preset.initialRespins;
         state.filled = initialFilled > preset.holdBoardSize ? preset.holdBoardSize : initialFilled;
@@ -619,8 +677,9 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
         uint256 newHits
     ) internal view {
         for (uint256 i = 0; i < newHits; i++) {
-            (uint256 valuePayout, uint8 tierHit, uint256 tierPayout) =
-                _drawHoldValue(preset, stake, uint256(keccak256(abi.encode(seed, 31_000 + state.respinsUsed, i))));
+            (uint256 valuePayout, uint8 tierHit, uint256 tierPayout) = _drawHoldValue(
+                preset, stake, uint256(keccak256(abi.encode(seed, 31_000 + state.respinsUsed, i)))
+            );
             state.payout += valuePayout;
             if (tierHit != 0) {
                 state.jackpotTierHit = tierHit;
@@ -667,7 +726,11 @@ contract SlotMachineEngine is ISoloLifecycleEngine, AccessControl {
         return preset.freeSpinAwardCounts[idx];
     }
 
-    function _evaluateWaysView(PresetConfig storage preset, uint256 stake, uint16[] memory grid) internal view returns (uint256 payout) {
+    function _evaluateWaysView(PresetConfig storage preset, uint256 stake, uint16[] memory grid)
+        internal
+        view
+        returns (uint256 payout)
+    {
         for (uint256 i = 0; i < preset.paytableSymbolIds.length; i++) {
             (uint8 matches, uint16 waysCount) = _countWays(preset, grid, preset.paytableSymbolIds[i]);
             if (matches >= preset.paytableMatchCounts[i] && waysCount > 0) {

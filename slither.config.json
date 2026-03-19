@@ -1,0 +1,12 @@
+{
+  "filter_paths": "(lib|out|broadcast|zk|ops|archive)",
+  "exclude": [
+    "naming-convention",
+    "solc-version",
+    "assembly",
+    "dead-code",
+    "unused-import",
+    "pragma",
+    "external-function"
+  ]
+}

@@ -12,6 +12,7 @@ The local stack includes a comprehensive set of example engines and protocol ser
 
 ### Gameplay Modules
 - **`NumberPickerEngine`**: A low-latency, VRF-backed solo gaming example.
+- **`SlotMachineEngine`**: A governed ways-based slot runtime with bounded bonus families and immutable presets.
 - **`SingleDraw2To7Engine`**: A ZK-proven poker engine used across tournament and PvP controllers.
 - **`SingleDeckBlackjackEngine`**: A secure solo blackjack experience utilizing Groth16 proofs.
 
@@ -59,11 +60,29 @@ Run the comprehensive test suite to ensure system-wide integrity:
 # Execute the full test suite
 forge test --offline
 
+# Run the slot-focused invariant suite
+forge test --match-path 'test/invariants/*.t.sol' --offline
+
+# Increase invariant depth locally or in automation
+FOUNDRY_FUZZ_RUNS=512 forge test --match-path 'test/invariants/*.t.sol' --offline
+
 # Run ONLY the layered end-to-end scenarios
 forge test --match-path 'test/e2e/*.t.sol' --offline
 
 # Perform a targeted contract test
 forge test --match-path 'test/ProtocolCore.t.sol' --offline
+
+# Generate advisory gas snapshots for slot paths
+./script/slot_gas_snapshot.sh
+
+# Run advisory static analysis
+slither .
+
+# Generate report-first slot EV analysis
+python -m analysis.slot_ev.report --preset all
+
+# Run the new local verification wrapper
+./script/verify_local.sh
 
 # Regenerate SDK-facing protocol metadata
 ruby script/docs/generate_protocol_docs_metadata.rb
@@ -97,15 +116,43 @@ Located in `test/e2e/`, these act as the final completeness gate:
 - **`UserFlowsE2E`**: Simulates complete user journeys, from staking to competitive play and reward claims.
 - **`AbusePathsE2E`**: Rigorously tests the protocol's defenses against replay attacks, unauthorized access, and invalid proofs.
 
+### Stateful Invariants
+Located in `test/invariants/`, these focus on slot-specific state safety under randomized call sequences:
+- **`SlotSpinHandler`**: Exercises launch, fulfill, and settlement paths while tracking payout, balance, and developer-accrual accounting.
+- **`SlotPresetHandler`**: Exercises preset activation, immutable preset registration snapshots, and deterministic seed replay.
+- **`LifecycleHandler`**: Exercises `LIVE`, `RETIRED`, and `DISABLED` transitions against launch/progress/settlement expectations.
+
+### Economic Analysis
+Located in `analysis/slot_ev/`, this report-first Python lane estimates:
+- EV deviation from the neutral target
+- Variance and standard deviation
+- Bonus and jackpot trigger frequency
+- Max observed payout and event-count envelopes
+- Simulator throughput for economic-scale runs
+
+The analysis package consumes ABI-shaped preset fixtures, emits both JSON and markdown summaries, and warns when advisory thresholds drift.
+
+### Static Analysis
+Use [script/check_slither.sh](/Users/zachdt/work/scuro/script/check_slither.sh) for the advisory structural-security pass. The baseline [slither.config.json](/Users/zachdt/work/scuro/slither.config.json) suppresses low-signal findings so the default output stays reviewable.
+
 ---
 
 ## Coverage Philosophy
 
-Currently, Scuro prioritizes **exhaustive scenario coverage** over raw line-percentage metrics.
+Scuro prioritizes **high-signal confidence layers** over raw line-percentage metrics.
 
 **The Rationale:**
 - The codebase leverages `via_ir`, which can cause compiler limitations (e.g., "stack too deep") when traditional coverage instrumentation is applied.
 - Comprehensive user-story mapping (maintained in the [E2E Scenario Matrix](../test/e2e/MATRIX.md)) provides a more accurate measure of protocol safety than simple line hits.
+- Foundry invariants prove lifecycle and settlement safety properties under randomized call sequences.
+- Python analysis estimates EV, volatility, feature frequencies, and throughput characteristics for governed slot presets.
+- Slither provides an advisory structural-security layer for new controller and engine code.
+
+### Testing Philosophy For Slot Math
+- **Foundry** proves runtime invariants, payout caps, lifecycle rules, and settlement correctness.
+- **Scenario E2E** proves real player flows, expression transfer behavior, and lifecycle edge cases.
+- **Python EV analysis** estimates neutrality drift, variance, feature rates, and simulator performance without blocking ordinary PRs.
+- **Slither** catches structural issues such as authorization mistakes, unsafe storage patterns, and suspicious low-level call surfaces.
 
 ---
 
@@ -151,3 +198,12 @@ When verifying rewards locally:
 - **Access Gating**: Poker game initialization is strictly controller-gated to prevent predictable game ID seeding.
 - **Graceful Retirement**: The protocol supports a tiered decommissioning process (`RETIRED` vs. `DISABLED`) to protect in-flight user funds.
 - **Coordinator Resilience**: Current ZK engines rely on off-chain coordinators. While proof validation is robust, work is ongoing to implement automated timeouts and recovery paths for stalled submissions.
+
+---
+
+## Phase 2 Options
+
+The local workflow intentionally stops short of operationalizing heavier analyzers in phase 1. The next-step open-source tools to evaluate are:
+- **`Medusa`** for nightly coverage-guided sequence fuzzing once slot branches or preset count grow materially.
+- **`Echidna`** if Foundry invariants prove too shallow for long randomized session sequences.
+- **`Halmos`** for bounded symbolic checks of a small number of critical slot invariants such as payout ceilings or authorization barriers.
