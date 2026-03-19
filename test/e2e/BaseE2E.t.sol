@@ -1,27 +1,31 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {TimelockController} from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
-import {DeveloperExpressionRegistry} from "../../src/DeveloperExpressionRegistry.sol";
-import {DeveloperRewards} from "../../src/DeveloperRewards.sol";
-import {GameCatalog} from "../../src/GameCatalog.sol";
-import {GameDeploymentFactory} from "../../src/GameDeploymentFactory.sol";
-import {ProtocolSettlement} from "../../src/ProtocolSettlement.sol";
-import {ScuroGovernor} from "../../src/ScuroGovernor.sol";
-import {ScuroStakingToken} from "../../src/ScuroStakingToken.sol";
-import {ScuroToken} from "../../src/ScuroToken.sol";
-import {BlackjackController} from "../../src/controllers/BlackjackController.sol";
-import {NumberPickerAdapter} from "../../src/controllers/NumberPickerAdapter.sol";
-import {PvPController} from "../../src/controllers/PvPController.sol";
-import {TournamentController} from "../../src/controllers/TournamentController.sol";
-import {NumberPickerEngine} from "../../src/engines/NumberPickerEngine.sol";
-import {SingleDeckBlackjackEngine} from "../../src/engines/SingleDeckBlackjackEngine.sol";
-import {SingleDraw2To7Engine} from "../../src/engines/SingleDraw2To7Engine.sol";
-import {VRFCoordinatorMock} from "../../src/mocks/VRFCoordinatorMock.sol";
-import {ManualVRFCoordinatorMock} from "./helpers/ManualVRFCoordinatorMock.sol";
-import {NumberPickerAdapterHarness} from "./helpers/NumberPickerAdapterHarness.sol";
-import {ZkFixtureLoader} from "../helpers/ZkFixtureLoader.sol";
+import { Test } from "forge-std/Test.sol";
+import { TimelockController } from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
+import { DeveloperExpressionRegistry } from "../../src/DeveloperExpressionRegistry.sol";
+import { DeveloperRewards } from "../../src/DeveloperRewards.sol";
+import { GameCatalog } from "../../src/GameCatalog.sol";
+import { GameDeploymentFactory } from "../../src/GameDeploymentFactory.sol";
+import { ProtocolSettlement } from "../../src/ProtocolSettlement.sol";
+import { ScuroGovernor } from "../../src/ScuroGovernor.sol";
+import { ScuroStakingToken } from "../../src/ScuroStakingToken.sol";
+import { ScuroToken } from "../../src/ScuroToken.sol";
+import { BlackjackController } from "../../src/controllers/BlackjackController.sol";
+import { NumberPickerAdapter } from "../../src/controllers/NumberPickerAdapter.sol";
+import { PvPController } from "../../src/controllers/PvPController.sol";
+import { SlotMachineController } from "../../src/controllers/SlotMachineController.sol";
+import { TournamentController } from "../../src/controllers/TournamentController.sol";
+import { NumberPickerEngine } from "../../src/engines/NumberPickerEngine.sol";
+import { SingleDeckBlackjackEngine } from "../../src/engines/SingleDeckBlackjackEngine.sol";
+import { SingleDraw2To7Engine } from "../../src/engines/SingleDraw2To7Engine.sol";
+import { SlotMachineEngine } from "../../src/engines/SlotMachineEngine.sol";
+import { VRFCoordinatorMock } from "../../src/mocks/VRFCoordinatorMock.sol";
+import { ManualVRFCoordinatorMock } from "./helpers/ManualVRFCoordinatorMock.sol";
+import { NumberPickerAdapterHarness } from "./helpers/NumberPickerAdapterHarness.sol";
+import { SlotMachineControllerHarness } from "../helpers/SlotMachineControllerHarness.sol";
+import { SlotMachinePresetFactory } from "../helpers/SlotMachinePresetFactory.sol";
+import { ZkFixtureLoader } from "../helpers/ZkFixtureLoader.sol";
 
 abstract contract BaseE2ETest is ZkFixtureLoader {
     struct Actor {
@@ -57,6 +61,10 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
     NumberPickerEngine internal delayedNumberPickerEngine;
     NumberPickerAdapter internal numberPickerAdapter;
     NumberPickerAdapterHarness internal delayedNumberPickerAdapter;
+    SlotMachineEngine internal slotMachineEngine;
+    SlotMachineEngine internal delayedSlotMachineEngine;
+    SlotMachineController internal slotMachineController;
+    SlotMachineControllerHarness internal delayedSlotMachineController;
     SingleDraw2To7Engine internal tournamentPokerEngine;
     SingleDraw2To7Engine internal pvpPokerEngine;
     SingleDeckBlackjackEngine internal blackjackEngine;
@@ -64,12 +72,16 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
 
     uint256 internal numberPickerModuleId;
     uint256 internal delayedNumberPickerModuleId;
+    uint256 internal slotMachineModuleId;
+    uint256 internal delayedSlotMachineModuleId;
     uint256 internal tournamentPokerModuleId;
     uint256 internal pvpPokerModuleId;
     uint256 internal blackjackModuleId;
 
     uint256 internal numberPickerExpressionTokenId;
     uint256 internal delayedNumberPickerExpressionTokenId;
+    uint256 internal slotMachineExpressionTokenId;
+    uint256 internal delayedSlotMachineExpressionTokenId;
     uint256 internal pokerExpressionTokenId;
     uint256 internal blackjackExpressionTokenId;
 
@@ -104,7 +116,9 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         catalog = new GameCatalog(address(this));
         expressionRegistry = new DeveloperExpressionRegistry(address(this));
         developerRewards = new DeveloperRewards(address(this), address(token), 7 days);
-        settlement = new ProtocolSettlement(address(token), address(catalog), address(expressionRegistry), address(developerRewards));
+        settlement = new ProtocolSettlement(
+            address(token), address(catalog), address(expressionRegistry), address(developerRewards)
+        );
         factory = new GameDeploymentFactory(address(this), address(catalog), address(settlement));
 
         autoVrfCoordinator = new VRFCoordinatorMock();
@@ -129,15 +143,17 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
     }
 
     function _deployModules() internal {
-        GameDeploymentFactory.NumberPickerDeployment memory numberPickerParams = GameDeploymentFactory.NumberPickerDeployment({
-            vrfCoordinator: address(autoVrfCoordinator),
-            configHash: keccak256("number-picker-auto"),
-            developerRewardBps: SOLO_DEVELOPER_BPS
-        });
+        GameDeploymentFactory.NumberPickerDeployment memory numberPickerParams =
+            GameDeploymentFactory.NumberPickerDeployment({
+                vrfCoordinator: address(autoVrfCoordinator),
+                configHash: keccak256("number-picker-auto"),
+                developerRewardBps: SOLO_DEVELOPER_BPS
+            });
         address numberPickerControllerAddress;
         address numberPickerEngineAddress;
-        (numberPickerModuleId, numberPickerControllerAddress, numberPickerEngineAddress, ) =
-            factory.deploySoloModule(uint8(GameDeploymentFactory.SoloFamily.NumberPicker), abi.encode(numberPickerParams));
+        (numberPickerModuleId, numberPickerControllerAddress, numberPickerEngineAddress,) = factory.deploySoloModule(
+            uint8(GameDeploymentFactory.SoloFamily.NumberPicker), abi.encode(numberPickerParams)
+        );
         numberPickerAdapter = NumberPickerAdapter(numberPickerControllerAddress);
         numberPickerEngine = NumberPickerEngine(numberPickerEngineAddress);
 
@@ -157,6 +173,37 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
             })
         );
 
+        GameDeploymentFactory.SlotDeployment memory slotParams = GameDeploymentFactory.SlotDeployment({
+            vrfCoordinator: address(autoVrfCoordinator),
+            configHash: keccak256("slot-machine-auto"),
+            developerRewardBps: SOLO_DEVELOPER_BPS
+        });
+        address slotControllerAddress;
+        address slotEngineAddress;
+        (slotMachineModuleId, slotControllerAddress, slotEngineAddress,) =
+            factory.deploySoloModule(uint8(GameDeploymentFactory.SoloFamily.SlotMachine), abi.encode(slotParams));
+        slotMachineController = SlotMachineController(slotControllerAddress);
+        slotMachineEngine = SlotMachineEngine(slotEngineAddress);
+        _registerSlotPresets(slotMachineEngine);
+
+        delayedSlotMachineEngine = new SlotMachineEngine(address(this), address(catalog), address(manualVrfCoordinator));
+        delayedSlotMachineController = new SlotMachineControllerHarness(
+            address(settlement), address(catalog), address(delayedSlotMachineEngine)
+        );
+        delayedSlotMachineModuleId = catalog.registerModule(
+            GameCatalog.Module({
+                mode: GameCatalog.GameMode.Solo,
+                controller: address(delayedSlotMachineController),
+                engine: address(delayedSlotMachineEngine),
+                engineType: delayedSlotMachineEngine.engineType(),
+                verifier: address(0),
+                configHash: keccak256("slot-machine-manual"),
+                developerRewardBps: SOLO_DEVELOPER_BPS,
+                status: GameCatalog.ModuleStatus.LIVE
+            })
+        );
+        _registerSlotPresets(delayedSlotMachineEngine);
+
         GameDeploymentFactory.PokerDeployment memory tournamentPokerParams = GameDeploymentFactory.PokerDeployment({
             coordinator: address(this),
             smallBlind: 10,
@@ -168,9 +215,10 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         });
         address tournamentControllerAddress;
         address tournamentPokerEngineAddress;
-        (tournamentPokerModuleId, tournamentControllerAddress, tournamentPokerEngineAddress, ) = factory.deployTournamentModule(
-            uint8(GameDeploymentFactory.MatchFamily.PokerSingleDraw2To7), abi.encode(tournamentPokerParams)
-        );
+        (tournamentPokerModuleId, tournamentControllerAddress, tournamentPokerEngineAddress,) =
+            factory.deployTournamentModule(
+                uint8(GameDeploymentFactory.MatchFamily.PokerSingleDraw2To7), abi.encode(tournamentPokerParams)
+            );
         tournamentController = TournamentController(tournamentControllerAddress);
         tournamentPokerEngine = SingleDraw2To7Engine(tournamentPokerEngineAddress);
 
@@ -185,7 +233,7 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         });
         address pvpControllerAddress;
         address pvpPokerEngineAddress;
-        (pvpPokerModuleId, pvpControllerAddress, pvpPokerEngineAddress, ) = factory.deployPvPModule(
+        (pvpPokerModuleId, pvpControllerAddress, pvpPokerEngineAddress,) = factory.deployPvPModule(
             uint8(GameDeploymentFactory.MatchFamily.PokerSingleDraw2To7), abi.encode(pvpPokerParams)
         );
         pvpController = PvPController(pvpControllerAddress);
@@ -199,7 +247,7 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         });
         address blackjackControllerAddress;
         address blackjackEngineAddress;
-        (blackjackModuleId, blackjackControllerAddress, blackjackEngineAddress, ) =
+        (blackjackModuleId, blackjackControllerAddress, blackjackEngineAddress,) =
             factory.deploySoloModule(uint8(GameDeploymentFactory.SoloFamily.Blackjack), abi.encode(blackjackParams));
         blackjackController = BlackjackController(blackjackControllerAddress);
         blackjackEngine = SingleDeckBlackjackEngine(blackjackEngineAddress);
@@ -208,6 +256,8 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
     function _mintExpressions() internal {
         bytes32 numberPickerEngineType = numberPickerEngine.engineType();
         bytes32 delayedNumberPickerEngineType = delayedNumberPickerEngine.engineType();
+        bytes32 slotMachineEngineType = slotMachineEngine.engineType();
+        bytes32 delayedSlotMachineEngineType = delayedSlotMachineEngine.engineType();
         bytes32 tournamentPokerEngineType = tournamentPokerEngine.engineType();
         bytes32 blackjackEngineType = blackjackEngine.engineType();
 
@@ -219,6 +269,16 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         vm.prank(soloDeveloper.addr);
         delayedNumberPickerExpressionTokenId = expressionRegistry.mintExpression(
             delayedNumberPickerEngineType, keccak256("number-picker-manual"), "ipfs://scuro/number-picker-manual"
+        );
+
+        vm.prank(soloDeveloper.addr);
+        slotMachineExpressionTokenId = expressionRegistry.mintExpression(
+            slotMachineEngineType, keccak256("slot-machine"), "ipfs://scuro/slot-machine"
+        );
+
+        vm.prank(soloDeveloper.addr);
+        delayedSlotMachineExpressionTokenId = expressionRegistry.mintExpression(
+            delayedSlotMachineEngineType, keccak256("slot-machine-manual"), "ipfs://scuro/slot-machine-manual"
         );
 
         vm.prank(pokerDeveloper.addr);
@@ -257,11 +317,19 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         vm.stopPrank();
     }
 
+    function _registerSlotPresets(SlotMachineEngine engine) internal {
+        engine.registerPreset(SlotMachinePresetFactory.basePreset(1));
+        engine.registerPreset(SlotMachinePresetFactory.freeSpinPreset(2));
+        engine.registerPreset(SlotMachinePresetFactory.pickPreset(3));
+        engine.registerPreset(SlotMachinePresetFactory.holdPreset(4));
+    }
+
     function _createTournament(uint256 entryFee, uint256 rewardPool, uint256 startingStack)
         internal
         returns (uint256 tournamentId, uint256 gameId)
     {
-        tournamentId = tournamentController.createTournament(entryFee, rewardPool, startingStack, pokerExpressionTokenId);
+        tournamentId =
+            tournamentController.createTournament(entryFee, rewardPool, startingStack, pokerExpressionTokenId);
         gameId = tournamentController.startGameForPlayers(tournamentId, player1.addr, player2.addr);
     }
 

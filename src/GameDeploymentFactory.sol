@@ -8,12 +8,14 @@ import {CheminDeFerController} from "./controllers/CheminDeFerController.sol";
 import {BlackjackController} from "./controllers/BlackjackController.sol";
 import {NumberPickerAdapter} from "./controllers/NumberPickerAdapter.sol";
 import {PvPController} from "./controllers/PvPController.sol";
+import {SlotMachineController} from "./controllers/SlotMachineController.sol";
 import {SuperBaccaratController} from "./controllers/SuperBaccaratController.sol";
 import {TournamentController} from "./controllers/TournamentController.sol";
 import {CheminDeFerEngine} from "./engines/CheminDeFerEngine.sol";
 import {NumberPickerEngine} from "./engines/NumberPickerEngine.sol";
 import {SingleDeckBlackjackEngine} from "./engines/SingleDeckBlackjackEngine.sol";
 import {SingleDraw2To7Engine} from "./engines/SingleDraw2To7Engine.sol";
+import {SlotMachineEngine} from "./engines/SlotMachineEngine.sol";
 import {SuperBaccaratEngine} from "./engines/SuperBaccaratEngine.sol";
 import {IScuroGameEngine} from "./interfaces/IScuroGameEngine.sol";
 import {BlackjackVerifierBundle} from "./verifiers/BlackjackVerifierBundle.sol";
@@ -34,7 +36,8 @@ contract GameDeploymentFactory is AccessControl {
     enum SoloFamily {
         NumberPicker,
         Blackjack,
-        SuperBaccarat
+        SuperBaccarat,
+        SlotMachine
     }
 
     /// @notice Supported competitive module families.
@@ -60,6 +63,13 @@ contract GameDeploymentFactory is AccessControl {
 
     /// @notice ABI shape for deploying a solo baccarat module.
     struct BaccaratDeployment {
+        address vrfCoordinator;
+        bytes32 configHash;
+        uint16 developerRewardBps;
+    }
+
+    /// @notice ABI shape for deploying a slot machine module.
+    struct SlotDeployment {
         address vrfCoordinator;
         bytes32 configHash;
         uint16 developerRewardBps;
@@ -193,6 +203,29 @@ contract GameDeploymentFactory is AccessControl {
                     controller: controller,
                     engine: engine,
                     engineType: baccaratEngine.engineType(),
+                    verifier: verifier,
+                    configHash: params.configHash,
+                    developerRewardBps: params.developerRewardBps,
+                    status: GameCatalog.ModuleStatus.LIVE
+                })
+            );
+        } else if (family == uint8(SoloFamily.SlotMachine)) {
+            SlotDeployment memory params = abi.decode(deploymentParams, (SlotDeployment));
+
+            SlotMachineEngine slotEngine = new SlotMachineEngine(msg.sender, address(CATALOG), params.vrfCoordinator);
+            SlotMachineController slotController =
+                new SlotMachineController(address(SETTLEMENT), address(CATALOG), address(slotEngine));
+
+            controller = address(slotController);
+            engine = address(slotEngine);
+            verifier = address(0);
+
+            moduleId = CATALOG.registerModule(
+                GameCatalog.Module({
+                    mode: GameCatalog.GameMode.Solo,
+                    controller: controller,
+                    engine: engine,
+                    engineType: slotEngine.engineType(),
                     verifier: verifier,
                     configHash: params.configHash,
                     developerRewardBps: params.developerRewardBps,

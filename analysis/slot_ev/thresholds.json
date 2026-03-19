@@ -1,0 +1,7 @@
+{
+  "target_ev_ratio": 1.0,
+  "max_abs_ev_deviation": 0.05,
+  "min_samples_per_preset": 5000,
+  "max_event_cap": 32,
+  "max_gas_units": 2000000
+}

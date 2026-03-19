@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {DeveloperRewards} from "../../src/DeveloperRewards.sol";
-import {GameCatalog} from "../../src/GameCatalog.sol";
-import {BaseE2ETest} from "./BaseE2E.t.sol";
+import { DeveloperRewards } from "../../src/DeveloperRewards.sol";
+import { GameCatalog } from "../../src/GameCatalog.sol";
+import { BaseE2ETest } from "./BaseE2E.t.sol";
 
 contract AbusePathsE2ETest is BaseE2ETest {
     function test_NumberPickerRejectsInvalidSelectionZeroWagerAndMissingApproval() public {
@@ -45,6 +45,63 @@ contract AbusePathsE2ETest is BaseE2ETest {
 
         vm.expectRevert("NumberPickerAdapter: settled");
         delayedNumberPickerAdapter.finalizeForTest(requestId);
+    }
+
+    function test_SlotRejectsInactivePresetPendingFinalizeAndDuplicateSettlement() public {
+        _approveSettlement(player1, 300 ether);
+
+        delayedSlotMachineEngine.setPresetActive(1, false);
+        vm.prank(player1.addr);
+        vm.expectRevert("SlotMachine: inactive preset");
+        delayedSlotMachineController.spinWithoutFinalize(
+            100 ether, 1, keccak256("slot-inactive"), delayedSlotMachineExpressionTokenId
+        );
+
+        delayedSlotMachineEngine.setPresetActive(1, true);
+        vm.prank(player1.addr);
+        uint256 spinId = delayedSlotMachineController.spinWithoutFinalize(
+            100 ether, 1, keccak256("slot-pending"), delayedSlotMachineExpressionTokenId
+        );
+
+        vm.expectRevert("SlotMachineController: pending");
+        delayedSlotMachineController.finalizeForTest(spinId);
+
+        manualVrfCoordinator.fulfillRequestWithWord(spinId, 4);
+        delayedSlotMachineController.finalizeForTest(spinId);
+
+        vm.expectRevert("SlotMachineController: settled");
+        delayedSlotMachineController.finalizeForTest(spinId);
+    }
+
+    function test_SlotLifecycleAllowsRetiredSettlementButRejectsNewLaunchesAndDisabledProgress() public {
+        _approveSettlement(player1, 300 ether);
+
+        vm.prank(player1.addr);
+        uint256 retiredSpinId = delayedSlotMachineController.spinWithoutFinalize(
+            100 ether, 1, keccak256("slot-retired"), delayedSlotMachineExpressionTokenId
+        );
+
+        catalog.setModuleStatus(delayedSlotMachineModuleId, GameCatalog.ModuleStatus.RETIRED);
+        vm.prank(player1.addr);
+        vm.expectRevert("SlotMachineController: module inactive");
+        delayedSlotMachineController.spinWithoutFinalize(
+            100 ether, 1, keccak256("slot-retired-launch"), delayedSlotMachineExpressionTokenId
+        );
+
+        manualVrfCoordinator.fulfillRequestWithWord(retiredSpinId, 4);
+        delayedSlotMachineController.finalizeForTest(retiredSpinId);
+
+        catalog.setModuleStatus(delayedSlotMachineModuleId, GameCatalog.ModuleStatus.LIVE);
+        vm.prank(player1.addr);
+        uint256 disabledSpinId = delayedSlotMachineController.spinWithoutFinalize(
+            100 ether, 1, keccak256("slot-disabled"), delayedSlotMachineExpressionTokenId
+        );
+
+        catalog.setModuleStatus(delayedSlotMachineModuleId, GameCatalog.ModuleStatus.DISABLED);
+        vm.expectRevert("ManualVRF: callback failed");
+        manualVrfCoordinator.fulfillRequestWithWord(disabledSpinId, 4);
+        vm.expectRevert("SlotMachineController: module inactive");
+        delayedSlotMachineController.finalizeForTest(disabledSpinId);
     }
 
     function test_TournamentAndPvPRespectRetiredAndDisabledModules() public {
