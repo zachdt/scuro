@@ -19,11 +19,15 @@ Clients consuming local deployment output should expect these labels:
 - Module ids: `NumberPickerModuleId`, `TournamentPokerModuleId`, `PvPPokerModuleId`, `BlackjackModuleId`
 - Seed actors and expressions: `Admin`, `Player1`, `Player2`, `SoloDeveloper`, `PokerDeveloper`, `NumberPickerExpressionTokenId`, `PokerExpressionTokenId`, `BlackjackExpressionTokenId`
 
+Current local-script note:
+- `GameDeploymentFactory` supports `SoloFamily.SlotMachine`, but `script/DeployLocal.s.sol` does not yet emit slot controller/engine addresses, module ids, or expression-token labels in the canonical local bootstrap output.
+
 ## Local Default Configs
 
 | Module family | Defaults |
 | --- | --- |
 | NumberPicker | auto-callback VRF mock, `developerRewardBps = 500`, `configHash = keccak256("number-picker-auto")` |
+| Slot machine | factory-supported with `SlotDeployment(vrfCoordinator, configHash, developerRewardBps)`; canonical local deploy script still pending |
 | Tournament poker | `smallBlind = 10`, `bigBlind = 20`, `blindEscalationInterval = 180`, `actionWindow = 60`, `developerRewardBps = 1000` |
 | PvP poker | same defaults as tournament poker, with `configHash = keccak256("single-draw-2-7-pvp")` |
 | Blackjack | `defaultActionWindow = 60`, `developerRewardBps = 500`, `configHash = keccak256("single-deck-blackjack-zk")` |

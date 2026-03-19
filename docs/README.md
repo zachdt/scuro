@@ -25,8 +25,8 @@ Use the reference lane when you need exact contract, interface, event, and state
 - [Reference Index](./reference/README.md)
 - [Core Services](./reference/protocol-settlement.md), [Game Catalog](./reference/game-catalog.md), [Deployment Factory](./reference/game-deployment-factory.md)
 - [Economics](./reference/scuro-token.md), [Staking](./reference/scuro-staking-token.md), [Developer Rewards](./reference/developer-rewards.md), [Expression Registry](./reference/developer-expression-registry.md)
-- [Controllers](./reference/number-picker-adapter.md), [Tournament Controller](./reference/tournament-controller.md), [PvP Controller](./reference/pvp-controller.md), [Blackjack Controller](./reference/blackjack-controller.md)
-- [Engines](./reference/number-picker-engine.md), [Single Draw 2-7](./reference/single-draw-2-7-engine.md), [Single Deck Blackjack](./reference/single-deck-blackjack-engine.md)
+- [Controllers](./reference/number-picker-adapter.md), [Slot Machine Controller](./reference/slot-machine-controller.md), [Tournament Controller](./reference/tournament-controller.md), [PvP Controller](./reference/pvp-controller.md), [Blackjack Controller](./reference/blackjack-controller.md)
+- [Engines](./reference/number-picker-engine.md), [Slot Machine Engine](./reference/slot-machine-engine.md), [Single Draw 2-7](./reference/single-draw-2-7-engine.md), [Single Deck Blackjack](./reference/single-deck-blackjack-engine.md)
 - [Verifier Bundles](./reference/poker-verifier-bundle.md), [Blackjack Verifier Bundle](./reference/blackjack-verifier-bundle.md)
 - [Gameplay Interfaces](./reference/gameplay-interfaces.md), [Proof Interfaces](./reference/proof-interfaces.md)
 
@@ -38,6 +38,7 @@ Use the integration lane when building clients, indexers, coordinators, or deplo
 - [Approvals and Staking Playbook](./integration/token-and-staking.md)
 - [Expression Lifecycle Playbook](./integration/expression-lifecycle.md)
 - [NumberPicker Playbook](./integration/number-picker-playbook.md)
+- [Slot Machine Playbook](./integration/slot-machine-playbook.md)
 - [Tournament Poker Playbook](./integration/tournament-poker-playbook.md)
 - [PvP Poker Playbook](./integration/pvp-poker-playbook.md)
 - [Blackjack Playbook](./integration/blackjack-playbook.md)

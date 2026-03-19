@@ -16,6 +16,9 @@ The local stack includes a comprehensive set of example engines and protocol ser
 - **`SingleDraw2To7Engine`**: A ZK-proven poker engine used across tournament and PvP controllers.
 - **`SingleDeckBlackjackEngine`**: A secure solo blackjack experience utilizing Groth16 proofs.
 
+> [!NOTE]
+> The slot engine/controller pair is live in the codebase and test harnesses, but `script/DeployLocal.s.sol` still has not been updated to print slot deployment labels in the canonical local bootstrap flow.
+
 ### Protocol Infrastructure
 - **`GameCatalog`**: Manages global module authorization, lifecycle, and reward configurations.
 - **`GameDeploymentFactory`**: Streamlines the registration of new controllers and engines.
@@ -108,7 +111,7 @@ Scuro utilizes a multi-layered testing strategy to balance speed and coverage.
 These tests target individual subsystems in isolation:
 - **`ProtocolCore`**: Validates tokens, staking, governance, and the economics of settlement.
 - **`DeveloperExpressions`**: Verifies permissionless minting, transfers, and moderation logic.
-- **`Gameplay Controllers`**: Individual tests for `Tournament`, `Blackjack`, and `NumberPicker` orchestration.
+- **`Gameplay Controllers`**: Individual tests for `Tournament`, `Blackjack`, `NumberPicker`, and `SlotMachine` orchestration.
 
 ### Layered End-to-End (E2E)
 Located in `test/e2e/`, these act as the final completeness gate:

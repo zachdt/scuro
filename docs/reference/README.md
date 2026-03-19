@@ -20,6 +20,7 @@ These pages are the contract-by-contract source of truth for SDK authors. Each p
 ## Controllers
 
 - [NumberPickerAdapter](./number-picker-adapter.md)
+- [SlotMachineController](./slot-machine-controller.md)
 - [TournamentController](./tournament-controller.md)
 - [PvPController](./pvp-controller.md)
 - [BlackjackController](./blackjack-controller.md)
@@ -27,6 +28,7 @@ These pages are the contract-by-contract source of truth for SDK authors. Each p
 ## Engines
 
 - [NumberPickerEngine](./number-picker-engine.md)
+- [SlotMachineEngine](./slot-machine-engine.md)
 - [SingleDeckBlackjackEngine](./single-deck-blackjack-engine.md)
 - [SingleDraw2To7Engine](./single-draw-2-7-engine.md)
 

@@ -7,6 +7,7 @@ This guide captures the current controller and engine flows for each shipped gam
 | Module | Mode | Controller | Engine | External dependency | Local default config |
 | --- | --- | --- | --- | --- | --- |
 | NumberPicker | Solo | `NumberPickerAdapter` | `NumberPickerEngine` | VRF coordinator | auto-callback VRF mock |
+| Slot Machine | Solo | `SlotMachineController` | `SlotMachineEngine` | VRF coordinator | governed presets (`base`, `free`, `pick`, `hold`) in tests |
 | Super Baccarat | Solo | `SuperBaccaratController` | `SuperBaccaratEngine` | VRF coordinator | auto-callback VRF mock |
 | Tournament Poker | Tournament | `TournamentController` | `SingleDraw2To7Engine` | coordinator + Groth16 proofs | SB `10`, BB `20`, blind interval `180s`, action window `60s` |
 | PvP Poker | PvP | `PvPController` | `SingleDraw2To7Engine` | coordinator + Groth16 proofs | SB `10`, BB `20`, blind interval `180s`, action window `60s` |
@@ -45,6 +46,43 @@ sequenceDiagram
     Adapter->>Engine: getOutcome(requestId)
     Adapter->>Settlement: mintPlayerReward(player, payout)
     Adapter->>Settlement: accrueDeveloperForExpression(expressionTokenId, wager)
+```
+
+## Slot Machine
+
+Key runtime notes:
+- The player enters through `SlotMachineController`, which burns the stake before asking the engine to launch a preset-driven spin.
+- The engine stores immutable governed presets and resolves one atomic spin from a single randomness seed.
+- The current engine supports a ways-based base game plus bounded `free spins`, `pick bonus`, and `hold-and-spin` feature families.
+- Developer accrual is based on the original stake amount that was burned for the spin.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Player
+    actor Caller as Any caller
+    participant Controller as SlotMachineController
+    participant Catalog as GameCatalog
+    participant Settlement as ProtocolSettlement
+    participant Engine as SlotMachineEngine
+    participant VRF as VRF Coordinator
+
+    Player->>Controller: spin(stake, presetId, playRef, expressionTokenId)
+    Controller->>Catalog: isLaunchableController(this)
+    Controller->>Settlement: burnPlayerWager(player, stake)
+    Controller->>Engine: requestSpin(player, stake, presetId, playRef)
+    Engine->>Catalog: isAuthorizedControllerForEngine(controller, engine)
+    Engine->>VRF: requestRandomWords(...)
+    VRF->>Engine: rawFulfillRandomWords(spinId, randomWords)
+    Note over Engine: Resolve base grid<br/>bounded bonus families<br/>enforce payout and event caps
+    Controller->>Catalog: isSettlableController(this)
+    Controller->>Engine: getSettlementOutcome(spinId)
+    Controller->>Settlement: mintPlayerReward(player, payout)
+    Controller->>Settlement: accrueDeveloperForExpression(expressionTokenId, stake)
+
+    opt delayed VRF environment
+        Caller->>Controller: settle(spinId)
+    end
 ```
 
 ## Tournament Poker
@@ -322,6 +360,8 @@ sequenceDiagram
 - [GameCatalog](../src/GameCatalog.sol)
 - [NumberPickerAdapter](../src/controllers/NumberPickerAdapter.sol)
 - [NumberPickerEngine](../src/engines/NumberPickerEngine.sol)
+- [SlotMachineController](../src/controllers/SlotMachineController.sol)
+- [SlotMachineEngine](../src/engines/SlotMachineEngine.sol)
 - [TournamentController](../src/controllers/TournamentController.sol)
 - [PvPController](../src/controllers/PvPController.sol)
 - [SingleDraw2To7Engine](../src/engines/SingleDraw2To7Engine.sol)

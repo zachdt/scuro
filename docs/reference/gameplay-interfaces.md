@@ -58,6 +58,7 @@ These interfaces define the stable gameplay surface that SDKs and alternate impl
 ## State And Lifecycle Notes
 
 - `ISoloLifecycleEngine.getSettlementOutcome` is the bridge between solo engines and settlement-capable controllers
+- `SlotMachineEngine` uses the same solo settlement tuple shape as the other single-player modules
 - `ICheminDeFerEngine` is the dedicated baccarat PvP surface for banker-opened, many-taker, one-shot tables
 - `IPokerEngine.HandStateView` is the canonical snapshot for poker hand indexing
 - `IPokerZKEngine` extends `IPokerEngine` with coordinator-only proof transitions and timeout support

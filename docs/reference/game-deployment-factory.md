@@ -21,6 +21,7 @@
   - `SoloFamily.NumberPicker`
   - `SoloFamily.Blackjack`
   - `SoloFamily.SuperBaccarat`
+  - `SoloFamily.SlotMachine`
   - `MatchFamily.PokerSingleDraw2To7`
   - `MatchFamily.CheminDeFerBaccarat`
 
@@ -39,9 +40,10 @@
 ## State And Lifecycle Notes
 
 - The factory deploys verifier bundles for poker and blackjack automatically
-- Solo baccarat and chemin de fer deploy without verifier bundles and instead use VRF coordinators
+- Number picker, slot machine, solo baccarat, and chemin de fer deploy without verifier bundles and instead use VRF coordinators
 - Every deployed module starts as `LIVE` in the catalog
 - `deploymentParams` are ABI-encoded family-specific structs, so SDKs should expose typed wrappers rather than raw bytes
+- Slot modules use `SlotDeployment { vrfCoordinator, configHash, developerRewardBps }`
 
 ## Revert Conditions
 

@@ -18,10 +18,12 @@ These terms are the SDK-facing vocabulary for Scuro. Node and Rust clients shoul
 - **Reward Epoch**: The rolling accounting window used by `DeveloperRewards`.
 - **Timeout Deadline**: The unix timestamp after which the current player-clock phase can be force-resolved.
 - **Play Reference (`playRef`)**: A client-supplied `bytes32` correlation key for solo games.
+- **Preset**: A governed on-chain math/config package used by `SlotMachineEngine` to parameterize a slot spin.
 
 ## Mode-Specific Terms
 
 - **Request**: The NumberPicker round identifier returned from `play()` / `requestPlay()`.
+- **Spin**: The slot round identifier returned from `spin()` / `requestSpin()`.
 - **Session**: A solo lifecycle identifier used by blackjack and PvP.
 - **Tournament**: A reusable tournament configuration stored by `TournamentController`.
 - **Game**: A concrete poker match instance tracked by `SingleDraw2To7Engine`.
