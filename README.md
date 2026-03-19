@@ -30,6 +30,7 @@ The protocol abstracts complex settlement logic away from the player, providing 
 Scuro's architecture is flexible enough to support a wide array of gaming experiences out of the box:
 
 - **Solo Randomness**: `NumberPicker` demonstrates simple VRF-backed gameplay.
+- **Governed Slots**: `SlotMachineController` and `SlotMachineEngine` provide preset-driven solo slot gameplay with bounded bonus families and atomic settlement.
 - **Competitive Poker**: `TournamentController` and `PvPController` power poker sessions with Groth16 proof verification.
 - **Automated Baccarat**: `SuperBaccaratController` and `CheminDeFerController` add EV-neutral solo and player-banked baccarat over VRF-backed fresh shoes.
 - **ZK Blackjack**: `BlackjackController` offers a secure solo blackjack experience using zero-knowledge proofs.
@@ -41,6 +42,7 @@ Get the Scuro protocol running locally in minutes:
 
 - **Build**: `forge build` compiles the smart contracts.
 - **Test**: `forge test --offline` runs the comprehensive test suite.
+- **Slot Invariants**: `forge test --match-path 'test/invariants/*.t.sol' --offline` runs the slot-focused invariant suite.
 - **Smoke Check**: `./script/e2e_deploy_smoke.sh` performs a full-stack local integration test.
 
 For detailed setup instructions and ZK artifact guidance, see [Local Deployment and Testing](./docs/local-deployment-testing.md).
@@ -54,7 +56,7 @@ For detailed setup instructions and ZK artifact guidance, see [Local Deployment 
 - **[Generated Metadata](./docs/generated/README.md)**: Machine-readable manifest, ABIs, event signatures, and proof-input field maps.
 - **[Protocol Architecture](./docs/protocol-architecture.md)**: Deep dive into the system design, component layers, and code map.
 - **[Game Module User Flows](./docs/game-module-user-flows.md)**: Detailed per-module sequence diagrams for the shipped gameplay controllers and engines.
-- **[Local Deployment](./docs/local-deployment-testing.md)**: Technical guide for environment setup, building, and running tests.
+- **[Local Deployment](./docs/local-deployment-testing.md)**: Technical guide for environment setup, building, and running tests, including the slot-focused invariant and analysis lanes.
 - **[Private AWS Testnet](./docs/private-aws-testnet.md)**: Private single-host AWS deployment, operator API, and prover-worker guide.
 - **[E2E Scenario Matrix](./test/e2e/MATRIX.md)**: A detailed mapping of user stories to automated test cases.
 
