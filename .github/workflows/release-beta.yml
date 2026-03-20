@@ -13,6 +13,7 @@ concurrency:
 
 env:
   AWS_REGION: ${{ vars.SCURO_BETA_AWS_REGION }}
+  FOUNDRY_GIT_REF: ${{ vars.SCURO_BETA_FOUNDRY_GIT_REF || 'v1.5.1' }}
   TF_IN_AUTOMATION: "true"
 
 jobs:
@@ -31,10 +32,6 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
 
-      - uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: stable
-
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.14.7
@@ -44,7 +41,17 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ vars.SCURO_BETA_AWS_ROLE_ARN }}
 
+      - name: Build Amazon Linux Foundry tools
+        run: |
+          mkdir -p /tmp/scuro-release/foundry-tools
+          bash script/aws/build_foundry_al2023_tools.sh /tmp/scuro-release/foundry-tools
+
       - name: Build Linux bundle
+        env:
+          SCURO_BUNDLE_BUN_BIN: ${{ env.BUN_INSTALL }}/bin/bun
+          SCURO_BUNDLE_FORGE_BIN: /tmp/scuro-release/foundry-tools/forge
+          SCURO_BUNDLE_CAST_BIN: /tmp/scuro-release/foundry-tools/cast
+          SCURO_BUNDLE_ANVIL_BIN: /tmp/scuro-release/foundry-tools/anvil
         run: |
           mkdir -p /tmp/scuro-release
           bash script/aws/build_bundle.sh "/tmp/scuro-release/${GITHUB_SHA}.tar.gz"
@@ -232,13 +239,22 @@ jobs:
           bash script/aws/remote_snapshot_export.sh "${INSTANCE_ID}" "${SNAPSHOT_NAME}" "${AWS_REGION}" \
             | tee /tmp/scuro-release/snapshot.json
 
+      - name: Collect host diagnostics on failure
+        if: failure() && env.INSTANCE_ID != ''
+        run: |
+          mkdir -p /tmp/scuro-release
+          bash script/aws/remote_collect_diagnostics.sh "${INSTANCE_ID}" "${AWS_REGION}" \
+            | tee /tmp/scuro-release/host-diagnostics.txt
+
       - name: Upload release records
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: beta-release-records
           path: /tmp/scuro-release
 
       - name: Add release summary
+        if: always()
         run: |
           {
             echo "## Beta Release"

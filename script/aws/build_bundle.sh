@@ -15,6 +15,11 @@ ROOT="$(repo_root)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
+BUN_BIN="${SCURO_BUNDLE_BUN_BIN:-}"
+FORGE_BIN="${SCURO_BUNDLE_FORGE_BIN:-}"
+CAST_BIN="${SCURO_BUNDLE_CAST_BIN:-}"
+ANVIL_BIN="${SCURO_BUNDLE_ANVIL_BIN:-}"
+
 mkdir -p "${TMP_DIR}/repo" "${TMP_DIR}/tools/bin"
 
 tar \
@@ -35,15 +40,27 @@ if [[ "${SCURO_BUNDLE_INCLUDE_HOST_TOOLS:-1}" == "1" ]]; then
     exit 1
   fi
 
-  require_cmd bun
-  require_cmd forge
-  require_cmd anvil
-  require_cmd cast
+  if [[ -z "${BUN_BIN}" ]]; then
+    require_cmd bun
+    BUN_BIN="$(command -v bun)"
+  fi
+  if [[ -z "${FORGE_BIN}" ]]; then
+    require_cmd forge
+    FORGE_BIN="$(command -v forge)"
+  fi
+  if [[ -z "${CAST_BIN}" ]]; then
+    require_cmd cast
+    CAST_BIN="$(command -v cast)"
+  fi
+  if [[ -z "${ANVIL_BIN}" ]]; then
+    require_cmd anvil
+    ANVIL_BIN="$(command -v anvil)"
+  fi
 
-  cp "$(command -v bun)" "${TMP_DIR}/tools/bin/bun"
-  cp "$(command -v forge)" "${TMP_DIR}/tools/bin/forge"
-  cp "$(command -v anvil)" "${TMP_DIR}/tools/bin/anvil"
-  cp "$(command -v cast)" "${TMP_DIR}/tools/bin/cast"
+  cp "${BUN_BIN}" "${TMP_DIR}/tools/bin/bun"
+  cp "${FORGE_BIN}" "${TMP_DIR}/tools/bin/forge"
+  cp "${ANVIL_BIN}" "${TMP_DIR}/tools/bin/anvil"
+  cp "${CAST_BIN}" "${TMP_DIR}/tools/bin/cast"
 fi
 
 mkdir -p "$(dirname "${OUTPUT_ARCHIVE}")"

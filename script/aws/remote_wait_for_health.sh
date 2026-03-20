@@ -16,8 +16,23 @@ SLEEP_SECONDS="${4:-10}"
 
 for attempt in $(seq 1 "${ATTEMPTS}"); do
   if OUTPUT="$("$(dirname "$0")/remote_operator.sh" "${INSTANCE_ID}" GET /health "" "${REGION}" 2>/dev/null)"; then
-    printf '%s\n' "${OUTPUT}"
-    exit 0
+    if python3 - <<'PY' "${OUTPUT}"
+import json
+import sys
+
+try:
+    payload = json.loads(sys.argv[1])
+except json.JSONDecodeError:
+    raise SystemExit(1)
+
+raise SystemExit(0 if payload.get("ok") is True else 1)
+PY
+    then
+      printf '%s\n' "${OUTPUT}"
+      exit 0
+    fi
+
+    echo "operator responded but health is not ready (${attempt}/${ATTEMPTS})" >&2
   fi
 
   echo "waiting for operator health (${attempt}/${ATTEMPTS})" >&2

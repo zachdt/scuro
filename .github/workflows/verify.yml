@@ -65,4 +65,4 @@ jobs:
         run: shellcheck -x script/aws/*.sh ops/aws-testnet/runtime/*.sh
 
       - name: Build Linux bundle
-        run: bash script/aws/build_bundle.sh /tmp/scuro-beta-bundle.tar.gz
+        run: SCURO_BUNDLE_INCLUDE_HOST_TOOLS=0 bash script/aws/build_bundle.sh /tmp/scuro-beta-bundle.tar.gz

@@ -1,7 +1,7 @@
 [Unit]
 Description=Scuro private prover worker
-After=scuro-anvil.service
-Requires=scuro-anvil.service
+After=network-online.target scuro-anvil.service
+Wants=network-online.target scuro-anvil.service
 
 [Service]
 Type=simple
