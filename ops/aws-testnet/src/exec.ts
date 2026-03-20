@@ -1,3 +1,5 @@
+import path from "node:path";
+
 export interface CommandOptions {
   cwd?: string;
   env?: Record<string, string | undefined>;
@@ -21,12 +23,16 @@ export const runCommand: CommandRunner = async function runCommand(
   args: string[],
   options: CommandOptions = {}
 ): Promise<CommandResult> {
+  const toolBinDir = process.env.SCURO_TOOL_BIN_DIR ?? path.dirname(process.execPath);
+  const env = {
+    ...process.env,
+    PATH: [toolBinDir, process.env.PATH].filter(Boolean).join(":"),
+    ...options.env
+  };
+
   const proc = Bun.spawn([cmd, ...args], {
     cwd: options.cwd,
-    env: {
-      ...process.env,
-      ...options.env
-    },
+    env,
     stdout: "pipe",
     stderr: "pipe"
   });
