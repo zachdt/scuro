@@ -70,15 +70,19 @@ jobs:
             "name": "${{ vars.SCURO_BETA_STACK_NAME || 'scuro-testnet-beta' }}",
             "region": "${{ vars.SCURO_BETA_AWS_REGION }}",
             "availability_zone": "${{ vars.SCURO_BETA_AVAILABILITY_ZONE }}",
-            "instance_type": "${{ vars.SCURO_BETA_INSTANCE_TYPE || 'c6i.large' }}",
-            "root_volume_size": ${{ vars.SCURO_BETA_ROOT_VOLUME_SIZE || '80' }},
-            "runtime_env_parameter_name": "${{ vars.SCURO_BETA_RUNTIME_ENV_PARAMETER || '' }}"
+            "instance_type": "${{ vars.SCURO_BETA_INSTANCE_TYPE || 't3.micro' }}",
+            "root_volume_size": ${{ vars.SCURO_BETA_ROOT_VOLUME_SIZE || '20' }},
+            "bucket_force_destroy": true,
+            "runtime_env_parameter_name": "${{ vars.SCURO_BETA_RUNTIME_ENV_PARAMETER || '' }}",
+            "enable_cloudwatch_logs": false,
+            "enable_sqs_queue": false
           }
           EOF
 
       - name: Terraform plan
         run: |
           terraform -chdir=infra/aws/testnet init -backend-config=backend.beta.hcl
+          terraform -chdir=infra/aws/testnet state list || true
           terraform -chdir=infra/aws/testnet plan -no-color | tee /tmp/scuro-release/terraform-plan.txt
 
       - name: Upload Terraform plan
@@ -136,9 +140,12 @@ jobs:
             "name": "${{ vars.SCURO_BETA_STACK_NAME || 'scuro-testnet-beta' }}",
             "region": "${{ vars.SCURO_BETA_AWS_REGION }}",
             "availability_zone": "${{ vars.SCURO_BETA_AVAILABILITY_ZONE }}",
-            "instance_type": "${{ vars.SCURO_BETA_INSTANCE_TYPE || 'c6i.large' }}",
-            "root_volume_size": ${{ vars.SCURO_BETA_ROOT_VOLUME_SIZE || '80' }},
-            "runtime_env_parameter_name": "${{ vars.SCURO_BETA_RUNTIME_ENV_PARAMETER || '' }}"
+            "instance_type": "${{ vars.SCURO_BETA_INSTANCE_TYPE || 't3.micro' }}",
+            "root_volume_size": ${{ vars.SCURO_BETA_ROOT_VOLUME_SIZE || '20' }},
+            "bucket_force_destroy": true,
+            "runtime_env_parameter_name": "${{ vars.SCURO_BETA_RUNTIME_ENV_PARAMETER || '' }}",
+            "enable_cloudwatch_logs": false,
+            "enable_sqs_queue": false
           }
           EOF
 

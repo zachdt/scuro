@@ -11,11 +11,11 @@ output "artifacts_bucket" {
 }
 
 output "proof_queue_url" {
-  value = aws_sqs_queue.proof.id
+  value = var.enable_sqs_queue ? aws_sqs_queue.proof[0].id : ""
 }
 
 output "proof_queue_name" {
-  value = aws_sqs_queue.proof.name
+  value = var.enable_sqs_queue ? aws_sqs_queue.proof[0].name : ""
 }
 
 output "bootstrap_bundle_uri_template" {

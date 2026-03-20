@@ -29,13 +29,13 @@ variable "subnet_cidr" {
 variable "instance_type" {
   description = "EC2 instance type for the single host runtime."
   type        = string
-  default     = "c6i.large"
+  default     = "t3.micro"
 }
 
 variable "root_volume_size" {
   description = "Root EBS volume size in GiB."
   type        = number
-  default     = 80
+  default     = 20
 }
 
 variable "bucket_force_destroy" {
@@ -48,6 +48,18 @@ variable "runtime_env_parameter_name" {
   description = "Optional SecureString SSM parameter containing newline-delimited runtime env vars."
   type        = string
   default     = ""
+}
+
+variable "enable_cloudwatch_logs" {
+  description = "Whether to enable CloudWatch log shipping resources for the host."
+  type        = bool
+  default     = false
+}
+
+variable "enable_sqs_queue" {
+  description = "Whether to provision the async proof SQS queue and endpoint."
+  type        = bool
+  default     = false
 }
 
 variable "tags" {

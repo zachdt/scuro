@@ -1,0 +1,81 @@
+name: Destroy Beta
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: release-beta
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.SCURO_BETA_AWS_REGION }}
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    environment:
+      name: beta
+
+    steps:
+      - name: Require main branch
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != "main" ]]; then
+            echo "Destroy beta must be dispatched from main." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.7
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.SCURO_BETA_AWS_ROLE_ARN }}
+
+      - name: Write Terraform config
+        run: |
+          cat > infra/aws/testnet/backend.beta.hcl <<EOF
+          bucket         = "${{ vars.SCURO_TF_STATE_BUCKET }}"
+          key            = "${{ vars.SCURO_TF_STATE_KEY || 'scuro/testnet/beta/terraform.tfstate' }}"
+          region         = "${{ vars.SCURO_TF_STATE_REGION || vars.SCURO_BETA_AWS_REGION }}"
+          dynamodb_table = "${{ vars.SCURO_TF_STATE_LOCK_TABLE }}"
+          encrypt        = true
+          EOF
+
+          cat > infra/aws/testnet/terraform.auto.tfvars.json <<EOF
+          {
+            "name": "${{ vars.SCURO_BETA_STACK_NAME || 'scuro-testnet-beta' }}",
+            "region": "${{ vars.SCURO_BETA_AWS_REGION }}",
+            "availability_zone": "${{ vars.SCURO_BETA_AVAILABILITY_ZONE }}",
+            "instance_type": "${{ vars.SCURO_BETA_INSTANCE_TYPE || 't3.micro' }}",
+            "root_volume_size": ${{ vars.SCURO_BETA_ROOT_VOLUME_SIZE || '20' }},
+            "bucket_force_destroy": true,
+            "runtime_env_parameter_name": "${{ vars.SCURO_BETA_RUNTIME_ENV_PARAMETER || '' }}",
+            "enable_cloudwatch_logs": false,
+            "enable_sqs_queue": false
+          }
+          EOF
+
+      - name: Terraform destroy
+        run: |
+          terraform -chdir=infra/aws/testnet init -backend-config=backend.beta.hcl
+          terraform -chdir=infra/aws/testnet state list || true
+          terraform -chdir=infra/aws/testnet destroy -auto-approve
+
+      - name: Add destroy summary
+        run: |
+          {
+            echo "## Beta Destroy"
+            echo
+            echo "- Stack name: \`${{ vars.SCURO_BETA_STACK_NAME || 'scuro-testnet-beta' }}\`"
+            echo "- Backend key: \`${{ vars.SCURO_TF_STATE_KEY || 'scuro/testnet/beta/terraform.tfstate' }}\`"
+            echo "- Artifacts bucket objects were eligible for automatic deletion because \`bucket_force_destroy\` is enabled in the beta workflows."
+          } >> "${GITHUB_STEP_SUMMARY}"

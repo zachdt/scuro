@@ -10,13 +10,15 @@ locals {
 
   cloudwatch_log_group_name = "/scuro/${var.name}/services"
 
-  interface_endpoints = toset([
-    "ssm",
-    "ssmmessages",
-    "ec2messages",
-    "logs",
-    "sqs"
-  ])
+  interface_endpoints = toset(concat(
+    [
+      "ssm",
+      "ssmmessages",
+      "ec2messages"
+    ],
+    var.enable_cloudwatch_logs ? ["logs"] : [],
+    var.enable_sqs_queue ? ["sqs"] : []
+  ))
 
   runtime_env_parameter_arn = var.runtime_env_parameter_name != "" ? "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${trimprefix(var.runtime_env_parameter_name, "/")}" : null
 }
@@ -155,6 +157,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts" {
 }
 
 resource "aws_sqs_queue" "proof_dlq" {
+  count = var.enable_sqs_queue ? 1 : 0
+
   name = "${var.name}-proof-dlq"
 
   tags = merge(local.common_tags, {
@@ -163,13 +167,15 @@ resource "aws_sqs_queue" "proof_dlq" {
 }
 
 resource "aws_sqs_queue" "proof" {
+  count = var.enable_sqs_queue ? 1 : 0
+
   name                       = "${var.name}-proof"
   visibility_timeout_seconds = 300
   message_retention_seconds  = 1209600
   receive_wait_time_seconds  = 20
 
   redrive_policy = jsonencode({
-    deadLetterTargetArn = aws_sqs_queue.proof_dlq.arn
+    deadLetterTargetArn = aws_sqs_queue.proof_dlq[0].arn
     maxReceiveCount     = 5
   })
 
@@ -179,6 +185,8 @@ resource "aws_sqs_queue" "proof" {
 }
 
 resource "aws_cloudwatch_log_group" "services" {
+  count = var.enable_cloudwatch_logs ? 1 : 0
+
   name              = local.cloudwatch_log_group_name
   retention_in_days = 14
 
@@ -213,59 +221,61 @@ resource "aws_iam_role_policy" "runtime" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = concat(
-      [
-        {
-          Effect = "Allow"
-          Action = [
-            "s3:GetObject",
-            "s3:PutObject",
-            "s3:ListBucket"
-          ]
-          Resource = [
-            aws_s3_bucket.artifacts.arn,
-            "${aws_s3_bucket.artifacts.arn}/*"
-          ]
-        },
-        {
-          Effect = "Allow"
-          Action = [
-            "sqs:DeleteMessage",
-            "sqs:GetQueueAttributes",
-            "sqs:GetQueueUrl",
-            "sqs:ReceiveMessage",
-            "sqs:SendMessage"
-          ]
-          Resource = [
-            aws_sqs_queue.proof.arn,
-            aws_sqs_queue.proof_dlq.arn
-          ]
-        },
-        {
-          Effect = "Allow"
-          Action = [
-            "logs:CreateLogGroup",
-            "logs:CreateLogStream",
-            "logs:DescribeLogStreams",
-            "logs:PutLogEvents"
-          ]
-          Resource = [
-            aws_cloudwatch_log_group.services.arn,
-            "${aws_cloudwatch_log_group.services.arn}:*"
-          ]
-        }
-      ],
-      var.runtime_env_parameter_name != "" ? [
-        {
-          Effect = "Allow"
-          Action = [
-            "ssm:GetParameter",
-            "ssm:GetParameters"
-          ]
-          Resource = [local.runtime_env_parameter_arn]
-        }
-      ] : []
-    )
+    Statement = concat([
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.artifacts.arn,
+          "${aws_s3_bucket.artifacts.arn}/*"
+        ]
+      }
+    ],
+    var.enable_sqs_queue ? [
+      {
+        Effect = "Allow"
+        Action = [
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:GetQueueUrl",
+          "sqs:ReceiveMessage",
+          "sqs:SendMessage"
+        ]
+        Resource = [
+          aws_sqs_queue.proof[0].arn,
+          aws_sqs_queue.proof_dlq[0].arn
+        ]
+      }
+    ] : [],
+    var.enable_cloudwatch_logs ? [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:DescribeLogStreams",
+          "logs:PutLogEvents"
+        ]
+        Resource = [
+          aws_cloudwatch_log_group.services[0].arn,
+          "${aws_cloudwatch_log_group.services[0].arn}:*"
+        ]
+      }
+    ] : [],
+    var.runtime_env_parameter_name != "" ? [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters"
+        ]
+        Resource = [local.runtime_env_parameter_arn]
+      }
+    ] : [])
   })
 }
 
@@ -280,7 +290,7 @@ resource "aws_instance" "host" {
   subnet_id              = aws_subnet.private.id
   iam_instance_profile   = aws_iam_instance_profile.instance.name
   vpc_security_group_ids = [aws_security_group.instance.id]
-  monitoring             = true
+  monitoring             = false
 
   root_block_device {
     encrypted   = true
@@ -297,10 +307,10 @@ resource "aws_instance" "host" {
     stack_name                 = var.name
     region                     = var.region
     bucket                     = aws_s3_bucket.artifacts.bucket
-    queue_url                  = aws_sqs_queue.proof.id
-    queue_name                 = aws_sqs_queue.proof.name
+    queue_url                  = var.enable_sqs_queue ? aws_sqs_queue.proof[0].id : ""
+    queue_name                 = var.enable_sqs_queue ? aws_sqs_queue.proof[0].name : ""
     runtime_env_parameter_name = var.runtime_env_parameter_name
-    cloudwatch_log_group_name  = local.cloudwatch_log_group_name
+    cloudwatch_log_group_name  = var.enable_cloudwatch_logs ? local.cloudwatch_log_group_name : ""
   })
 
   tags = merge(local.common_tags, {

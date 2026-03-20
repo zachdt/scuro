@@ -41,6 +41,8 @@ This guide covers the new private AWS-hosted Scuro testnet runtime added under:
 - Private beta only: there is no public endpoint or application login flow in v1.
 - Poker and blackjack remain fixture-backed for gameplay flows.
 - Live proving remains benchmark/admin-only and is expected to reject gameplay jobs.
+- The budget beta defaults to `t3.micro` with a `20 GiB` root volume, file-queue mode, and local-only logs.
+- CloudWatch log shipping and the SQS proof queue are disabled by default for the first low-budget beta.
 - Release bundles are Linux `x86_64` artifacts.
   - `script/aws/build_bundle.sh` will fail on non-Linux hosts unless `SCURO_BUNDLE_INCLUDE_HOST_TOOLS=0`.
   - The supported release path is the GitHub `release-beta` workflow on `ubuntu-latest`.
@@ -55,7 +57,29 @@ This guide covers the new private AWS-hosted Scuro testnet runtime added under:
   - Must be dispatched from `main`.
   - Uses GitHub OIDC to assume the AWS beta deploy role.
   - Runs Terraform plan first, then applies only after the `beta` GitHub Environment approval.
+  - Reuses the same Terraform backend key on every run, so reruns update the same beta stack instead of creating a duplicate one.
   - Bootstraps the private host through SSM, invokes `/deploy`, validates `/manifest` and `/actors`, runs remote smoke jobs, and exports a named snapshot.
+- `destroy-beta.yml`
+  - Manual `workflow_dispatch` only.
+  - Uses the same backend key and tfvars as the release workflow to tear down the existing beta stack.
+  - Sets `bucket_force_destroy` in the beta workflow config so the artifacts bucket can be removed cleanly during teardown.
+
+## Safe Beta Ops Playbook
+
+- Safe retry:
+  - Use `release-beta.yml` again when the previous run failed before Terraform apply, failed during bootstrap, or failed during protocol deploy/smoke steps.
+  - Because the workflow reuses the same Terraform backend key and stack name, rerunning it updates the same beta stack instead of creating a second one.
+  - This is the default recovery path.
+- Destroy and redeploy:
+  - Use `destroy-beta.yml`, then `release-beta.yml`, when the host is stuck in a bad runtime state, the Terraform graph needs to remove drifted resources, or you want a known-clean beta environment.
+  - This is also the safest path after major infra changes such as subnet, endpoint, queue, or instance-shape changes.
+- Avoid destroy:
+  - Do not destroy the beta stack just to roll out a new bundle, rotate runtime env values, or rerun smoke checks.
+  - Prefer a straight `release-beta.yml` rerun when you want to preserve the same bucket, instance identity, snapshots, or current deployment evidence.
+- Operator rule of thumb:
+  - `Release Beta` for normal retries and updates.
+  - `Destroy Beta` only for a deliberate reset.
+  - Keep `SCURO_TF_STATE_BUCKET`, `SCURO_TF_STATE_KEY`, and `SCURO_BETA_STACK_NAME` stable unless you intentionally want a different environment.
 
 ## AWS Prerequisites
 
@@ -82,6 +106,10 @@ PLAYER2_PRIVATE_KEY=0x...
   - `SCURO_TF_STATE_LOCK_TABLE`
   - `SCURO_TF_STATE_REGION`
   - `SCURO_TF_STATE_KEY`
+- Budget-friendly defaults for the first beta:
+  - `SCURO_BETA_INSTANCE_TYPE=t3.micro`
+  - `SCURO_BETA_ROOT_VOLUME_SIZE=20`
+- The beta workflows also force `bucket_force_destroy = true` so teardown can clean the artifacts bucket without leaving duplicate stack remnants behind.
 
 ## Local Verification
 
@@ -124,3 +152,4 @@ PLAYER2_PRIVATE_KEY=0x...
   - `script/aws/remote_smoke.sh <instance-id> poker`
   - `script/aws/remote_snapshot_export.sh <instance-id> beta-<sha>`
 - Human operators can keep using `script/aws/ssm_port_forward.sh` and the local `protocol_*.sh` / `smoke.sh` scripts.
+- With the budget profile, observability is local-only through SSM plus `/var/log/scuro-testnet/*.log` and `journalctl`.

@@ -12,6 +12,7 @@ AWS_REGION=${region}
 SCURO_SSM_TARGET_INSTANCE_ID=$${INSTANCE_ID}
 SCURO_SNAPSHOT_BUCKET=${bucket}
 SCURO_SNAPSHOT_PREFIX=snapshots
+SCURO_ENABLE_CLOUDWATCH_LOGS=${cloudwatch_log_group_name != "" ? "1" : "0"}
 SCURO_SQS_QUEUE_URL=${queue_url}
 SCURO_PROOF_QUEUE_NAME=${queue_name}
 SCURO_CLOUDWATCH_LOG_GROUP=${cloudwatch_log_group_name}

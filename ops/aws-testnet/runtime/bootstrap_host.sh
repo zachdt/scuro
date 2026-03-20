@@ -9,6 +9,22 @@ ENV_DIR="/etc/scuro-testnet"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
+ensure_swap() {
+  local swapfile="/swapfile"
+  if swapon --show | grep -q "${swapfile}"; then
+    return
+  fi
+
+  if [[ ! -f "${swapfile}" ]]; then
+    fallocate -l 2G "${swapfile}" || dd if=/dev/zero of="${swapfile}" bs=1M count=2048
+    chmod 600 "${swapfile}"
+    mkswap "${swapfile}"
+  fi
+
+  swapon "${swapfile}" || true
+  grep -q "^${swapfile} " /etc/fstab || echo "${swapfile} none swap sw 0 0" >> /etc/fstab
+}
+
 ensure_runtime_env() {
   local runtime_env_path="${ENV_DIR}/runtime.env"
   local aws_args=()
@@ -30,6 +46,10 @@ ensure_runtime_env() {
 }
 
 install_cloudwatch_agent() {
+  if [[ "${SCURO_ENABLE_CLOUDWATCH_LOGS:-0}" != "1" ]]; then
+    return
+  fi
+
   if command -v /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl >/dev/null 2>&1; then
     return
   fi
@@ -48,7 +68,7 @@ install_cloudwatch_agent() {
 }
 
 configure_cloudwatch_agent() {
-  if [[ -z "${SCURO_CLOUDWATCH_LOG_GROUP:-}" ]]; then
+  if [[ "${SCURO_ENABLE_CLOUDWATCH_LOGS:-0}" != "1" || -z "${SCURO_CLOUDWATCH_LOG_GROUP:-}" ]]; then
     return
   fi
 
@@ -115,6 +135,7 @@ if [[ ! -f "${ENV_DIR}/scuro.env" ]]; then
   cp "${INSTALL_ROOT}/current/ops/aws-testnet/runtime/scuro.env.example" "${ENV_DIR}/scuro.env"
 fi
 
+ensure_swap
 ensure_runtime_env
 install_cloudwatch_agent
 
