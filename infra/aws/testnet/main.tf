@@ -234,47 +234,47 @@ resource "aws_iam_role_policy" "runtime" {
           "${aws_s3_bucket.artifacts.arn}/*"
         ]
       }
-    ],
-    var.enable_sqs_queue ? [
-      {
-        Effect = "Allow"
-        Action = [
-          "sqs:DeleteMessage",
-          "sqs:GetQueueAttributes",
-          "sqs:GetQueueUrl",
-          "sqs:ReceiveMessage",
-          "sqs:SendMessage"
-        ]
-        Resource = [
-          aws_sqs_queue.proof[0].arn,
-          aws_sqs_queue.proof_dlq[0].arn
-        ]
-      }
-    ] : [],
-    var.enable_cloudwatch_logs ? [
-      {
-        Effect = "Allow"
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:DescribeLogStreams",
-          "logs:PutLogEvents"
-        ]
-        Resource = [
-          aws_cloudwatch_log_group.services[0].arn,
-          "${aws_cloudwatch_log_group.services[0].arn}:*"
-        ]
-      }
-    ] : [],
-    var.runtime_env_parameter_name != "" ? [
-      {
-        Effect = "Allow"
-        Action = [
-          "ssm:GetParameter",
-          "ssm:GetParameters"
-        ]
-        Resource = [local.runtime_env_parameter_arn]
-      }
+      ],
+      var.enable_sqs_queue ? [
+        {
+          Effect = "Allow"
+          Action = [
+            "sqs:DeleteMessage",
+            "sqs:GetQueueAttributes",
+            "sqs:GetQueueUrl",
+            "sqs:ReceiveMessage",
+            "sqs:SendMessage"
+          ]
+          Resource = [
+            aws_sqs_queue.proof[0].arn,
+            aws_sqs_queue.proof_dlq[0].arn
+          ]
+        }
+      ] : [],
+      var.enable_cloudwatch_logs ? [
+        {
+          Effect = "Allow"
+          Action = [
+            "logs:CreateLogGroup",
+            "logs:CreateLogStream",
+            "logs:DescribeLogStreams",
+            "logs:PutLogEvents"
+          ]
+          Resource = [
+            aws_cloudwatch_log_group.services[0].arn,
+            "${aws_cloudwatch_log_group.services[0].arn}:*"
+          ]
+        }
+      ] : [],
+      var.runtime_env_parameter_name != "" ? [
+        {
+          Effect = "Allow"
+          Action = [
+            "ssm:GetParameter",
+            "ssm:GetParameters"
+          ]
+          Resource = [local.runtime_env_parameter_arn]
+        }
     ] : [])
   })
 }
