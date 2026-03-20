@@ -3,6 +3,9 @@
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
+  "engines": {
+    "node": "24.11.1"
+  },
   "scripts": {
     "build": "bun run scripts/build-all.mjs",
     "prove": "bun run scripts/prove-fixtures.mjs",

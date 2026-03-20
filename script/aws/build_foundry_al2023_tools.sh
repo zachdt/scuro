@@ -25,7 +25,6 @@ set -euo pipefail
 dnf install -y \
   clang \
   cmake \
-  curl \
   gcc \
   gcc-c++ \
   git \
