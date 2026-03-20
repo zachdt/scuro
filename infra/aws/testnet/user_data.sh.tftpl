@@ -3,16 +3,19 @@ set -euxo pipefail
 
 mkdir -p /opt/scuro-testnet /var/lib/scuro-testnet /var/log/scuro-testnet /etc/scuro-testnet
 
+TOKEN="$(curl -fsSL -X PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')"
+INSTANCE_ID="$(curl -fsSL -H "X-aws-ec2-metadata-token: $${TOKEN}" http://169.254.169.254/latest/meta-data/instance-id)"
+
 cat >/etc/scuro-testnet/bootstrap.env <<EOF
 SCURO_AWS_STACK_NAME=${stack_name}
 AWS_REGION=${region}
+SCURO_SSM_TARGET_INSTANCE_ID=$${INSTANCE_ID}
 SCURO_SNAPSHOT_BUCKET=${bucket}
 SCURO_SNAPSHOT_PREFIX=snapshots
 SCURO_SQS_QUEUE_URL=${queue_url}
+SCURO_PROOF_QUEUE_NAME=${queue_name}
+SCURO_CLOUDWATCH_LOG_GROUP=${cloudwatch_log_group_name}
+SCURO_ENV_SSM_PARAMETER=${runtime_env_parameter_name}
 EOF
 
-if [[ -n "${bundle_key}" ]]; then
-  echo "Bundle key configured: ${bundle_key}" >>/var/log/scuro-testnet/bootstrap.log
-else
-  echo "Bundle key not configured; run remote bootstrap after artifact upload." >>/var/log/scuro-testnet/bootstrap.log
-fi
+echo "Scuro bootstrap environment rendered; run remote bootstrap after artifact upload." >>/var/log/scuro-testnet/bootstrap.log

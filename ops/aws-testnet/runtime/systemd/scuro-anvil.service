@@ -6,6 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 EnvironmentFile=-/etc/scuro-testnet/scuro.env
+EnvironmentFile=-/etc/scuro-testnet/bootstrap.env
+EnvironmentFile=-/etc/scuro-testnet/runtime.env
 WorkingDirectory=/opt/scuro-testnet/current
 ExecStart=/opt/scuro-testnet/tools/bin/anvil --host 127.0.0.1 --port 8545 --chain-id 31337 --disable-code-size-limit
 Restart=always

@@ -44,8 +44,8 @@ variable "bucket_force_destroy" {
   default     = false
 }
 
-variable "bundle_key" {
-  description = "Optional S3 object key for the uploaded runtime bundle."
+variable "runtime_env_parameter_name" {
+  description = "Optional SecureString SSM parameter containing newline-delimited runtime env vars."
   type        = string
   default     = ""
 }

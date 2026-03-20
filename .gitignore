@@ -19,3 +19,6 @@
 /infra/aws/testnet/.terraform/
 /infra/aws/testnet/*.tfstate
 /infra/aws/testnet/*.tfstate.*
+/infra/aws/testnet/backend*.hcl
+!/infra/aws/testnet/backend.beta.hcl.example
+/infra/aws/testnet/*.auto.tfvars.json

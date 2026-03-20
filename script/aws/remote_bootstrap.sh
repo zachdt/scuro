@@ -11,7 +11,7 @@ fi
 
 INSTANCE_ID="$1"
 BUNDLE_URI="$2"
-REGION="${3:-${AWS_REGION:-${AWS_DEFAULT_REGION:-}}}"
+REGION="$(resolve_region "${3:-}")"
 
 COMMANDS=$(cat <<EOF
 set -euo pipefail
@@ -22,9 +22,5 @@ bash /tmp/scuro-bootstrap/repo/ops/aws-testnet/runtime/bootstrap_host.sh /tmp/sc
 EOF
 )
 
-aws ssm send-command \
-  --instance-ids "${INSTANCE_ID}" \
-  --document-name "AWS-RunShellScript" \
-  --comment "Bootstrap Scuro private testnet host" \
-  --parameters commands="${COMMANDS}" \
-  ${REGION:+--region "${REGION}"}
+ssm_run_command "${INSTANCE_ID}" "Bootstrap Scuro private testnet host" "${COMMANDS}" "${REGION}"
+echo "bootstrap completed on ${INSTANCE_ID}"

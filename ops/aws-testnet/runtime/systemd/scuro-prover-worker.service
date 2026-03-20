@@ -6,6 +6,8 @@ Requires=scuro-anvil.service
 [Service]
 Type=simple
 EnvironmentFile=-/etc/scuro-testnet/scuro.env
+EnvironmentFile=-/etc/scuro-testnet/bootstrap.env
+EnvironmentFile=-/etc/scuro-testnet/runtime.env
 WorkingDirectory=/opt/scuro-testnet/current
 ExecStart=/opt/scuro-testnet/tools/bin/bun run /opt/scuro-testnet/current/ops/aws-testnet/src/worker.ts
 Restart=always

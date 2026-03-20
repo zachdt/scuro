@@ -1,0 +1,5 @@
+bucket         = "replace-with-terraform-state-bucket"
+key            = "scuro/testnet/beta/terraform.tfstate"
+region         = "us-east-2"
+dynamodb_table = "replace-with-terraform-lock-table"
+encrypt        = true

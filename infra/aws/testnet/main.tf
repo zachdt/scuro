@@ -8,6 +8,8 @@ locals {
     Stack   = var.name
   })
 
+  cloudwatch_log_group_name = "/scuro/${var.name}/services"
+
   interface_endpoints = toset([
     "ssm",
     "ssmmessages",
@@ -15,6 +17,8 @@ locals {
     "logs",
     "sqs"
   ])
+
+  runtime_env_parameter_arn = var.runtime_env_parameter_name != "" ? "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${trimprefix(var.runtime_env_parameter_name, "/")}" : null
 }
 
 data "aws_caller_identity" "current" {}
@@ -175,7 +179,7 @@ resource "aws_sqs_queue" "proof" {
 }
 
 resource "aws_cloudwatch_log_group" "services" {
-  name              = "/scuro/${var.name}/services"
+  name              = local.cloudwatch_log_group_name
   retention_in_days = 14
 
   tags = local.common_tags
@@ -209,47 +213,59 @@ resource "aws_iam_role_policy" "runtime" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          aws_s3_bucket.artifacts.arn,
-          "${aws_s3_bucket.artifacts.arn}/*"
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "sqs:DeleteMessage",
-          "sqs:GetQueueAttributes",
-          "sqs:GetQueueUrl",
-          "sqs:ReceiveMessage",
-          "sqs:SendMessage"
-        ]
-        Resource = [
-          aws_sqs_queue.proof.arn,
-          aws_sqs_queue.proof_dlq.arn
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:DescribeLogStreams",
-          "logs:PutLogEvents"
-        ]
-        Resource = [
-          aws_cloudwatch_log_group.services.arn,
-          "${aws_cloudwatch_log_group.services.arn}:*"
-        ]
-      }
-    ]
+    Statement = concat(
+      [
+        {
+          Effect = "Allow"
+          Action = [
+            "s3:GetObject",
+            "s3:PutObject",
+            "s3:ListBucket"
+          ]
+          Resource = [
+            aws_s3_bucket.artifacts.arn,
+            "${aws_s3_bucket.artifacts.arn}/*"
+          ]
+        },
+        {
+          Effect = "Allow"
+          Action = [
+            "sqs:DeleteMessage",
+            "sqs:GetQueueAttributes",
+            "sqs:GetQueueUrl",
+            "sqs:ReceiveMessage",
+            "sqs:SendMessage"
+          ]
+          Resource = [
+            aws_sqs_queue.proof.arn,
+            aws_sqs_queue.proof_dlq.arn
+          ]
+        },
+        {
+          Effect = "Allow"
+          Action = [
+            "logs:CreateLogGroup",
+            "logs:CreateLogStream",
+            "logs:DescribeLogStreams",
+            "logs:PutLogEvents"
+          ]
+          Resource = [
+            aws_cloudwatch_log_group.services.arn,
+            "${aws_cloudwatch_log_group.services.arn}:*"
+          ]
+        }
+      ],
+      var.runtime_env_parameter_name != "" ? [
+        {
+          Effect = "Allow"
+          Action = [
+            "ssm:GetParameter",
+            "ssm:GetParameters"
+          ]
+          Resource = [local.runtime_env_parameter_arn]
+        }
+      ] : []
+    )
   })
 }
 
@@ -278,11 +294,13 @@ resource "aws_instance" "host" {
   }
 
   user_data = templatefile("${path.module}/user_data.sh.tftpl", {
-    stack_name = var.name
-    region     = var.region
-    bucket     = aws_s3_bucket.artifacts.bucket
-    bundle_key = var.bundle_key
-    queue_url  = aws_sqs_queue.proof.id
+    stack_name                 = var.name
+    region                     = var.region
+    bucket                     = aws_s3_bucket.artifacts.bucket
+    queue_url                  = aws_sqs_queue.proof.id
+    queue_name                 = aws_sqs_queue.proof.name
+    runtime_env_parameter_name = var.runtime_env_parameter_name
+    cloudwatch_log_group_name  = local.cloudwatch_log_group_name
   })
 
   tags = merge(local.common_tags, {

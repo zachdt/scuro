@@ -1,0 +1,68 @@
+name: Verify
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.7
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Bun checks
+        run: bun run --cwd ops/aws-testnet check
+
+      - name: Bun tests
+        run: bun test --cwd ops/aws-testnet
+
+      - name: Targeted Forge build
+        run: |
+          forge build \
+            script/aws/FixtureLoaders.sol \
+            script/aws/SmokeNumberPicker.s.sol \
+            script/aws/SmokePokerFixture.s.sol \
+            script/aws/SmokeBlackjackFixture.s.sol \
+            script/aws/SubmitPokerInitialDeal.s.sol \
+            script/aws/SubmitPokerDraw.s.sol \
+            script/aws/SubmitPokerShowdown.s.sol \
+            script/aws/SubmitBlackjackInitialDeal.s.sol \
+            script/aws/SubmitBlackjackAction.s.sol \
+            script/aws/SubmitBlackjackShowdown.s.sol
+
+      - name: Focused Forge tests
+        run: forge test --match-path 'test/aws/*.t.sol' --offline
+
+      - name: Terraform fmt
+        run: terraform -chdir=infra/aws/testnet fmt -check -diff
+
+      - name: Terraform validate
+        run: |
+          terraform -chdir=infra/aws/testnet init -backend=false
+          terraform -chdir=infra/aws/testnet validate
+
+      - name: Shellcheck
+        run: shellcheck script/aws/*.sh ops/aws-testnet/runtime/*.sh
+
+      - name: Build Linux bundle
+        run: bash script/aws/build_bundle.sh /tmp/scuro-beta-bundle.tar.gz
