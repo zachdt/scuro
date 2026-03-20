@@ -51,9 +51,13 @@ jobs:
           mkdir -p /tmp/scuro-release/foundry-tools
           bash script/aws/build_foundry_al2023_tools.sh /tmp/scuro-release/foundry-tools
 
+      - name: Check Bun toolchain
+        run: |
+          command -v bun
+          bun --version
+
       - name: Build Linux bundle
         env:
-          SCURO_BUNDLE_BUN_BIN: ${{ env.BUN_INSTALL }}/bin/bun
           SCURO_BUNDLE_FORGE_BIN: /tmp/scuro-release/foundry-tools/forge
           SCURO_BUNDLE_CAST_BIN: /tmp/scuro-release/foundry-tools/cast
           SCURO_BUNDLE_ANVIL_BIN: /tmp/scuro-release/foundry-tools/anvil
