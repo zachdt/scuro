@@ -41,7 +41,7 @@ This guide covers the new private AWS-hosted Scuro testnet runtime added under:
 - Private beta only: there is no public endpoint or application login flow in v1.
 - Poker and blackjack remain fixture-backed for gameplay flows.
 - Live proving remains benchmark/admin-only and is expected to reject gameplay jobs.
-- The budget beta defaults to `t3.micro` with a `20 GiB` root volume, file-queue mode, and local-only logs.
+- The budget beta currently defaults to `t3.micro` with a `40 GiB` root volume, file-queue mode, and local-only logs.
 - CloudWatch log shipping and the SQS proof queue are disabled by default for the first low-budget beta.
 - Release bundles are Linux `x86_64` artifacts.
   - `script/aws/build_bundle.sh` will fail on non-Linux hosts unless `SCURO_BUNDLE_INCLUDE_HOST_TOOLS=0`.
@@ -108,8 +108,9 @@ PLAYER2_PRIVATE_KEY=0x...
   - `SCURO_TF_STATE_KEY`
 - Budget-friendly defaults for the first beta:
   - `SCURO_BETA_INSTANCE_TYPE=t3.micro`
-  - `SCURO_BETA_ROOT_VOLUME_SIZE=20`
+  - `SCURO_BETA_ROOT_VOLUME_SIZE=40`
 - The beta workflows also force `bucket_force_destroy = true` so teardown can clean the artifacts bucket without leaving duplicate stack remnants behind.
+- The `40 GiB` root volume is a temporary safety margin while the lean bootstrap path is being proven; the long-term target remains reducing bootstrap peak disk usage enough to return to `20 GiB`.
 
 ## Local Verification
 
@@ -153,3 +154,4 @@ PLAYER2_PRIVATE_KEY=0x...
   - `script/aws/remote_snapshot_export.sh <instance-id> beta-<sha>`
 - Human operators can keep using `script/aws/ssm_port_forward.sh` and the local `protocol_*.sh` / `smoke.sh` scripts.
 - With the budget profile, observability is local-only through SSM plus `/var/log/scuro-testnet/*.log` and `journalctl`.
+- Bootstrap now extracts only the installer script on the first pass and then stages the payload in-place under the install root to avoid redundant copies during host install.

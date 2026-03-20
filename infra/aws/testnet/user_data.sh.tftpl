@@ -10,6 +10,7 @@ cat >/etc/scuro-testnet/bootstrap.env <<EOF
 SCURO_AWS_STACK_NAME=${stack_name}
 AWS_REGION=${region}
 SCURO_SSM_TARGET_INSTANCE_ID=$${INSTANCE_ID}
+SCURO_ROOT_VOLUME_SIZE_GIB=${root_volume_size}
 SCURO_SNAPSHOT_BUCKET=${bucket}
 SCURO_SNAPSHOT_PREFIX=snapshots
 SCURO_ENABLE_CLOUDWATCH_LOGS=${cloudwatch_log_group_name != "" ? "1" : "0"}

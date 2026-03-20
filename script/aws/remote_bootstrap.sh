@@ -18,7 +18,7 @@ COMMANDS=$(cat <<EOF
 set -euo pipefail
 mkdir -p /tmp/scuro-bootstrap
 aws s3 cp "${BUNDLE_URI}" /tmp/scuro-bootstrap/bundle.tar.gz ${REGION:+--region ${REGION}}
-tar -xzf /tmp/scuro-bootstrap/bundle.tar.gz -C /tmp/scuro-bootstrap
+tar -xzf /tmp/scuro-bootstrap/bundle.tar.gz -C /tmp/scuro-bootstrap repo/ops/aws-testnet/runtime/bootstrap_host.sh
 bash /tmp/scuro-bootstrap/repo/ops/aws-testnet/runtime/bootstrap_host.sh /tmp/scuro-bootstrap/bundle.tar.gz
 EOF
 )

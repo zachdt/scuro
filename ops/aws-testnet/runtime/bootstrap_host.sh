@@ -7,16 +7,24 @@ STATE_DIR="${SCURO_STATE_DIR:-/var/lib/scuro-testnet}"
 LOG_DIR="${SCURO_LOG_DIR:-/var/log/scuro-testnet}"
 ENV_DIR="/etc/scuro-testnet"
 TMP_DIR="$(mktemp -d)"
-trap 'rm -rf "${TMP_DIR}"' EXIT
+STAGING_DIR="${INSTALL_ROOT}/.staging-$$"
+trap 'rm -rf "${TMP_DIR}" "${STAGING_DIR}"' EXIT
 
 ensure_swap() {
   local swapfile="/swapfile"
+  local root_gib="${SCURO_ROOT_VOLUME_SIZE_GIB:-0}"
+  local swap_mib=2048
+
+  if [[ "${root_gib}" =~ ^[0-9]+$ ]] && (( root_gib > 0 && root_gib <= 20 )); then
+    swap_mib=1024
+  fi
+
   if swapon --show | grep -q "${swapfile}"; then
     return
   fi
 
   if [[ ! -f "${swapfile}" ]]; then
-    fallocate -l 2G "${swapfile}" || dd if=/dev/zero of="${swapfile}" bs=1M count=2048
+    fallocate -l "${swap_mib}M" "${swapfile}" || dd if=/dev/zero of="${swapfile}" bs=1M count="${swap_mib}"
     chmod 600 "${swapfile}"
     mkswap "${swapfile}"
   fi
@@ -116,14 +124,25 @@ if [[ -z "${BUNDLE_ARCHIVE}" ]]; then
   exit 1
 fi
 
-mkdir -p "${INSTALL_ROOT}" "${STATE_DIR}" "${LOG_DIR}" "${ENV_DIR}"
-tar -xzf "${BUNDLE_ARCHIVE}" -C "${TMP_DIR}"
+mkdir -p "${INSTALL_ROOT}" "${STATE_DIR}" "${LOG_DIR}" "${ENV_DIR}" "${STAGING_DIR}"
+tar -xzf "${BUNDLE_ARCHIVE}" -C "${STAGING_DIR}"
+
+if [[ ! -d "${STAGING_DIR}/repo" ]]; then
+  echo "bundle missing repo payload" >&2
+  exit 1
+fi
+
+if [[ -d "${STAGING_DIR}/tools/bin" ]] && compgen -G "${STAGING_DIR}/tools/bin/*" >/dev/null; then
+  chmod +x "${STAGING_DIR}/tools/bin/"*
+fi
 
 rm -rf "${INSTALL_ROOT}/current" "${INSTALL_ROOT}/tools"
-mkdir -p "${INSTALL_ROOT}/tools"
-cp -R "${TMP_DIR}/repo" "${INSTALL_ROOT}/current"
-if [[ -d "${TMP_DIR}/tools" ]]; then
-  cp -R "${TMP_DIR}/tools/." "${INSTALL_ROOT}/tools"
+mv "${STAGING_DIR}/repo" "${INSTALL_ROOT}/current"
+
+if [[ -d "${STAGING_DIR}/tools" ]]; then
+  mv "${STAGING_DIR}/tools" "${INSTALL_ROOT}/tools"
+else
+  mkdir -p "${INSTALL_ROOT}/tools"
 fi
 
 if compgen -G "${INSTALL_ROOT}/tools/bin/*" >/dev/null; then
@@ -135,9 +154,9 @@ if [[ ! -f "${ENV_DIR}/scuro.env" ]]; then
   cp "${INSTALL_ROOT}/current/ops/aws-testnet/runtime/scuro.env.example" "${ENV_DIR}/scuro.env"
 fi
 
-ensure_swap
 ensure_runtime_env
 install_cloudwatch_agent
+ensure_swap
 
 cp "${INSTALL_ROOT}/current/ops/aws-testnet/runtime/systemd/scuro-anvil.service" /etc/systemd/system/scuro-anvil.service
 cp "${INSTALL_ROOT}/current/ops/aws-testnet/runtime/systemd/scuro-operator-api.service" /etc/systemd/system/scuro-operator-api.service
@@ -149,3 +168,5 @@ systemctl restart scuro-anvil.service
 systemctl restart scuro-operator-api.service
 systemctl restart scuro-prover-worker.service
 configure_cloudwatch_agent
+
+rm -f "${BUNDLE_ARCHIVE}"

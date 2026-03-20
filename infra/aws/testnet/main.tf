@@ -306,6 +306,7 @@ resource "aws_instance" "host" {
   user_data = templatefile("${path.module}/user_data.sh.tftpl", {
     stack_name                 = var.name
     region                     = var.region
+    root_volume_size           = var.root_volume_size
     bucket                     = aws_s3_bucket.artifacts.bucket
     queue_url                  = var.enable_sqs_queue ? aws_sqs_queue.proof[0].id : ""
     queue_name                 = var.enable_sqs_queue ? aws_sqs_queue.proof[0].name : ""
