@@ -136,6 +136,27 @@ describe("operator handler", () => {
     const body = await response.json() as Record<string, unknown>;
     expect(body.ok).toBe(true);
     expect(body.service).toBe("operator-api");
+    expect((body.chain as { ok: boolean }).ok).toBe(true);
+  });
+
+  test("returns degraded chain health without failing liveness", async () => {
+    const handler = createOperatorFetchHandler(
+      makeConfig(),
+      makeDeps({
+        async checkChainHealth() {
+          throw new Error("rpc unavailable");
+        }
+      })
+    );
+    const response = await handler(new Request("http://local/health"));
+    expect(response.status).toBe(200);
+    const body = await response.json() as {
+      ok: boolean;
+      chain: { ok: boolean; error: string };
+    };
+    expect(body.ok).toBe(true);
+    expect(body.chain.ok).toBe(false);
+    expect(body.chain.error).toContain("rpc unavailable");
   });
 
   test("returns manifest not found as 404", async () => {

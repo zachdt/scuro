@@ -225,6 +225,9 @@ jobs:
       - name: Wait for operator health
         run: bash script/aws/remote_wait_for_health.sh "${INSTANCE_ID}" "${AWS_REGION}"
 
+      - name: Wait for chain readiness
+        run: bash script/aws/remote_wait_for_chain.sh "${INSTANCE_ID}" "${AWS_REGION}"
+
       - name: Deploy protocol
         run: |
           bash script/aws/remote_operator.sh "${INSTANCE_ID}" POST /deploy "" "${AWS_REGION}" \

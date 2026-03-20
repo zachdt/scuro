@@ -27,6 +27,8 @@ echo "==== bootstrap env ===="
 sed -n '1,220p' /etc/scuro-testnet/bootstrap.env || true
 echo "==== runtime env keys ===="
 sed -E 's/=.*/=<redacted>/' /etc/scuro-testnet/runtime.env || true
+echo "==== operator health ===="
+curl -sS http://127.0.0.1:8787/health || true
 echo "==== operator log ===="
 tail -n 200 /var/log/scuro-testnet/operator-api.log || true
 echo "==== anvil log ===="

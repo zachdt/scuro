@@ -115,11 +115,24 @@ export function createOperatorFetchHandler(
       const url = new URL(request.url);
 
       if (request.method === "GET" && url.pathname === "/health") {
+        let chain: Record<string, unknown>;
+        try {
+          chain = {
+            ok: true,
+            ...(await deps.checkChainHealth(config))
+          };
+        } catch (error) {
+          chain = {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
+
         return json({
           ok: true,
           service: "operator-api",
           queueMode: config.queueMode,
-          chain: await deps.checkChainHealth(config)
+          chain
         });
       }
 
