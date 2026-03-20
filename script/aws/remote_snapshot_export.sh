@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=script/aws/lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
 
 if [[ $# -lt 2 ]]; then
