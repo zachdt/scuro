@@ -170,6 +170,35 @@ jobs:
             "/tmp/scuro-release/${GITHUB_SHA}.tar.gz" \
             "s3://${ARTIFACTS_BUCKET}/bundles/${GITHUB_SHA}.tar.gz"
 
+      - name: Wait for EC2 and SSM readiness
+        run: |
+          aws ec2 wait instance-running \
+            --instance-ids "${INSTANCE_ID}" \
+            --region "${AWS_REGION}"
+
+          aws ec2 wait instance-status-ok \
+            --instance-ids "${INSTANCE_ID}" \
+            --region "${AWS_REGION}"
+
+          for attempt in $(seq 1 30); do
+            PING_STATUS="$(aws ssm describe-instance-information \
+              --region "${AWS_REGION}" \
+              --filters "Key=InstanceIds,Values=${INSTANCE_ID}" \
+              --query 'InstanceInformationList[0].PingStatus' \
+              --output text 2>/dev/null || true)"
+
+            if [[ "${PING_STATUS}" == "Online" ]]; then
+              echo "SSM is online for ${INSTANCE_ID}"
+              exit 0
+            fi
+
+            echo "waiting for SSM registration (${attempt}/30)"
+            sleep 10
+          done
+
+          echo "instance did not become SSM-online in time" >&2
+          exit 1
+
       - name: Bootstrap host
         run: bash script/aws/remote_bootstrap.sh "${INSTANCE_ID}" "${BUNDLE_URI}" "${AWS_REGION}"
 
