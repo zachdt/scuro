@@ -89,24 +89,44 @@ deploy_stack() {
     --disable-code-size-limit \
     2>&1 | tee "${DEPLOY_LOG}" >/dev/null
 
-  export SCURO_TOKEN="$(extract_value ScuroToken)"
-  export SCURO_STAKING_TOKEN="$(extract_value ScuroStakingToken)"
-  export PROTOCOL_SETTLEMENT="$(extract_value ProtocolSettlement)"
-  export GAME_CATALOG="$(extract_value GameCatalog)"
-  export DEVELOPER_REWARDS="$(extract_value DeveloperRewards)"
-  export NUMBER_PICKER_ADAPTER="$(extract_value NumberPickerAdapter)"
-  export NUMBER_PICKER_ENGINE="$(extract_value NumberPickerEngine)"
-  export TOURNAMENT_CONTROLLER="$(extract_value TournamentController)"
-  export TOURNAMENT_POKER_ENGINE="$(extract_value TournamentPokerEngine)"
-  export TOURNAMENT_POKER_VERIFIER_BUNDLE="$(extract_value TournamentPokerVerifierBundle)"
-  export BLACKJACK_CONTROLLER="$(extract_value BlackjackController)"
-  export BLACKJACK_ENGINE="$(extract_value SingleDeckBlackjackEngine)"
-  export BLACKJACK_VERIFIER_BUNDLE="$(extract_value BlackjackVerifierBundle)"
-  export SOLO_DEVELOPER="$(extract_value SoloDeveloper)"
-  export POKER_DEVELOPER="$(extract_value PokerDeveloper)"
-  export NUMBER_PICKER_EXPRESSION_TOKEN_ID="$(extract_value NumberPickerExpressionTokenId)"
-  export POKER_EXPRESSION_TOKEN_ID="$(extract_value PokerExpressionTokenId)"
-  export BLACKJACK_EXPRESSION_TOKEN_ID="$(extract_value BlackjackExpressionTokenId)"
+  SCURO_TOKEN="$(extract_value ScuroToken)"
+  SCURO_STAKING_TOKEN="$(extract_value ScuroStakingToken)"
+  PROTOCOL_SETTLEMENT="$(extract_value ProtocolSettlement)"
+  GAME_CATALOG="$(extract_value GameCatalog)"
+  DEVELOPER_REWARDS="$(extract_value DeveloperRewards)"
+  NUMBER_PICKER_ADAPTER="$(extract_value NumberPickerAdapter)"
+  NUMBER_PICKER_ENGINE="$(extract_value NumberPickerEngine)"
+  TOURNAMENT_CONTROLLER="$(extract_value TournamentController)"
+  TOURNAMENT_POKER_ENGINE="$(extract_value TournamentPokerEngine)"
+  TOURNAMENT_POKER_VERIFIER_BUNDLE="$(extract_value TournamentPokerVerifierBundle)"
+  BLACKJACK_CONTROLLER="$(extract_value BlackjackController)"
+  BLACKJACK_ENGINE="$(extract_value SingleDeckBlackjackEngine)"
+  BLACKJACK_VERIFIER_BUNDLE="$(extract_value BlackjackVerifierBundle)"
+  SOLO_DEVELOPER="$(extract_value SoloDeveloper)"
+  POKER_DEVELOPER="$(extract_value PokerDeveloper)"
+  NUMBER_PICKER_EXPRESSION_TOKEN_ID="$(extract_value NumberPickerExpressionTokenId)"
+  POKER_EXPRESSION_TOKEN_ID="$(extract_value PokerExpressionTokenId)"
+  BLACKJACK_EXPRESSION_TOKEN_ID="$(extract_value BlackjackExpressionTokenId)"
+
+  export \
+    SCURO_TOKEN \
+    SCURO_STAKING_TOKEN \
+    PROTOCOL_SETTLEMENT \
+    GAME_CATALOG \
+    DEVELOPER_REWARDS \
+    NUMBER_PICKER_ADAPTER \
+    NUMBER_PICKER_ENGINE \
+    TOURNAMENT_CONTROLLER \
+    TOURNAMENT_POKER_ENGINE \
+    TOURNAMENT_POKER_VERIFIER_BUNDLE \
+    BLACKJACK_CONTROLLER \
+    BLACKJACK_ENGINE \
+    BLACKJACK_VERIFIER_BUNDLE \
+    SOLO_DEVELOPER \
+    POKER_DEVELOPER \
+    NUMBER_PICKER_EXPRESSION_TOKEN_ID \
+    POKER_EXPRESSION_TOKEN_ID \
+    BLACKJACK_EXPRESSION_TOKEN_ID
 }
 
 reset_chain() {

@@ -62,7 +62,7 @@ jobs:
           terraform -chdir=infra/aws/testnet validate
 
       - name: Shellcheck
-        run: shellcheck script/aws/*.sh ops/aws-testnet/runtime/*.sh
+        run: shellcheck -x script/aws/*.sh ops/aws-testnet/runtime/*.sh
 
       - name: Build Linux bundle
         run: bash script/aws/build_bundle.sh /tmp/scuro-beta-bundle.tar.gz
