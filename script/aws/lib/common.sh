@@ -30,13 +30,23 @@ ssm_send_command() {
   local comment="$2"
   local commands="$3"
   local region="${4:-}"
+  local parameters_json
+
+  parameters_json="$(python3 - <<'PY' "${commands}"
+import json
+import sys
+
+commands = sys.argv[1].splitlines()
+print(json.dumps({"commands": commands}))
+PY
+)"
 
   if [[ -n "${region}" ]]; then
     aws ssm send-command \
       --instance-ids "${instance_id}" \
       --document-name "AWS-RunShellScript" \
       --comment "${comment}" \
-      --parameters "commands=${commands}" \
+      --parameters "${parameters_json}" \
       --region "${region}" \
       --query "Command.CommandId" \
       --output text
@@ -45,7 +55,7 @@ ssm_send_command() {
       --instance-ids "${instance_id}" \
       --document-name "AWS-RunShellScript" \
       --comment "${comment}" \
-      --parameters "commands=${commands}" \
+      --parameters "${parameters_json}" \
       --query "Command.CommandId" \
       --output text
   fi
