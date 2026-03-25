@@ -41,7 +41,10 @@ git clone --depth 1 --branch '${FOUNDRY_GIT_REF}' https://github.com/foundry-rs/
 cargo install --locked --path /tmp/foundry/crates/forge --root /tmp/foundry-bin
 cargo install --locked --path /tmp/foundry/crates/cast --root /tmp/foundry-bin
 cargo install --locked --path /tmp/foundry/crates/anvil --root /tmp/foundry-bin
+cd /work
+/tmp/foundry-bin/bin/forge build >/dev/null
 cp /tmp/foundry-bin/bin/forge /out/forge
 cp /tmp/foundry-bin/bin/cast /out/cast
 cp /tmp/foundry-bin/bin/anvil /out/anvil
+cp -R /root/.svm /out/svm
 "

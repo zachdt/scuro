@@ -174,6 +174,11 @@ if compgen -G "${INSTALL_ROOT}/tools/bin/*" >/dev/null; then
 fi
 chmod +x "${INSTALL_ROOT}/current/ops/aws-testnet/runtime/"*.sh
 
+if [[ -d "${INSTALL_ROOT}/tools/svm" ]]; then
+  rm -rf /root/.svm
+  cp -R "${INSTALL_ROOT}/tools/svm" /root/.svm
+fi
+
 if [[ ! -f "${ENV_DIR}/scuro.env" ]]; then
   cp "${INSTALL_ROOT}/current/ops/aws-testnet/runtime/scuro.env.example" "${ENV_DIR}/scuro.env"
 fi

@@ -5,6 +5,7 @@ Wants=network-online.target scuro-anvil.service
 
 [Service]
 Type=simple
+Environment=HOME=/root
 EnvironmentFile=-/etc/scuro-testnet/scuro.env
 EnvironmentFile=-/etc/scuro-testnet/bootstrap.env
 EnvironmentFile=-/etc/scuro-testnet/runtime.env

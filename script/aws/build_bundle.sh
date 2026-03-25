@@ -19,6 +19,7 @@ BUN_BIN="${SCURO_BUNDLE_BUN_BIN:-}"
 FORGE_BIN="${SCURO_BUNDLE_FORGE_BIN:-}"
 CAST_BIN="${SCURO_BUNDLE_CAST_BIN:-}"
 ANVIL_BIN="${SCURO_BUNDLE_ANVIL_BIN:-}"
+SVM_DIR="${SCURO_BUNDLE_SVM_DIR:-}"
 
 mkdir -p "${TMP_DIR}/repo" "${TMP_DIR}/tools/bin"
 
@@ -61,6 +62,10 @@ if [[ "${SCURO_BUNDLE_INCLUDE_HOST_TOOLS:-1}" == "1" ]]; then
   cp "${FORGE_BIN}" "${TMP_DIR}/tools/bin/forge"
   cp "${ANVIL_BIN}" "${TMP_DIR}/tools/bin/anvil"
   cp "${CAST_BIN}" "${TMP_DIR}/tools/bin/cast"
+
+  if [[ -n "${SVM_DIR}" && -d "${SVM_DIR}" ]]; then
+    cp -R "${SVM_DIR}" "${TMP_DIR}/tools/svm"
+  fi
 fi
 
 mkdir -p "$(dirname "${OUTPUT_ARCHIVE}")"

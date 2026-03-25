@@ -61,6 +61,7 @@ jobs:
           SCURO_BUNDLE_FORGE_BIN: /tmp/scuro-release/foundry-tools/forge
           SCURO_BUNDLE_CAST_BIN: /tmp/scuro-release/foundry-tools/cast
           SCURO_BUNDLE_ANVIL_BIN: /tmp/scuro-release/foundry-tools/anvil
+          SCURO_BUNDLE_SVM_DIR: /tmp/scuro-release/foundry-tools/svm
         run: |
           mkdir -p /tmp/scuro-release
           bash script/aws/build_bundle.sh "/tmp/scuro-release/${GITHUB_SHA}.tar.gz"
