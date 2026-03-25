@@ -98,18 +98,24 @@ export async function deployProtocol(
       config.rpcUrl,
       "--broadcast",
       "--offline",
+      "-vvvv",
       "--skip-simulation",
       "--non-interactive",
       "--disable-code-size-limit"
     ],
     {
       cwd: config.repoRoot,
-      env: deployEnv(config)
+      env: deployEnv(config),
+      allowFailure: true
     }
   );
 
   const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
   await Bun.write(config.deployLogPath, output);
+
+  if (result.exitCode !== 0) {
+    throw new Error(`deploy failed\n${output}`);
+  }
 
   const contracts = parseDeployOutput(output);
   if (!contracts.ScuroToken) {

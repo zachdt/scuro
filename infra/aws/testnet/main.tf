@@ -419,7 +419,7 @@ resource "aws_cloudfront_distribution" "public_rpc" {
   count               = var.enable_public_rpc ? 1 : 0
   enabled             = true
   comment             = "${var.name} public RPC"
-  wait_for_deployment = false
+  wait_for_deployment = true
   price_class         = "PriceClass_100"
 
   origin {

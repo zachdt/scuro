@@ -268,18 +268,35 @@ jobs:
 
       - name: Verify public RPC
         run: |
+          ready=0
           for attempt in $(seq 1 40); do
-            if curl -fsS \
+            response="$(curl -sS \
               -H 'content-type: application/json' \
               --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
-              "${PUBLIC_RPC_URL}" \
-              | tee /tmp/scuro-release/public-rpc-health.json \
-              | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"])' >/tmp/scuro-release/public-rpc-chain-id.txt; then
+              -w '\n%{http_code}' \
+              "${PUBLIC_RPC_URL}")"
+
+            body="$(printf '%s\n' "${response}" | sed '$d')"
+            status="$(printf '%s\n' "${response}" | tail -n1)"
+
+            printf '%s\n' "${body}" > /tmp/scuro-release/public-rpc-health.json
+
+            if [[ "${status}" == "200" ]] && python3 -c 'import json, sys; print(json.loads(sys.argv[1])["result"])' "${body}" > /tmp/scuro-release/public-rpc-chain-id.txt
+            then
+              ready=1
               break
             fi
-            echo "waiting for CloudFront public RPC (${attempt}/40)"
+
+            echo "waiting for CloudFront public RPC (${attempt}/40) status=${status}" >&2
+            printf '%s\n' "${body}" | head -c 400 >&2 || true
+            echo >&2
             sleep 15
           done
+
+          if [[ "${ready}" != "1" ]]; then
+            echo "CloudFront public RPC did not become ready in time" >&2
+            exit 1
+          fi
 
           curl -fsS \
             -H 'content-type: application/json' \
