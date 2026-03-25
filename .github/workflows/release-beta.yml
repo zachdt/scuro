@@ -91,7 +91,8 @@ jobs:
             "bucket_force_destroy": true,
             "runtime_env_parameter_name": "${{ vars.SCURO_BETA_RUNTIME_ENV_PARAMETER || '' }}",
             "enable_cloudwatch_logs": false,
-            "enable_sqs_queue": false
+            "enable_sqs_queue": false,
+            "enable_public_rpc": true
           }
           EOF
 
@@ -165,7 +166,8 @@ jobs:
             "bucket_force_destroy": true,
             "runtime_env_parameter_name": "${{ vars.SCURO_BETA_RUNTIME_ENV_PARAMETER || '' }}",
             "enable_cloudwatch_logs": false,
-            "enable_sqs_queue": false
+            "enable_sqs_queue": false,
+            "enable_public_rpc": true
           }
           EOF
 
@@ -178,9 +180,17 @@ jobs:
         run: |
           INSTANCE_ID="$(terraform -chdir=infra/aws/testnet output -raw instance_id)"
           ARTIFACTS_BUCKET="$(terraform -chdir=infra/aws/testnet output -raw artifacts_bucket)"
+          PUBLIC_IP="$(terraform -chdir=infra/aws/testnet output -raw public_ip)"
+          CLOUDFRONT_DOMAIN="$(terraform -chdir=infra/aws/testnet output -raw cloudfront_domain)"
+          PUBLIC_RPC_URL="$(terraform -chdir=infra/aws/testnet output -raw public_rpc_url)"
+          RELEASE_RECORDS_PREFIX="$(terraform -chdir=infra/aws/testnet output -raw release_records_prefix)"
           {
             echo "INSTANCE_ID=${INSTANCE_ID}"
             echo "ARTIFACTS_BUCKET=${ARTIFACTS_BUCKET}"
+            echo "PUBLIC_IP=${PUBLIC_IP}"
+            echo "CLOUDFRONT_DOMAIN=${CLOUDFRONT_DOMAIN}"
+            echo "PUBLIC_RPC_URL=${PUBLIC_RPC_URL}"
+            echo "RELEASE_RECORDS_PREFIX=${RELEASE_RECORDS_PREFIX}"
             echo "BUNDLE_URI=s3://${ARTIFACTS_BUCKET}/bundles/${GITHUB_SHA}.tar.gz"
           } >> "${GITHUB_ENV}"
 
@@ -255,6 +265,76 @@ jobs:
           bash script/aws/remote_snapshot_export.sh "${INSTANCE_ID}" "${SNAPSHOT_NAME}" "${AWS_REGION}" \
             | tee /tmp/scuro-release/snapshot.json
 
+      - name: Verify public RPC
+        run: |
+          for attempt in $(seq 1 40); do
+            if curl -fsS \
+              -H 'content-type: application/json' \
+              --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+              "${PUBLIC_RPC_URL}" \
+              | tee /tmp/scuro-release/public-rpc-health.json \
+              | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"])' >/tmp/scuro-release/public-rpc-chain-id.txt; then
+              break
+            fi
+            echo "waiting for CloudFront public RPC (${attempt}/40)"
+            sleep 15
+          done
+
+          curl -fsS \
+            -H 'content-type: application/json' \
+            --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+            "${PUBLIC_RPC_URL}" \
+            | tee /tmp/scuro-release/public-rpc-block-number.json >/dev/null
+
+      - name: Verify public origin boundaries
+        run: |
+          test "$(curl -s -o /dev/null -w '%{http_code}' "http://${PUBLIC_IP}/")" = "403"
+          ! curl -fsS --connect-timeout 3 "http://${PUBLIC_IP}:8545"
+          ! curl -fsS --connect-timeout 3 "http://${PUBLIC_IP}:8787"
+
+      - name: Publish release records to S3
+        env:
+          SCURO_BETA_STACK_NAME: ${{ vars.SCURO_BETA_STACK_NAME || 'scuro-testnet-beta' }}
+        run: |
+          python3 - <<'PY' > /tmp/scuro-release/release-record.json
+          import json
+          import os
+
+          record = {
+              "gitSha": os.environ["GITHUB_SHA"],
+              "workflowRunUrl": f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+              "awsRegion": os.environ["AWS_REGION"],
+              "stackName": os.environ.get("SCURO_BETA_STACK_NAME", ""),
+              "instanceId": os.environ["INSTANCE_ID"],
+              "bundleUri": os.environ["BUNDLE_URI"],
+              "cloudFrontDomain": os.environ["CLOUDFRONT_DOMAIN"],
+              "publicRpcUrl": os.environ["PUBLIC_RPC_URL"],
+              "manifestKey": f"releases/{os.environ['GITHUB_SHA']}/manifest.json",
+              "actorsKey": f"releases/{os.environ['GITHUB_SHA']}/actors.json",
+              "deployManifestKey": f"releases/{os.environ['GITHUB_SHA']}/deploy-manifest.json",
+              "snapshotKey": f"releases/{os.environ['GITHUB_SHA']}/snapshot.json",
+          }
+
+          snapshot_path = "/tmp/scuro-release/snapshot.json"
+          if os.path.exists(snapshot_path):
+              with open(snapshot_path, "r", encoding="utf-8") as handle:
+                  snapshot = json.load(handle)
+              record["snapshotName"] = snapshot.get("snapshotName", "")
+              record["snapshotPath"] = snapshot.get("s3Path") or snapshot.get("localPath", "")
+
+          print(json.dumps(record, indent=2))
+          PY
+
+          for file in deploy-manifest.json manifest.json actors.json snapshot.json release-record.json; do
+            aws s3 cp \
+              "/tmp/scuro-release/${file}" \
+              "s3://${ARTIFACTS_BUCKET}/releases/${GITHUB_SHA}/${file}"
+          done
+
+          aws s3 cp \
+            "/tmp/scuro-release/release-record.json" \
+            "s3://${ARTIFACTS_BUCKET}/releases/latest.json"
+
       - name: Collect host diagnostics on failure
         if: failure() && env.INSTANCE_ID != ''
         run: |
@@ -278,6 +358,8 @@ jobs:
             echo "- Git SHA: \`${GITHUB_SHA}\`"
             echo "- Instance ID: \`${INSTANCE_ID}\`"
             echo "- Bundle URI: \`${BUNDLE_URI}\`"
+            echo "- Public RPC URL: \`${PUBLIC_RPC_URL}\`"
+            echo "- Release Records Prefix: \`${RELEASE_RECORDS_PREFIX}\`"
             echo
             echo "Artifacts:"
             echo "- deploy-manifest.json"
@@ -287,4 +369,5 @@ jobs:
             echo "- smoke-poker.json"
             echo "- smoke-blackjack.json"
             echo "- snapshot.json"
+            echo "- release-record.json"
           } >> "${GITHUB_STEP_SUMMARY}"

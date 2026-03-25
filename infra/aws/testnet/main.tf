@@ -20,7 +20,8 @@ locals {
     var.enable_sqs_queue ? ["sqs"] : []
   ))
 
-  runtime_env_parameter_arn = var.runtime_env_parameter_name != "" ? "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${trimprefix(var.runtime_env_parameter_name, "/")}" : null
+  runtime_env_parameter_arn     = var.runtime_env_parameter_name != "" ? "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${trimprefix(var.runtime_env_parameter_name, "/")}" : null
+  public_rpc_origin_header_name = "X-Scuro-Origin-Secret"
 }
 
 data "aws_caller_identity" "current" {}
@@ -43,7 +44,7 @@ resource "aws_subnet" "private" {
   vpc_id                  = aws_vpc.this.id
   cidr_block              = var.subnet_cidr
   availability_zone       = var.availability_zone
-  map_public_ip_on_launch = false
+  map_public_ip_on_launch = var.enable_public_rpc
 
   tags = merge(local.common_tags, {
     Name = "${var.name}-private-${var.availability_zone}"
@@ -63,10 +64,36 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
+resource "aws_internet_gateway" "this" {
+  count  = var.enable_public_rpc ? 1 : 0
+  vpc_id = aws_vpc.this.id
+
+  tags = merge(local.common_tags, {
+    Name = "${var.name}-igw"
+  })
+}
+
+resource "aws_route" "public_default" {
+  count                  = var.enable_public_rpc ? 1 : 0
+  route_table_id         = aws_route_table.private.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.this[0].id
+}
+
 resource "aws_security_group" "instance" {
   name        = "${var.name}-instance"
-  description = "No public ingress; private egress only for endpoints"
+  description = "Public RPC ingress only when enabled; no SSH or admin ingress"
   vpc_id      = aws_vpc.this.id
+
+  dynamic "ingress" {
+    for_each = var.enable_public_rpc ? [1] : []
+    content {
+      from_port   = 80
+      to_port     = 80
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  }
 
   egress {
     from_port   = 0
@@ -154,6 +181,12 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts" {
       sse_algorithm = "AES256"
     }
   }
+}
+
+resource "random_password" "public_rpc_secret" {
+  count   = var.enable_public_rpc ? 1 : 0
+  length  = 32
+  special = false
 }
 
 resource "aws_sqs_queue" "proof_dlq" {
@@ -285,12 +318,13 @@ resource "aws_iam_instance_profile" "instance" {
 }
 
 resource "aws_instance" "host" {
-  ami                    = data.aws_ssm_parameter.al2023_ami.value
-  instance_type          = var.instance_type
-  subnet_id              = aws_subnet.private.id
-  iam_instance_profile   = aws_iam_instance_profile.instance.name
-  vpc_security_group_ids = [aws_security_group.instance.id]
-  monitoring             = false
+  ami                         = data.aws_ssm_parameter.al2023_ami.value
+  instance_type               = var.instance_type
+  subnet_id                   = aws_subnet.private.id
+  iam_instance_profile        = aws_iam_instance_profile.instance.name
+  vpc_security_group_ids      = [aws_security_group.instance.id]
+  monitoring                  = false
+  associate_public_ip_address = var.enable_public_rpc
 
   root_block_device {
     encrypted   = true
@@ -312,9 +346,124 @@ resource "aws_instance" "host" {
     queue_name                 = var.enable_sqs_queue ? aws_sqs_queue.proof[0].name : ""
     runtime_env_parameter_name = var.runtime_env_parameter_name
     cloudwatch_log_group_name  = var.enable_cloudwatch_logs ? local.cloudwatch_log_group_name : ""
+    enable_public_rpc          = var.enable_public_rpc ? "1" : "0"
+    public_rpc_shared_secret   = var.enable_public_rpc ? random_password.public_rpc_secret[0].result : ""
   })
 
   tags = merge(local.common_tags, {
     Name = "${var.name}-host"
+  })
+}
+
+resource "aws_cloudfront_cache_policy" "public_rpc" {
+  count = var.enable_public_rpc ? 1 : 0
+
+  name        = "${var.name}-public-rpc"
+  default_ttl = 0
+  max_ttl     = 1
+  min_ttl     = 0
+
+  parameters_in_cache_key_and_forwarded_to_origin {
+    cookies_config {
+      cookie_behavior = "none"
+    }
+
+    headers_config {
+      header_behavior = "whitelist"
+      headers {
+        items = [
+          "Access-Control-Request-Headers",
+          "Access-Control-Request-Method",
+          "Content-Type",
+          "Origin"
+        ]
+      }
+    }
+
+    query_strings_config {
+      query_string_behavior = "all"
+    }
+
+    enable_accept_encoding_brotli = true
+    enable_accept_encoding_gzip   = true
+  }
+}
+
+resource "aws_cloudfront_origin_request_policy" "public_rpc" {
+  count = var.enable_public_rpc ? 1 : 0
+
+  name = "${var.name}-public-rpc"
+
+  cookies_config {
+    cookie_behavior = "none"
+  }
+
+  headers_config {
+    header_behavior = "whitelist"
+    headers {
+      items = [
+        "Access-Control-Request-Headers",
+        "Access-Control-Request-Method",
+        "Content-Type",
+        "Origin"
+      ]
+    }
+  }
+
+  query_strings_config {
+    query_string_behavior = "all"
+  }
+}
+
+resource "aws_cloudfront_distribution" "public_rpc" {
+  count               = var.enable_public_rpc ? 1 : 0
+  enabled             = true
+  comment             = "${var.name} public RPC"
+  wait_for_deployment = false
+  price_class         = "PriceClass_100"
+
+  origin {
+    domain_name = aws_instance.host.public_dns
+    origin_id   = "${var.name}-public-rpc"
+
+    custom_header {
+      name  = local.public_rpc_origin_header_name
+      value = random_password.public_rpc_secret[0].result
+    }
+
+    custom_origin_config {
+      http_port                = 80
+      https_port               = 443
+      origin_protocol_policy   = "http-only"
+      origin_ssl_protocols     = ["TLSv1.2"]
+      origin_read_timeout      = 30
+      origin_keepalive_timeout = 5
+    }
+  }
+
+  default_cache_behavior {
+    allowed_methods  = ["GET", "HEAD", "OPTIONS", "POST"]
+    cached_methods   = ["GET", "HEAD", "OPTIONS"]
+    target_origin_id = "${var.name}-public-rpc"
+
+    viewer_protocol_policy = "redirect-to-https"
+    compress               = true
+
+    cache_policy_id          = aws_cloudfront_cache_policy.public_rpc[0].id
+    origin_request_policy_id = aws_cloudfront_origin_request_policy.public_rpc[0].id
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${var.name}-public-rpc"
   })
 }

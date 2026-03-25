@@ -62,6 +62,12 @@ variable "enable_sqs_queue" {
   default     = false
 }
 
+variable "enable_public_rpc" {
+  description = "Whether to expose public RPC through CloudFront and a host proxy."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Extra resource tags."
   type        = map(string)

@@ -9,13 +9,15 @@ This guide covers the new private AWS-hosted Scuro testnet runtime added under:
 
 ## Architecture
 
-- Single private EC2 host in one AZ
-- Private VPC subnet with no NAT gateway and no public ALB
+- Single EC2 host in one AZ
+- Public-subnet host for beta RPC ingress through CloudFront
+- No NAT gateway and no public ALB/NLB
 - AWS Systems Manager for operator access and port forwarding
 - S3 bucket for runtime bundles, manifests, and snapshots
 - SQS proof queue plus DLQ for async coordinator work
 - Local Anvil chain with the existing `DeployLocal` protocol stack
 - Internal Bun operator API and internal Bun prover worker
+- CloudFront default domain pointing at a same-host reverse proxy for public JSON-RPC
 
 ## Workflow
 
@@ -39,10 +41,11 @@ This guide covers the new private AWS-hosted Scuro testnet runtime added under:
 ## Beta Release Model
 
 - Private beta only: there is no public endpoint or application login flow in v1.
+- The current beta redeploy path exposes only public JSON-RPC via CloudFront; operator/admin remains private over SSM.
 - Poker and blackjack remain fixture-backed for gameplay flows.
 - Live proving remains benchmark/admin-only and is expected to reject gameplay jobs.
 - The budget beta currently defaults to `t3.micro` with a `40 GiB` root volume, file-queue mode, and local-only logs.
-- CloudWatch log shipping and the SQS proof queue are disabled by default for the first low-budget beta.
+- CloudWatch log shipping, the SQS proof queue, NAT, ALB, NLB, and interface VPC endpoints are disabled by default for the first low-budget public beta.
 - Release bundles are Linux `x86_64` artifacts.
   - `script/aws/build_bundle.sh` will fail on non-Linux hosts unless `SCURO_BUNDLE_INCLUDE_HOST_TOOLS=0`.
   - The supported release path is the GitHub `release-beta` workflow on `ubuntu-latest`.
@@ -58,7 +61,7 @@ This guide covers the new private AWS-hosted Scuro testnet runtime added under:
   - Uses GitHub OIDC to assume the AWS beta deploy role.
   - Runs Terraform plan first, then applies only after the `beta` GitHub Environment approval.
   - Reuses the same Terraform backend key on every run, so reruns update the same beta stack instead of creating a duplicate one.
-  - Bootstraps the private host through SSM, invokes `/deploy`, validates `/manifest` and `/actors`, runs remote smoke jobs, and exports a named snapshot.
+  - Bootstraps the host through SSM, invokes `/deploy`, validates `/manifest` and `/actors`, runs remote smoke jobs, exports a named snapshot, verifies the public CloudFront RPC, and writes canonical release records to S3.
 - `destroy-beta.yml`
   - Manual `workflow_dispatch` only.
   - Uses the same backend key and tfvars as the release workflow to tear down the existing beta stack.
@@ -80,6 +83,81 @@ This guide covers the new private AWS-hosted Scuro testnet runtime added under:
   - `Release Beta` for normal retries and updates.
   - `Destroy Beta` only for a deliberate reset.
   - Keep `SCURO_TF_STATE_BUCKET`, `SCURO_TF_STATE_KEY`, and `SCURO_BETA_STACK_NAME` stable unless you intentionally want a different environment.
+
+## Post-Release Capture
+
+- Before switching focus, record the release state from the successful `release-beta.yml` run:
+  - workflow run URL
+  - git SHA
+  - AWS region
+  - instance id
+  - bundle S3 URI
+  - snapshot name and snapshot S3 path
+  - public RPC URL
+  - manifest artifact path
+  - actors artifact path
+- Prefer the S3 release record as the canonical manifest source for SDK/frontend work:
+  - `s3://<artifacts-bucket>/releases/latest.json`
+  - `s3://<artifacts-bucket>/releases/<git-sha>/manifest.json`
+- Keep the workflow artifacts from the successful run:
+  - `deploy-manifest.json`
+  - `manifest.json`
+  - `actors.json`
+  - `smoke-number-picker.json`
+  - `smoke-poker.json`
+  - `smoke-blackjack.json`
+  - `snapshot.json`
+  - `host-diagnostics.txt` if present
+- Do one human verification pass over SSM port forwarding before moving on:
+  - `script/aws/ssm_port_forward.sh <instance-id>`
+  - `curl http://127.0.0.1:8787/health`
+  - `curl http://127.0.0.1:8787/manifest`
+  - `curl http://127.0.0.1:8787/actors`
+- Treat the successful release record as the canonical handoff point for SDK work.
+
+### Release Record Template
+
+```md
+# Private Beta Release Record
+
+- Date:
+- Workflow run URL:
+- Git SHA:
+- AWS region:
+- Stack name:
+- Instance ID:
+- Bundle URI:
+- Public RPC URL:
+- Snapshot name:
+- Snapshot S3 path:
+
+## Validation
+
+- `/health` checked manually over SSM port forwarding: yes/no
+- `/manifest` captured: yes/no
+- `/actors` captured: yes/no
+- NumberPicker smoke passed: yes/no
+- Poker smoke passed: yes/no
+- Blackjack smoke passed: yes/no
+
+## Artifacts
+
+- deploy-manifest.json:
+- manifest.json:
+- actors.json:
+- smoke-number-picker.json:
+- smoke-poker.json:
+- smoke-blackjack.json:
+- snapshot.json:
+- release-record.json:
+- host-diagnostics.txt:
+
+## Notes
+
+- Runtime limitations:
+- Follow-up cleanup:
+- SDK assumptions based on this beta:
+```
 
 ## AWS Prerequisites
 

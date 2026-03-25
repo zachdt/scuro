@@ -119,6 +119,30 @@ EOF
     -s
 }
 
+configure_public_rpc_proxy() {
+  if [[ "${SCURO_ENABLE_PUBLIC_RPC:-0}" != "1" ]]; then
+    return
+  fi
+
+  local template_path="${INSTALL_ROOT}/current/ops/aws-testnet/runtime/nginx/scuro-public-rpc.conf.tpl"
+  local config_path="/etc/nginx/conf.d/scuro-public-rpc.conf"
+
+  dnf install -y nginx
+
+  if [[ ! -f "${template_path}" ]]; then
+    echo "missing nginx public RPC template" >&2
+    exit 1
+  fi
+
+  sed "s/__SCURO_PUBLIC_RPC_SHARED_SECRET__/${SCURO_PUBLIC_RPC_SHARED_SECRET}/g" \
+    "${template_path}" >"${config_path}"
+
+  rm -f /etc/nginx/conf.d/default.conf
+  nginx -t
+  systemctl enable nginx
+  systemctl restart nginx
+}
+
 if [[ -z "${BUNDLE_ARCHIVE}" ]]; then
   echo "usage: $0 <bundle-archive>" >&2
   exit 1
@@ -167,6 +191,7 @@ systemctl enable scuro-anvil.service scuro-operator-api.service scuro-prover-wor
 systemctl restart scuro-anvil.service
 systemctl restart scuro-operator-api.service
 systemctl restart scuro-prover-worker.service
+configure_public_rpc_proxy
 configure_cloudwatch_agent
 
 rm -f "${BUNDLE_ARCHIVE}"

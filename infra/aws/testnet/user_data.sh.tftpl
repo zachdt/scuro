@@ -18,6 +18,8 @@ SCURO_SQS_QUEUE_URL=${queue_url}
 SCURO_PROOF_QUEUE_NAME=${queue_name}
 SCURO_CLOUDWATCH_LOG_GROUP=${cloudwatch_log_group_name}
 SCURO_ENV_SSM_PARAMETER=${runtime_env_parameter_name}
+SCURO_ENABLE_PUBLIC_RPC=${enable_public_rpc}
+SCURO_PUBLIC_RPC_SHARED_SECRET=${public_rpc_shared_secret}
 EOF
 
 echo "Scuro bootstrap environment rendered; run remote bootstrap after artifact upload." >>/var/log/scuro-testnet/bootstrap.log

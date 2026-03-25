@@ -23,6 +23,7 @@ echo "==== memory ===="
 free -m || true
 echo "==== service status ===="
 systemctl --no-pager --full status scuro-anvil.service scuro-operator-api.service scuro-prover-worker.service || true
+systemctl --no-pager --full status nginx.service || true
 echo "==== bootstrap env ===="
 sed -n '1,220p' /etc/scuro-testnet/bootstrap.env || true
 echo "==== runtime env keys ===="
@@ -41,6 +42,8 @@ echo "==== anvil log ===="
 tail -n 200 /var/log/scuro-testnet/anvil.log || true
 echo "==== worker log ===="
 tail -n 200 /var/log/scuro-testnet/prover-worker.log || true
+echo "==== nginx log ===="
+tail -n 200 /var/log/nginx/error.log || true
 echo "==== binary details ===="
 file /opt/scuro-testnet/tools/bin/bun /opt/scuro-testnet/tools/bin/forge /opt/scuro-testnet/tools/bin/cast /opt/scuro-testnet/tools/bin/anvil || true
 ldd /opt/scuro-testnet/tools/bin/anvil || true

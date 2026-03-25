@@ -7,3 +7,4 @@ bucket_force_destroy = false
 runtime_env_parameter_name = "/scuro/beta/runtime-env"
 enable_cloudwatch_logs = false
 enable_sqs_queue = false
+enable_public_rpc = true
