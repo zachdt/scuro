@@ -442,7 +442,7 @@ resource "aws_cloudfront_distribution" "public_rpc" {
   }
 
   default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD", "OPTIONS", "POST"]
+    allowed_methods  = ["HEAD", "DELETE", "POST", "GET", "OPTIONS", "PUT", "PATCH"]
     cached_methods   = ["GET", "HEAD", "OPTIONS"]
     target_origin_id = "${var.name}-public-rpc"
 
