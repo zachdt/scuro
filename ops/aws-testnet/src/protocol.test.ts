@@ -121,6 +121,8 @@ describe("protocol and worker-job verification", () => {
 
     expect(manifest.contracts.ScuroToken).toBe("0x1");
     expect(calls[0]?.cmd).toBe("forge");
+    expect(calls[0]?.args.includes("-vvvv")).toBe(false);
+    expect(calls[0]?.options?.streamOutputToPath).toBe(config.deployLogPath);
 
     await runPokerSmoke(config, makeManifest(), {
       async commandRunner(cmd, args, options) {

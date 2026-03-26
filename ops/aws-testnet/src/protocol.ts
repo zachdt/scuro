@@ -89,6 +89,7 @@ export async function deployProtocol(
   depsOverrides: Partial<ProtocolDeps> = {}
 ): Promise<DeploymentManifest> {
   const deps = withProtocolDeps(depsOverrides);
+  await Bun.write(config.deployLogPath, "");
   const result = await deps.commandRunner(
     "forge",
     [
@@ -98,7 +99,6 @@ export async function deployProtocol(
       config.rpcUrl,
       "--broadcast",
       "--offline",
-      "-vvvv",
       "--skip-simulation",
       "--non-interactive",
       "--disable-code-size-limit"
@@ -106,12 +106,12 @@ export async function deployProtocol(
     {
       cwd: config.repoRoot,
       env: deployEnv(config),
-      allowFailure: true
+      allowFailure: true,
+      streamOutputToPath: config.deployLogPath
     }
   );
 
   const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
-  await Bun.write(config.deployLogPath, output);
 
   if (result.exitCode !== 0) {
     throw new Error(`deploy failed\n${output}`);

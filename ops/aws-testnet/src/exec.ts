@@ -1,9 +1,12 @@
+import { createWriteStream } from "node:fs";
 import path from "node:path";
 
 export interface CommandOptions {
   cwd?: string;
   env?: Record<string, string | undefined>;
   allowFailure?: boolean;
+  streamOutputToPath?: string;
+  maxBufferedOutputBytes?: number;
 }
 
 export interface CommandResult {
@@ -37,11 +40,64 @@ export const runCommand: CommandRunner = async function runCommand(
     stderr: "pipe"
   });
 
+  const maxBufferedOutputBytes = options.maxBufferedOutputBytes ?? 64 * 1024;
+  const outputStream = options.streamOutputToPath ? createWriteStream(options.streamOutputToPath, { flags: "w" }) : null;
+
+  async function consumeStream(
+    stream: ReadableStream<Uint8Array>,
+    sink: ReturnType<typeof createWriteStream> | null
+  ): Promise<string> {
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+    let buffered = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        if (!value) {
+          continue;
+        }
+
+        if (sink) {
+          sink.write(value);
+        }
+
+        buffered += decoder.decode(value, { stream: true });
+        if (buffered.length > maxBufferedOutputBytes) {
+          buffered = buffered.slice(-maxBufferedOutputBytes);
+        }
+      }
+
+      buffered += decoder.decode();
+      if (buffered.length > maxBufferedOutputBytes) {
+        buffered = buffered.slice(-maxBufferedOutputBytes);
+      }
+      return buffered;
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
   const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
+    consumeStream(proc.stdout, outputStream),
+    consumeStream(proc.stderr, outputStream),
     proc.exited
   ]);
+
+  if (outputStream) {
+    await new Promise<void>((resolve, reject) => {
+      outputStream.end((error?: Error | null) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+    });
+  }
 
   if (exitCode !== 0 && !options.allowFailure) {
     throw new Error(`command failed: ${cmd} ${args.join(" ")}\n${stderr || stdout}`);
