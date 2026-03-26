@@ -2,6 +2,22 @@ name: Release Beta
 
 on:
   workflow_dispatch:
+    inputs:
+      verify_public_rpc:
+        description: Verify the public CloudFront RPC endpoint
+        required: false
+        default: true
+        type: boolean
+      run_smokes:
+        description: Run the remote smoke jobs
+        required: false
+        default: true
+        type: boolean
+      export_snapshot:
+        description: Export a release snapshot
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -46,7 +62,15 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ vars.SCURO_BETA_AWS_ROLE_ARN }}
 
+      - name: Restore Foundry tools cache
+        id: foundry-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/scuro-release/foundry-tools
+          key: beta-foundry-tools-${{ runner.os }}-${{ env.FOUNDRY_GIT_REF }}-${{ hashFiles('script/aws/build_foundry_al2023_tools.sh') }}
+
       - name: Build Amazon Linux Foundry tools
+        if: steps.foundry-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p /tmp/scuro-release/foundry-tools
           bash script/aws/build_foundry_al2023_tools.sh /tmp/scuro-release/foundry-tools
@@ -252,6 +276,7 @@ jobs:
             | tee /tmp/scuro-release/actors.json
 
       - name: Run remote smoke jobs
+        if: ${{ inputs.run_smokes }}
         run: |
           bash script/aws/remote_smoke.sh "${INSTANCE_ID}" number-picker "${AWS_REGION}" \
             | tee /tmp/scuro-release/smoke-number-picker.json
@@ -261,12 +286,14 @@ jobs:
             | tee /tmp/scuro-release/smoke-blackjack.json
 
       - name: Export release snapshot
+        if: ${{ inputs.export_snapshot }}
         run: |
           SNAPSHOT_NAME="beta-${GITHUB_SHA:0:12}"
           bash script/aws/remote_snapshot_export.sh "${INSTANCE_ID}" "${SNAPSHOT_NAME}" "${AWS_REGION}" \
             | tee /tmp/scuro-release/snapshot.json
 
       - name: Verify public RPC
+        if: ${{ inputs.verify_public_rpc }}
         run: |
           ready=0
           for attempt in $(seq 1 40); do

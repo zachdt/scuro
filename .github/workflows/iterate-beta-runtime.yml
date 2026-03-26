@@ -1,0 +1,216 @@
+name: Iterate Beta Runtime
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_protocol:
+        description: Run the protocol deploy after bootstrap
+        required: false
+        default: true
+        type: boolean
+      verify_public_rpc:
+        description: Verify the public CloudFront RPC endpoint
+        required: false
+        default: false
+        type: boolean
+      run_smokes:
+        description: Run the remote smoke jobs
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: iterate-beta-runtime
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.SCURO_BETA_AWS_REGION }}
+  FOUNDRY_GIT_REF: ${{ vars.SCURO_BETA_FOUNDRY_GIT_REF || 'v1.5.1' }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  iterate:
+    runs-on: ubuntu-latest
+    environment:
+      name: beta
+
+    steps:
+      - name: Require main branch
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != "main" ]]; then
+            echo "Iterate beta runtime must be dispatched from main." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.1
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.7
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.SCURO_BETA_AWS_ROLE_ARN }}
+
+      - name: Restore Foundry tools cache
+        id: foundry-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/scuro-release/foundry-tools
+          key: beta-foundry-tools-${{ runner.os }}-${{ env.FOUNDRY_GIT_REF }}-${{ hashFiles('script/aws/build_foundry_al2023_tools.sh') }}
+
+      - name: Build Amazon Linux Foundry tools
+        if: steps.foundry-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p /tmp/scuro-release/foundry-tools
+          bash script/aws/build_foundry_al2023_tools.sh /tmp/scuro-release/foundry-tools
+
+      - name: Build Linux bundle
+        env:
+          SCURO_BUNDLE_FORGE_BIN: /tmp/scuro-release/foundry-tools/forge
+          SCURO_BUNDLE_CAST_BIN: /tmp/scuro-release/foundry-tools/cast
+          SCURO_BUNDLE_ANVIL_BIN: /tmp/scuro-release/foundry-tools/anvil
+          SCURO_BUNDLE_SVM_DIR: /tmp/scuro-release/foundry-tools/svm
+        run: |
+          mkdir -p /tmp/scuro-release
+          bash script/aws/build_bundle.sh "/tmp/scuro-release/${GITHUB_SHA}.tar.gz"
+
+      - name: Write Terraform config
+        run: |
+          cat > infra/aws/testnet/backend.beta.hcl <<EOF
+          bucket         = "${{ vars.SCURO_TF_STATE_BUCKET }}"
+          key            = "${{ vars.SCURO_TF_STATE_KEY || 'scuro/testnet/beta/terraform.tfstate' }}"
+          region         = "${{ vars.SCURO_TF_STATE_REGION || vars.SCURO_BETA_AWS_REGION }}"
+          dynamodb_table = "${{ vars.SCURO_TF_STATE_LOCK_TABLE }}"
+          encrypt        = true
+          EOF
+
+      - name: Load existing beta outputs
+        run: |
+          terraform -chdir=infra/aws/testnet init -backend-config=backend.beta.hcl
+          INSTANCE_ID="$(terraform -chdir=infra/aws/testnet output -raw instance_id)"
+          ARTIFACTS_BUCKET="$(terraform -chdir=infra/aws/testnet output -raw artifacts_bucket)"
+          PUBLIC_RPC_URL="$(terraform -chdir=infra/aws/testnet output -raw public_rpc_url)"
+          {
+            echo "INSTANCE_ID=${INSTANCE_ID}"
+            echo "ARTIFACTS_BUCKET=${ARTIFACTS_BUCKET}"
+            echo "PUBLIC_RPC_URL=${PUBLIC_RPC_URL}"
+            echo "BUNDLE_URI=s3://${ARTIFACTS_BUCKET}/bundles/${GITHUB_SHA}.tar.gz"
+          } >> "${GITHUB_ENV}"
+
+      - name: Upload bundle to artifacts bucket
+        run: |
+          aws s3 cp \
+            "/tmp/scuro-release/${GITHUB_SHA}.tar.gz" \
+            "s3://${ARTIFACTS_BUCKET}/bundles/${GITHUB_SHA}.tar.gz"
+
+      - name: Wait for EC2 and SSM readiness
+        run: |
+          aws ec2 wait instance-running \
+            --instance-ids "${INSTANCE_ID}" \
+            --region "${AWS_REGION}"
+
+          aws ec2 wait instance-status-ok \
+            --instance-ids "${INSTANCE_ID}" \
+            --region "${AWS_REGION}"
+
+          for attempt in $(seq 1 30); do
+            PING_STATUS="$(aws ssm describe-instance-information \
+              --region "${AWS_REGION}" \
+              --filters "Key=InstanceIds,Values=${INSTANCE_ID}" \
+              --query 'InstanceInformationList[0].PingStatus' \
+              --output text 2>/dev/null || true)"
+
+            if [[ "${PING_STATUS}" == "Online" ]]; then
+              echo "SSM is online for ${INSTANCE_ID}"
+              exit 0
+            fi
+
+            echo "waiting for SSM registration (${attempt}/30)"
+            sleep 10
+          done
+
+          echo "instance did not become SSM-online in time" >&2
+          exit 1
+
+      - name: Bootstrap host
+        run: bash script/aws/remote_bootstrap.sh "${INSTANCE_ID}" "${BUNDLE_URI}" "${AWS_REGION}"
+
+      - name: Wait for operator health
+        run: bash script/aws/remote_wait_for_health.sh "${INSTANCE_ID}" "${AWS_REGION}"
+
+      - name: Wait for chain readiness
+        run: bash script/aws/remote_wait_for_chain.sh "${INSTANCE_ID}" "${AWS_REGION}"
+
+      - name: Deploy protocol
+        if: ${{ inputs.deploy_protocol }}
+        run: |
+          bash script/aws/remote_operator.sh "${INSTANCE_ID}" POST /deploy "" "${AWS_REGION}" \
+            | tee /tmp/scuro-release/deploy-manifest.json
+
+      - name: Run remote smoke jobs
+        if: ${{ inputs.run_smokes }}
+        run: |
+          bash script/aws/remote_smoke.sh "${INSTANCE_ID}" number-picker "${AWS_REGION}" \
+            | tee /tmp/scuro-release/smoke-number-picker.json
+          bash script/aws/remote_smoke.sh "${INSTANCE_ID}" poker "${AWS_REGION}" \
+            | tee /tmp/scuro-release/smoke-poker.json
+          bash script/aws/remote_smoke.sh "${INSTANCE_ID}" blackjack "${AWS_REGION}" \
+            | tee /tmp/scuro-release/smoke-blackjack.json
+
+      - name: Verify public RPC
+        if: ${{ inputs.verify_public_rpc }}
+        run: |
+          ready=0
+          for attempt in $(seq 1 20); do
+            response="$(curl -sS \
+              -H 'content-type: application/json' \
+              --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+              -w '\n%{http_code}' \
+              "${PUBLIC_RPC_URL}")"
+
+            body="$(printf '%s\n' "${response}" | sed '$d')"
+            status="$(printf '%s\n' "${response}" | tail -n1)"
+
+            if [[ "${status}" == "200" ]] && python3 -c 'import json, sys; print(json.loads(sys.argv[1])["result"])' "${body}" >/tmp/scuro-release/public-rpc-chain-id.txt
+            then
+              ready=1
+              break
+            fi
+
+            echo "waiting for CloudFront public RPC (${attempt}/20) status=${status}" >&2
+            printf '%s\n' "${body}" | head -c 400 >&2 || true
+            echo >&2
+            sleep 15
+          done
+
+          if [[ "${ready}" != "1" ]]; then
+            echo "CloudFront public RPC did not become ready in time" >&2
+            exit 1
+          fi
+
+      - name: Collect host diagnostics on failure
+        if: failure() && env.INSTANCE_ID != ''
+        run: |
+          mkdir -p /tmp/scuro-release
+          bash script/aws/remote_collect_diagnostics.sh "${INSTANCE_ID}" "${AWS_REGION}" \
+            > /tmp/scuro-release/host-diagnostics.txt || true
+
+      - name: Upload iteration artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta-iteration-records
+          path: /tmp/scuro-release
