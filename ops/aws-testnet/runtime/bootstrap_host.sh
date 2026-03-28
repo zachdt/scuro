@@ -2,10 +2,27 @@
 set -euo pipefail
 
 BUNDLE_ARCHIVE="${1:-}"
+ENV_DIR="/etc/scuro-testnet"
+
+load_env_file() {
+  local path="$1"
+  if [[ ! -f "${path}" ]]; then
+    return
+  fi
+
+  set -a
+  # shellcheck disable=SC1090
+  source "${path}"
+  set +a
+}
+
+load_env_file "${ENV_DIR}/scuro.env"
+load_env_file "${ENV_DIR}/bootstrap.env"
+load_env_file "${ENV_DIR}/runtime.env"
+
 INSTALL_ROOT="${SCURO_INSTALL_ROOT:-/opt/scuro-testnet}"
 STATE_DIR="${SCURO_STATE_DIR:-/var/lib/scuro-testnet}"
 LOG_DIR="${SCURO_LOG_DIR:-/var/log/scuro-testnet}"
-ENV_DIR="/etc/scuro-testnet"
 TMP_DIR="$(mktemp -d)"
 STAGING_DIR="${INSTALL_ROOT}/.staging-$$"
 trap 'rm -rf "${TMP_DIR}" "${STAGING_DIR}"' EXIT
