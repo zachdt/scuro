@@ -428,25 +428,25 @@ jobs:
         if: always()
         run: |
           DEPLOY_JOB_STATUS="$(python3 - <<'PY'
-import json
-from pathlib import Path
-path = Path("/tmp/scuro-release/deploy-job.json")
-if not path.exists():
-    print("missing")
-else:
-    print(json.loads(path.read_text()).get("status", "unknown"))
-PY
-)"
+          import json
+          from pathlib import Path
+          path = Path("/tmp/scuro-release/deploy-job.json")
+          if not path.exists():
+              print("missing")
+          else:
+              print(json.loads(path.read_text()).get("status", "unknown"))
+          PY
+          )"
           MANIFEST_STATUS="$(python3 - <<'PY'
-import json
-from pathlib import Path
-path = Path("/tmp/scuro-release/manifest.json")
-if not path.exists():
-    print("missing")
-else:
-    print(json.loads(path.read_text()).get("deploymentStatus", "available"))
-PY
-)"
+          import json
+          from pathlib import Path
+          path = Path("/tmp/scuro-release/manifest.json")
+          if not path.exists():
+              print("missing")
+          else:
+              print(json.loads(path.read_text()).get("deploymentStatus", "available"))
+          PY
+          )"
           PUBLIC_RPC_STATUS="not-run"
           if [[ -f /tmp/scuro-release/public-rpc-chain-id.txt ]]; then
             PUBLIC_RPC_STATUS="ready ($(cat /tmp/scuro-release/public-rpc-chain-id.txt))"
