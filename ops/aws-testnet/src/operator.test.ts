@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { createOperatorFetchHandler, normalizeJob, startOperatorServer, type OperatorDeps } from "./operator";
 import type { AppConfig } from "./config";
-import type { DeploymentManifest, ProofJobRecord, ProofJobRequest } from "./types";
+import type { DeploymentJobRecord, DeploymentManifest, ProofJobRecord, ProofJobRequest } from "./types";
 
 function makeConfig(): AppConfig {
   const stateDir = path.join(os.tmpdir(), "scuro-operator-test");
@@ -12,6 +12,7 @@ function makeConfig(): AppConfig {
     serviceRoot: "/repo/ops/aws-testnet",
     stateDir,
     jobsDir: path.join(stateDir, "jobs"),
+    deployJobsDir: path.join(stateDir, "deploy-jobs"),
     queueDir: path.join(stateDir, "queue"),
     snapshotsDir: path.join(stateDir, "snapshots"),
     manifestPath: path.join(stateDir, "manifest.json"),
@@ -56,6 +57,7 @@ function makeManifest(): DeploymentManifest {
 
 function makeDeps(overrides: Partial<OperatorDeps> = {}): OperatorDeps {
   const jobsState = new Map<string, ProofJobRecord>();
+  const deployJobsState = new Map<string, DeploymentJobRecord>();
   return {
     jobs: {
       async create(request: ProofJobRequest): Promise<ProofJobRecord> {
@@ -71,6 +73,26 @@ function makeDeps(overrides: Partial<OperatorDeps> = {}): OperatorDeps {
       },
       async get(id: string): Promise<ProofJobRecord | null> {
         return jobsState.get(id) ?? null;
+      }
+    },
+    deploymentJobs: {
+      async start(operation) {
+        const record: DeploymentJobRecord = {
+          id: `${operation}-job-1`,
+          operation,
+          status: "queued",
+          createdAt: "now",
+          updatedAt: "now",
+          statusUrl: `/deploy-jobs/${operation}-job-1`
+        };
+        deployJobsState.set(record.id, record);
+        return record;
+      },
+      async get(id: string): Promise<DeploymentJobRecord | null> {
+        return deployJobsState.get(id) ?? null;
+      },
+      async recover() {
+        return;
       }
     },
     queue: {
@@ -90,14 +112,8 @@ function makeDeps(overrides: Partial<OperatorDeps> = {}): OperatorDeps {
     async loadManifest() {
       return makeManifest();
     },
-    async deployProtocol() {
-      return makeManifest();
-    },
     async seedApprovals() {
       return;
-    },
-    async resetAndDeploy() {
-      return makeManifest();
     },
     async exportSnapshot() {
       return { snapshotName: "snap-1", localPath: "/tmp/snap-1.json" };
@@ -176,6 +192,55 @@ describe("operator handler", () => {
     expect(response.status).toBe(200);
     const body = await response.json() as { actors: Record<string, string> };
     expect(body.actors.Admin).toBe("0xabc");
+  });
+
+  test("returns async deploy job handles", async () => {
+    const handler = createOperatorFetchHandler(makeConfig(), makeDeps());
+    const response = await handler(new Request("http://local/deploy", { method: "POST" }));
+    expect(response.status).toBe(202);
+    const body = await response.json() as {
+      jobId: string;
+      status: string;
+      statusUrl: string;
+    };
+    expect(body.jobId).toBe("deploy-job-1");
+    expect(body.status).toBe("queued");
+    expect(body.statusUrl).toBe("/deploy-jobs/deploy-job-1");
+  });
+
+  test("returns deploy job records", async () => {
+    const deps = makeDeps({
+      deploymentJobs: {
+        async start() {
+          throw new Error("should not start");
+        },
+        async get(id) {
+          return id === "deploy-job-1"
+            ? {
+                id,
+                operation: "deploy",
+                status: "completed",
+                createdAt: "now",
+                updatedAt: "later",
+                startedAt: "now",
+                completedAt: "later",
+                statusUrl: `/deploy-jobs/${id}`,
+                manifestPath: "/state/manifest.json",
+                deploymentStatus: "completed"
+              }
+            : null;
+        },
+        async recover() {
+          return;
+        }
+      }
+    });
+    const handler = createOperatorFetchHandler(makeConfig(), deps);
+    const response = await handler(new Request("http://local/deploy-jobs/deploy-job-1"));
+    expect(response.status).toBe(200);
+    const body = await response.json() as DeploymentJobRecord;
+    expect(body.status).toBe("completed");
+    expect(body.manifestPath).toBe("/state/manifest.json");
   });
 
   test("enqueues smoke jobs", async () => {

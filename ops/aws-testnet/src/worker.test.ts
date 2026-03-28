@@ -9,6 +9,7 @@ function makeConfig(): AppConfig {
     serviceRoot: "/repo/ops/aws-testnet",
     stateDir: "/state",
     jobsDir: "/state/jobs",
+    deployJobsDir: "/state/deploy-jobs",
     queueDir: "/state/queue",
     snapshotsDir: "/state/snapshots",
     manifestPath: "/state/manifest.json",

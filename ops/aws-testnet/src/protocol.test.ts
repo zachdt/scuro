@@ -22,6 +22,7 @@ function makeConfig(stateDir: string): AppConfig {
     serviceRoot: "/repo/ops/aws-testnet",
     stateDir,
     jobsDir: path.join(stateDir, "jobs"),
+    deployJobsDir: path.join(stateDir, "deploy-jobs"),
     queueDir: path.join(stateDir, "queue"),
     snapshotsDir: path.join(stateDir, "snapshots"),
     manifestPath: path.join(stateDir, "manifest.json"),

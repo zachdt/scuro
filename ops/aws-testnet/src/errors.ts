@@ -12,6 +12,10 @@ export function badRequest(message: string): HttpError {
   return new HttpError(message, 400);
 }
 
+export function conflict(message: string): HttpError {
+  return new HttpError(message, 409);
+}
+
 export function notFound(message: string): HttpError {
   return new HttpError(message, 404);
 }

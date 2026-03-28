@@ -265,11 +265,21 @@ jobs:
 
       - name: Deploy protocol
         run: |
-          bash script/aws/remote_operator.sh "${INSTANCE_ID}" POST /deploy "" "${AWS_REGION}" \
-            | tee /tmp/scuro-release/deploy-manifest.json
+          set -euo pipefail
+          RESPONSE="$(bash script/aws/remote_operator.sh "${INSTANCE_ID}" POST /deploy "" "${AWS_REGION}")"
+          printf '%s\n' "${RESPONSE}" | tee /tmp/scuro-release/deploy-submit.json >/dev/null
+          DEPLOY_JOB_ID="$(printf '%s' "${RESPONSE}" | python3 -c 'import json, sys; print(json.load(sys.stdin)["jobId"])')"
+          echo "DEPLOY_JOB_ID=${DEPLOY_JOB_ID}" >> "${GITHUB_ENV}"
+
+      - name: Wait for deploy completion
+        run: |
+          set -euo pipefail
+          bash script/aws/remote_wait_for_deploy_job.sh "${INSTANCE_ID}" "${DEPLOY_JOB_ID}" "${AWS_REGION}" \
+            | tee /tmp/scuro-release/deploy-job.json
 
       - name: Check manifest and actors
         run: |
+          set -euo pipefail
           bash script/aws/remote_operator.sh "${INSTANCE_ID}" GET /manifest "" "${AWS_REGION}" \
             | tee /tmp/scuro-release/manifest.json
           bash script/aws/remote_operator.sh "${INSTANCE_ID}" GET /actors "" "${AWS_REGION}" \
@@ -278,6 +288,7 @@ jobs:
       - name: Run remote smoke jobs
         if: ${{ inputs.run_smokes }}
         run: |
+          set -euo pipefail
           bash script/aws/remote_smoke.sh "${INSTANCE_ID}" number-picker "${AWS_REGION}" \
             | tee /tmp/scuro-release/smoke-number-picker.json
           bash script/aws/remote_smoke.sh "${INSTANCE_ID}" poker "${AWS_REGION}" \
@@ -288,6 +299,7 @@ jobs:
       - name: Export release snapshot
         if: ${{ inputs.export_snapshot }}
         run: |
+          set -euo pipefail
           SNAPSHOT_NAME="beta-${GITHUB_SHA:0:12}"
           bash script/aws/remote_snapshot_export.sh "${INSTANCE_ID}" "${SNAPSHOT_NAME}" "${AWS_REGION}" \
             | tee /tmp/scuro-release/snapshot.json
@@ -295,6 +307,7 @@ jobs:
       - name: Verify public RPC
         if: ${{ inputs.verify_public_rpc }}
         run: |
+          set -euo pipefail
           ready=0
           for attempt in $(seq 1 40); do
             response="$(curl -sS \
@@ -337,12 +350,21 @@ jobs:
           ! curl -fsS --connect-timeout 3 "http://${PUBLIC_IP}:8545"
           ! curl -fsS --connect-timeout 3 "http://${PUBLIC_IP}:8787"
 
+      - name: Capture host diagnostics
+        if: always() && env.INSTANCE_ID != ''
+        run: |
+          mkdir -p /tmp/scuro-release
+          bash script/aws/remote_collect_diagnostics.sh "${INSTANCE_ID}" "${AWS_REGION}" \
+            | tee /tmp/scuro-release/host-diagnostics.txt || true
+
       - name: Publish release records to S3
         env:
           SCURO_BETA_STACK_NAME: ${{ vars.SCURO_BETA_STACK_NAME || 'scuro-testnet-beta' }}
         run: |
+          set -euo pipefail
           python3 - <<'PY' > /tmp/scuro-release/release-record.json
           import json
+          import pathlib
           import os
 
           record = {
@@ -354,10 +376,13 @@ jobs:
               "bundleUri": os.environ["BUNDLE_URI"],
               "cloudFrontDomain": os.environ["CLOUDFRONT_DOMAIN"],
               "publicRpcUrl": os.environ["PUBLIC_RPC_URL"],
+              "deploySubmitKey": f"releases/{os.environ['GITHUB_SHA']}/deploy-submit.json",
+              "deployJobKey": f"releases/{os.environ['GITHUB_SHA']}/deploy-job.json",
               "manifestKey": f"releases/{os.environ['GITHUB_SHA']}/manifest.json",
               "actorsKey": f"releases/{os.environ['GITHUB_SHA']}/actors.json",
-              "deployManifestKey": f"releases/{os.environ['GITHUB_SHA']}/deploy-manifest.json",
-              "snapshotKey": f"releases/{os.environ['GITHUB_SHA']}/snapshot.json",
+              "publicRpcHealthKey": f"releases/{os.environ['GITHUB_SHA']}/public-rpc-health.json",
+              "publicRpcBlockNumberKey": f"releases/{os.environ['GITHUB_SHA']}/public-rpc-block-number.json",
+              "hostDiagnosticsKey": f"releases/{os.environ['GITHUB_SHA']}/host-diagnostics.txt",
           }
 
           snapshot_path = "/tmp/scuro-release/snapshot.json"
@@ -370,22 +395,27 @@ jobs:
           print(json.dumps(record, indent=2))
           PY
 
-          for file in deploy-manifest.json manifest.json actors.json snapshot.json release-record.json; do
-            aws s3 cp \
-              "/tmp/scuro-release/${file}" \
-              "s3://${ARTIFACTS_BUCKET}/releases/${GITHUB_SHA}/${file}"
+          for file in \
+            deploy-submit.json \
+            deploy-job.json \
+            manifest.json \
+            actors.json \
+            snapshot.json \
+            public-rpc-health.json \
+            public-rpc-block-number.json \
+            host-diagnostics.txt \
+            release-record.json
+          do
+            if [[ -f "/tmp/scuro-release/${file}" ]]; then
+              aws s3 cp \
+                "/tmp/scuro-release/${file}" \
+                "s3://${ARTIFACTS_BUCKET}/releases/${GITHUB_SHA}/${file}"
+            fi
           done
 
           aws s3 cp \
             "/tmp/scuro-release/release-record.json" \
             "s3://${ARTIFACTS_BUCKET}/releases/latest.json"
-
-      - name: Collect host diagnostics on failure
-        if: failure() && env.INSTANCE_ID != ''
-        run: |
-          mkdir -p /tmp/scuro-release
-          bash script/aws/remote_collect_diagnostics.sh "${INSTANCE_ID}" "${AWS_REGION}" \
-            | tee /tmp/scuro-release/host-diagnostics.txt
 
       - name: Upload release records
         if: always()
@@ -397,6 +427,36 @@ jobs:
       - name: Add release summary
         if: always()
         run: |
+          DEPLOY_JOB_STATUS="$(python3 - <<'PY'
+import json
+from pathlib import Path
+path = Path("/tmp/scuro-release/deploy-job.json")
+if not path.exists():
+    print("missing")
+else:
+    print(json.loads(path.read_text()).get("status", "unknown"))
+PY
+)"
+          MANIFEST_STATUS="$(python3 - <<'PY'
+import json
+from pathlib import Path
+path = Path("/tmp/scuro-release/manifest.json")
+if not path.exists():
+    print("missing")
+else:
+    print(json.loads(path.read_text()).get("deploymentStatus", "available"))
+PY
+)"
+          PUBLIC_RPC_STATUS="not-run"
+          if [[ -f /tmp/scuro-release/public-rpc-chain-id.txt ]]; then
+            PUBLIC_RPC_STATUS="ready ($(cat /tmp/scuro-release/public-rpc-chain-id.txt))"
+          elif [[ -f /tmp/scuro-release/public-rpc-health.json ]]; then
+            PUBLIC_RPC_STATUS="captured-failure"
+          fi
+          HOST_DIAGNOSTICS_STATUS="missing"
+          if [[ -f /tmp/scuro-release/host-diagnostics.txt ]]; then
+            HOST_DIAGNOSTICS_STATUS="captured"
+          fi
           {
             echo "## Beta Release"
             echo
@@ -405,14 +465,22 @@ jobs:
             echo "- Bundle URI: \`${BUNDLE_URI}\`"
             echo "- Public RPC URL: \`${PUBLIC_RPC_URL}\`"
             echo "- Release Records Prefix: \`${RELEASE_RECORDS_PREFIX}\`"
+            echo "- Deploy Job Final State: \`${DEPLOY_JOB_STATUS}\`"
+            echo "- Manifest State: \`${MANIFEST_STATUS}\`"
+            echo "- Public RPC State: \`${PUBLIC_RPC_STATUS}\`"
+            echo "- Host Diagnostics: \`${HOST_DIAGNOSTICS_STATUS}\`"
             echo
             echo "Artifacts:"
-            echo "- deploy-manifest.json"
+            echo "- deploy-submit.json"
+            echo "- deploy-job.json"
             echo "- manifest.json"
             echo "- actors.json"
             echo "- smoke-number-picker.json"
             echo "- smoke-poker.json"
             echo "- smoke-blackjack.json"
             echo "- snapshot.json"
+            echo "- public-rpc-health.json"
+            echo "- public-rpc-block-number.json"
+            echo "- host-diagnostics.txt"
             echo "- release-record.json"
           } >> "${GITHUB_STEP_SUMMARY}"

@@ -2,6 +2,15 @@ export type JobMode = "fixture" | "live";
 
 export type JobStatus = "queued" | "running" | "completed" | "failed";
 
+export type DeploymentOperation = "deploy" | "reset";
+
+export type DeploymentState = "completed" | "failed";
+
+export interface DeploymentStageRecord {
+  name: string;
+  status: "completed" | "failed";
+}
+
 export interface ProofJobRequest {
   jobType: string;
   mode: JobMode;
@@ -18,6 +27,22 @@ export interface ProofJobRecord extends ProofJobRequest {
   createdAt: string;
   updatedAt: string;
   result?: unknown;
+  error?: string;
+}
+
+export interface DeploymentJobRecord {
+  id: string;
+  operation: DeploymentOperation;
+  status: JobStatus;
+  createdAt: string;
+  updatedAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  statusUrl: string;
+  manifestPath?: string;
+  deploymentStatus?: DeploymentState;
+  deploymentStages?: DeploymentStageRecord[];
+  failedStage?: string;
   error?: string;
 }
 
@@ -40,11 +65,8 @@ export interface DeploymentManifest {
   };
   contracts: Record<string, string>;
   actors: Record<string, string>;
-  deploymentStatus?: "completed" | "failed";
-  deploymentStages?: Array<{
-    name: string;
-    status: "completed" | "failed";
-  }>;
+  deploymentStatus?: DeploymentState;
+  deploymentStages?: DeploymentStageRecord[];
   failedStage?: string;
   deploymentError?: string;
 }

@@ -48,6 +48,18 @@ echo "==== worker log ===="
 tail -n 200 /var/log/scuro-testnet/prover-worker.log || true
 echo "==== deploy log ===="
 tail -n 200 /var/lib/scuro-testnet/deploy.log || true
+echo "==== deploy jobs ===="
+ls -l /var/lib/scuro-testnet/deploy-jobs || true
+for file in /var/lib/scuro-testnet/deploy-jobs/*.json; do
+  if [[ -f "${file}" ]]; then
+    echo "---- ${file} ----"
+    sed -n '1,220p' "${file}" || true
+  fi
+done
+echo "==== nginx status ===="
+systemctl --no-pager --full status nginx.service || true
+echo "==== nginx config ===="
+sed -n '1,220p' /etc/nginx/conf.d/scuro-public-rpc.conf || true
 echo "==== nginx log ===="
 tail -n 200 /var/log/nginx/error.log || true
 echo "==== binary details ===="

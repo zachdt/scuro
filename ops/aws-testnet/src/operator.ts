@@ -1,5 +1,6 @@
 import type { AppConfig } from "./config";
 import { loadConfig } from "./config";
+import { createDeploymentJobManager } from "./deployment-jobs";
 import { HttpError, badRequest, notFound } from "./errors";
 import { ensureStateDirs } from "./fs";
 import { json, notFound as notFoundResponse, readJsonRequest } from "./http";
@@ -9,29 +10,34 @@ import {
   checkChainHealth,
   deployProtocol,
   exportSnapshot,
-  resetAndDeploy,
-  restoreSnapshot,
   runBlackjackSmoke,
   runNumberPickerSmoke,
   runPokerSmoke,
+  resetAndDeploy,
+  restoreSnapshot,
   seedApprovals
 } from "./protocol";
 import { createQueueClient, type QueueClient } from "./queue";
-import type { ProofJobRecord, ProofJobRequest } from "./types";
+import type { DeploymentJobRecord, ProofJobRecord, ProofJobRequest } from "./types";
 
 export interface JobStoreLike {
   create(request: ProofJobRequest): Promise<ProofJobRecord>;
   get(id: string): Promise<ProofJobRecord | null>;
 }
 
+export interface DeploymentJobsLike {
+  start(operation: "deploy" | "reset"): Promise<DeploymentJobRecord>;
+  get(id: string): Promise<DeploymentJobRecord | null>;
+  recover(): Promise<void>;
+}
+
 export interface OperatorDeps {
   jobs: JobStoreLike;
+  deploymentJobs: DeploymentJobsLike;
   queue: QueueClient;
   checkChainHealth: typeof checkChainHealth;
   loadManifest: typeof loadManifest;
-  deployProtocol: typeof deployProtocol;
   seedApprovals: typeof seedApprovals;
-  resetAndDeploy: typeof resetAndDeploy;
   exportSnapshot: typeof exportSnapshot;
   restoreSnapshot: typeof restoreSnapshot;
   runNumberPickerSmoke: typeof runNumberPickerSmoke;
@@ -46,6 +52,7 @@ export interface ServerLike {
 export type ServeFunction = (options: {
   hostname: string;
   port: number;
+  idleTimeout?: number;
   fetch: (request: Request) => Promise<Response> | Response;
 }) => ServerLike;
 
@@ -74,12 +81,17 @@ function jobResponsePath(jobId: string): string {
 export function createDefaultOperatorDeps(config: AppConfig): OperatorDeps {
   return {
     jobs: new JobStore(config.jobsDir),
+    deploymentJobs: createDeploymentJobManager(config, {
+      deployProtocol,
+      resetAndDeploy,
+      seedApprovals,
+      loadManifest,
+      logger: console
+    }),
     queue: createQueueClient(config),
     checkChainHealth,
     loadManifest,
-    deployProtocol,
     seedApprovals,
-    resetAndDeploy,
     exportSnapshot,
     restoreSnapshot,
     runNumberPickerSmoke,
@@ -157,14 +169,27 @@ export function createOperatorFetchHandler(
       }
 
       if (request.method === "POST" && url.pathname === "/deploy") {
-        const manifest = await deps.deployProtocol(config);
-        await deps.seedApprovals(config, manifest);
-        return json(manifest, { status: 201 });
+        const record = await deps.deploymentJobs.start("deploy");
+        return json(
+          {
+            jobId: record.id,
+            status: record.status,
+            statusUrl: record.statusUrl
+          },
+          { status: 202 }
+        );
       }
 
       if (request.method === "POST" && url.pathname === "/reset") {
-        const manifest = await deps.resetAndDeploy(config);
-        return json(manifest, { status: 201 });
+        const record = await deps.deploymentJobs.start("reset");
+        return json(
+          {
+            jobId: record.id,
+            status: record.status,
+            statusUrl: record.statusUrl
+          },
+          { status: 202 }
+        );
       }
 
       if (request.method === "POST" && url.pathname === "/seed") {
@@ -204,6 +229,15 @@ export function createOperatorFetchHandler(
         }
         const record = await deps.jobs.get(jobId);
         return record ? json(record) : json({ error: "job not found" }, { status: 404 });
+      }
+
+      if (request.method === "GET" && url.pathname.startsWith("/deploy-jobs/")) {
+        const jobId = url.pathname.split("/").pop();
+        if (!jobId) {
+          throw notFound("deployment job not found");
+        }
+        const record = await deps.deploymentJobs.get(jobId);
+        return record ? json(record) : json({ error: "deployment job not found" }, { status: 404 });
       }
 
       if (request.method === "POST" && url.pathname === "/snapshots/export") {
@@ -251,14 +285,17 @@ export async function startOperatorServer(
   await ensureStateDirs([
     config.stateDir,
     config.jobsDir,
+    config.deployJobsDir,
     config.queueDir,
     config.snapshotsDir
   ]);
+  await deps.deploymentJobs.recover();
 
   const fetch = createOperatorFetchHandler(config, deps);
   const server = serve({
     hostname: config.operatorHost,
     port: config.operatorPort,
+    idleTimeout: 30,
     fetch
   });
 

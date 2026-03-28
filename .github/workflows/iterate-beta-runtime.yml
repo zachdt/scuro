@@ -157,12 +157,32 @@ jobs:
       - name: Deploy protocol
         if: ${{ inputs.deploy_protocol }}
         run: |
-          bash script/aws/remote_operator.sh "${INSTANCE_ID}" POST /deploy "" "${AWS_REGION}" \
-            | tee /tmp/scuro-release/deploy-manifest.json
+          set -euo pipefail
+          RESPONSE="$(bash script/aws/remote_operator.sh "${INSTANCE_ID}" POST /deploy "" "${AWS_REGION}")"
+          printf '%s\n' "${RESPONSE}" | tee /tmp/scuro-release/deploy-submit.json >/dev/null
+          DEPLOY_JOB_ID="$(printf '%s' "${RESPONSE}" | python3 -c 'import json, sys; print(json.load(sys.stdin)["jobId"])')"
+          echo "DEPLOY_JOB_ID=${DEPLOY_JOB_ID}" >> "${GITHUB_ENV}"
+
+      - name: Wait for deploy completion
+        if: ${{ inputs.deploy_protocol }}
+        run: |
+          set -euo pipefail
+          bash script/aws/remote_wait_for_deploy_job.sh "${INSTANCE_ID}" "${DEPLOY_JOB_ID}" "${AWS_REGION}" \
+            | tee /tmp/scuro-release/deploy-job.json
+
+      - name: Check manifest and actors
+        if: ${{ inputs.deploy_protocol }}
+        run: |
+          set -euo pipefail
+          bash script/aws/remote_operator.sh "${INSTANCE_ID}" GET /manifest "" "${AWS_REGION}" \
+            | tee /tmp/scuro-release/manifest.json
+          bash script/aws/remote_operator.sh "${INSTANCE_ID}" GET /actors "" "${AWS_REGION}" \
+            | tee /tmp/scuro-release/actors.json
 
       - name: Run remote smoke jobs
         if: ${{ inputs.run_smokes }}
         run: |
+          set -euo pipefail
           bash script/aws/remote_smoke.sh "${INSTANCE_ID}" number-picker "${AWS_REGION}" \
             | tee /tmp/scuro-release/smoke-number-picker.json
           bash script/aws/remote_smoke.sh "${INSTANCE_ID}" poker "${AWS_REGION}" \
@@ -173,6 +193,7 @@ jobs:
       - name: Verify public RPC
         if: ${{ inputs.verify_public_rpc }}
         run: |
+          set -euo pipefail
           ready=0
           for attempt in $(seq 1 20); do
             response="$(curl -sS \
@@ -183,6 +204,8 @@ jobs:
 
             body="$(printf '%s\n' "${response}" | sed '$d')"
             status="$(printf '%s\n' "${response}" | tail -n1)"
+
+            printf '%s\n' "${body}" > /tmp/scuro-release/public-rpc-health.json
 
             if [[ "${status}" == "200" ]] && python3 -c 'import json, sys; print(json.loads(sys.argv[1])["result"])' "${body}" >/tmp/scuro-release/public-rpc-chain-id.txt
             then
@@ -201,12 +224,18 @@ jobs:
             exit 1
           fi
 
-      - name: Collect host diagnostics on failure
-        if: failure() && env.INSTANCE_ID != ''
+          curl -fsS \
+            -H 'content-type: application/json' \
+            --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+            "${PUBLIC_RPC_URL}" \
+            | tee /tmp/scuro-release/public-rpc-block-number.json >/dev/null
+
+      - name: Capture host diagnostics
+        if: always() && env.INSTANCE_ID != ''
         run: |
           mkdir -p /tmp/scuro-release
           bash script/aws/remote_collect_diagnostics.sh "${INSTANCE_ID}" "${AWS_REGION}" \
-            > /tmp/scuro-release/host-diagnostics.txt || true
+            | tee /tmp/scuro-release/host-diagnostics.txt || true
 
       - name: Upload iteration artifacts
         if: always()

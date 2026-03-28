@@ -24,6 +24,7 @@ export interface AppConfig {
   serviceRoot: string;
   stateDir: string;
   jobsDir: string;
+  deployJobsDir: string;
   queueDir: string;
   snapshotsDir: string;
   manifestPath: string;
@@ -57,6 +58,7 @@ export function loadConfig(): AppConfig {
     serviceRoot,
     stateDir,
     jobsDir: path.join(stateDir, "jobs"),
+    deployJobsDir: path.join(stateDir, "deploy-jobs"),
     queueDir: path.join(stateDir, "queue"),
     snapshotsDir: path.join(stateDir, "snapshots"),
     manifestPath: path.join(stateDir, "manifest.json"),
