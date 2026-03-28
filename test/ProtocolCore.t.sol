@@ -11,6 +11,10 @@ import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
 import {ScuroGovernor} from "../src/ScuroGovernor.sol";
 import {ScuroStakingToken} from "../src/ScuroStakingToken.sol";
 import {ScuroToken} from "../src/ScuroToken.sol";
+import {BlackjackModuleDeployer} from "../src/factory/BlackjackModuleDeployer.sol";
+import {CheminDeFerModuleDeployer} from "../src/factory/CheminDeFerModuleDeployer.sol";
+import {PokerModuleDeployer} from "../src/factory/PokerModuleDeployer.sol";
+import {SoloModuleDeployer} from "../src/factory/SoloModuleDeployer.sol";
 
 contract ProtocolCoreTest is Test {
     bytes32 internal constant NUMBER_PICKER_TYPE = keccak256("NUMBER_PICKER");
@@ -48,7 +52,15 @@ contract ProtocolCoreTest is Test {
         expressionRegistry = new DeveloperExpressionRegistry(address(this));
         developerRewards = new DeveloperRewards(address(this), address(token), 7 days);
         settlement = new ProtocolSettlement(address(token), address(catalog), address(expressionRegistry), address(developerRewards));
-        factory = new GameDeploymentFactory(address(this), address(catalog), address(settlement));
+        factory = new GameDeploymentFactory(
+            address(this),
+            address(catalog),
+            address(settlement),
+            address(new SoloModuleDeployer()),
+            address(new BlackjackModuleDeployer()),
+            address(new PokerModuleDeployer()),
+            address(new CheminDeFerModuleDeployer())
+        );
 
         token.grantRole(token.MINTER_ROLE(), address(settlement));
         token.grantRole(token.MINTER_ROLE(), address(developerRewards));

@@ -22,7 +22,7 @@ cd "${ROOT_DIR}"
 
 bun run --cwd "${ROOT_DIR}/zk" check >/dev/null
 
-anvil --port "${RPC_PORT}" --disable-code-size-limit >"${ANVIL_LOG}" 2>&1 &
+anvil --port "${RPC_PORT}" --disable-code-size-limit --gas-limit 100000000 >"${ANVIL_LOG}" 2>&1 &
 ANVIL_PID=$!
 
 rpc_ready() {
@@ -44,7 +44,7 @@ if ! rpc_ready; then
   exit 1
 fi
 
-PRIVATE_KEY="${ADMIN_KEY}" forge script script/DeployLocal.s.sol:DeployLocal --rpc-url "${RPC_URL}" --broadcast --offline --skip-simulation --non-interactive --disable-code-size-limit \
+PRIVATE_KEY="${ADMIN_KEY}" bash "${ROOT_DIR}/script/aws/deploy_staged.sh" "${RPC_URL}" \
   2>&1 | tee "${DEPLOY_LOG}"
 
 extract_value() {
@@ -67,7 +67,6 @@ SCURO_TOKEN="$(extract_value ScuroToken)"
 STAKING_TOKEN="$(extract_value ScuroStakingToken)"
 SETTLEMENT="$(extract_value ProtocolSettlement)"
 GAME_CATALOG="$(extract_value GameCatalog)"
-GAME_DEPLOYMENT_FACTORY="$(extract_value GameDeploymentFactory)"
 EXPRESSION_REGISTRY="$(extract_value DeveloperExpressionRegistry)"
 DEVELOPER_REWARDS="$(extract_value DeveloperRewards)"
 NUMBER_PICKER_ENGINE="$(extract_value NumberPickerEngine)"
@@ -75,7 +74,6 @@ NUMBER_PICKER_ADAPTER="$(extract_value NumberPickerAdapter)"
 TOURNAMENT_POKER_ENGINE="$(extract_value TournamentPokerEngine)"
 TOURNAMENT_POKER_VERIFIER_BUNDLE="$(extract_value TournamentPokerVerifierBundle)"
 PVP_POKER_ENGINE="$(extract_value PvPPokerEngine)"
-PVP_POKER_VERIFIER_BUNDLE="$(extract_value PvPPokerVerifierBundle)"
 BLACKJACK_ENGINE="$(extract_value SingleDeckBlackjackEngine)"
 BLACKJACK_VERIFIER_BUNDLE="$(extract_value BlackjackVerifierBundle)"
 BLACKJACK_CONTROLLER="$(extract_value BlackjackController)"

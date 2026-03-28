@@ -1,0 +1,48 @@
+name: Deploy Gas Report
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/**"
+      - "script/**"
+      - "docs/deploy-gas-baseline.md"
+      - ".github/workflows/deploy-gas-report.yml"
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.1
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Generate deploy gas baseline
+        run: bash script/aws/generate_deploy_baseline.sh
+
+      - name: Enforce deploy gas thresholds
+        run: bash script/aws/check_deploy_gas_regressions.sh
+
+      - name: Enforce deploy size thresholds
+        run: bash script/aws/check_deploy_size_regressions.sh
+
+      - name: Upload deploy gas baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-gas-baseline
+          path: |
+            docs/deploy-gas-baseline.md
+            script/aws/deploy-gas-thresholds.json
+            script/aws/deploy-size-thresholds.json

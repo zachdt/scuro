@@ -66,7 +66,15 @@ export function parseDeployOutput(output: string): Record<string, string> {
 
 export function buildManifest(
   contracts: Record<string, string>,
-  config: AppConfig
+  config: AppConfig,
+  deployment?:
+    | {
+        status: "completed" | "failed";
+        stages: Array<{ name: string; status: "completed" | "failed" }>;
+        failedStage?: string;
+        error?: string;
+      }
+    | undefined
 ): DeploymentManifest {
   const actors: Record<string, string> = {};
   for (const label of ACTOR_LABELS) {
@@ -93,7 +101,15 @@ export function buildManifest(
       snapshotPrefix: config.snapshotPrefix
     },
     contracts,
-    actors
+    actors,
+    ...(deployment
+      ? {
+          deploymentStatus: deployment.status,
+          deploymentStages: deployment.stages,
+          ...(deployment.failedStage ? { failedStage: deployment.failedStage } : {}),
+          ...(deployment.error ? { deploymentError: deployment.error } : {})
+        }
+      : {})
   };
 }
 

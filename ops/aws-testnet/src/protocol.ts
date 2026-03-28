@@ -1,3 +1,4 @@
+import { appendFile, rm } from "node:fs/promises";
 import path from "node:path";
 import type { AppConfig } from "./config";
 import type { CommandRunner } from "./exec";
@@ -9,10 +10,60 @@ import type { DeploymentManifest } from "./types";
 const MAX_UINT256 =
   "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 
+interface DeployStage {
+  name: string;
+  target: string;
+}
+
+const DEPLOY_STAGES: DeployStage[] = [
+  { name: "core", target: "script/aws/DeployCore.s.sol:DeployCore" },
+  { name: "number-picker", target: "script/aws/DeployNumberPickerModule.s.sol:DeployNumberPickerModule" },
+  { name: "poker-tournament", target: "script/aws/DeployPokerTournamentModule.s.sol:DeployPokerTournamentModule" },
+  { name: "poker-pvp", target: "script/aws/DeployPokerPvPModule.s.sol:DeployPokerPvPModule" },
+  { name: "blackjack", target: "script/aws/DeployBlackjackModule.s.sol:DeployBlackjackModule" },
+  { name: "finalize", target: "script/aws/DeployFinalize.s.sol:DeployFinalize" }
+];
+
 function deployEnv(config: AppConfig): Record<string, string> {
   return {
     PRIVATE_KEY: config.adminPrivateKey
   };
+}
+
+function mergeContracts(
+  current: Record<string, string>,
+  next: Record<string, string>
+): Record<string, string> {
+  return { ...current, ...next };
+}
+
+function deployStageEnv(
+  config: AppConfig,
+  contracts: Record<string, string>
+): Record<string, string> {
+  return {
+    ...deployEnv(config),
+    ...contracts
+  };
+}
+
+function combineStageOutput(stageOutput: string, bufferedOutput: string): string {
+  const normalizedStageOutput = stageOutput.trimEnd();
+  const normalizedBufferedOutput = bufferedOutput.trimEnd();
+
+  if (!normalizedStageOutput) {
+    return normalizedBufferedOutput;
+  }
+  if (!normalizedBufferedOutput) {
+    return normalizedStageOutput;
+  }
+  if (normalizedStageOutput.includes(normalizedBufferedOutput)) {
+    return normalizedStageOutput;
+  }
+  if (normalizedBufferedOutput.includes(normalizedStageOutput)) {
+    return normalizedBufferedOutput;
+  }
+  return `${normalizedStageOutput}\n${normalizedBufferedOutput}`;
 }
 
 function smokeEnv(config: AppConfig, manifest: DeploymentManifest): Record<string, string> {
@@ -90,39 +141,70 @@ export async function deployProtocol(
 ): Promise<DeploymentManifest> {
   const deps = withProtocolDeps(depsOverrides);
   await Bun.write(config.deployLogPath, "");
-  const result = await deps.commandRunner(
-    "forge",
-    [
-      "script",
-      "script/DeployLocal.s.sol:DeployLocal",
-      "--rpc-url",
-      config.rpcUrl,
-      "--broadcast",
-      "--offline",
-      "--skip-simulation",
-      "--non-interactive",
-      "--disable-code-size-limit"
-    ],
-    {
-      cwd: config.repoRoot,
-      env: deployEnv(config),
-      allowFailure: true,
-      streamOutputToPath: config.deployLogPath
+  let contracts: Record<string, string> = {};
+  const deploymentStages: Array<{ name: string; status: "completed" | "failed" }> = [];
+
+  for (const stage of DEPLOY_STAGES) {
+    const stageLogPath = path.join(config.stateDir, `deploy-${stage.name}.log`);
+    await appendFile(config.deployLogPath, `\n==== deploy stage: ${stage.name} ====\n`);
+    const result = await deps.commandRunner(
+      "forge",
+      [
+        "script",
+        stage.target,
+        "--rpc-url",
+        config.rpcUrl,
+        "--broadcast",
+        "--offline",
+        "--skip-simulation",
+        "--non-interactive",
+        "--disable-code-size-limit"
+      ],
+      {
+        cwd: config.repoRoot,
+        env: deployStageEnv(config, contracts),
+        allowFailure: true,
+        streamOutputToPath: stageLogPath
+      }
+    );
+
+    const bufferedOutput = [result.stdout, result.stderr].filter(Boolean).join("\n");
+    const stageLog = Bun.file(stageLogPath);
+    const stageOutput = (await stageLog.exists()) ? await stageLog.text() : "";
+    const combinedStageOutput = combineStageOutput(stageOutput, bufferedOutput);
+    if (combinedStageOutput) {
+      await appendFile(
+        config.deployLogPath,
+        combinedStageOutput.endsWith("\n") ? combinedStageOutput : `${combinedStageOutput}\n`
+      );
     }
-  );
+    contracts = mergeContracts(contracts, parseDeployOutput(combinedStageOutput));
+    await rm(stageLogPath, { force: true });
 
-  const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
+    if (result.exitCode !== 0) {
+      deploymentStages.push({ name: stage.name, status: "failed" });
+      const deploymentError = `deploy stage failed: ${stage.name}\n${combinedStageOutput}`;
+      const partialManifest = buildManifest(contracts, config, {
+        status: "failed",
+        stages: deploymentStages,
+        failedStage: stage.name,
+        error: deploymentError
+      });
+      await deps.writeManifest(config.manifestPath, partialManifest);
+      throw new Error(deploymentError);
+    }
 
-  if (result.exitCode !== 0) {
-    throw new Error(`deploy failed\n${output}`);
+    deploymentStages.push({ name: stage.name, status: "completed" });
   }
 
-  const contracts = parseDeployOutput(output);
-  if (!contracts.ScuroToken) {
-    throw new Error("failed to parse deployment output");
+  if (!contracts.ScuroToken || !contracts.BlackjackController || !contracts.TournamentController) {
+    throw new Error("failed to assemble staged deployment output");
   }
 
-  const manifest = buildManifest(contracts, config);
+  const manifest = buildManifest(contracts, config, {
+    status: "completed",
+    stages: deploymentStages
+  });
   await deps.writeManifest(config.manifestPath, manifest);
   return manifest;
 }

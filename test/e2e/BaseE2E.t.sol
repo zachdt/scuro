@@ -20,6 +20,10 @@ import { NumberPickerEngine } from "../../src/engines/NumberPickerEngine.sol";
 import { SingleDeckBlackjackEngine } from "../../src/engines/SingleDeckBlackjackEngine.sol";
 import { SingleDraw2To7Engine } from "../../src/engines/SingleDraw2To7Engine.sol";
 import { SlotMachineEngine } from "../../src/engines/SlotMachineEngine.sol";
+import { BlackjackModuleDeployer } from "../../src/factory/BlackjackModuleDeployer.sol";
+import { CheminDeFerModuleDeployer } from "../../src/factory/CheminDeFerModuleDeployer.sol";
+import { PokerModuleDeployer } from "../../src/factory/PokerModuleDeployer.sol";
+import { SoloModuleDeployer } from "../../src/factory/SoloModuleDeployer.sol";
 import { VRFCoordinatorMock } from "../../src/mocks/VRFCoordinatorMock.sol";
 import { ManualVRFCoordinatorMock } from "./helpers/ManualVRFCoordinatorMock.sol";
 import { NumberPickerAdapterHarness } from "./helpers/NumberPickerAdapterHarness.sol";
@@ -119,7 +123,15 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         settlement = new ProtocolSettlement(
             address(token), address(catalog), address(expressionRegistry), address(developerRewards)
         );
-        factory = new GameDeploymentFactory(address(this), address(catalog), address(settlement));
+        factory = new GameDeploymentFactory(
+            address(this),
+            address(catalog),
+            address(settlement),
+            address(new SoloModuleDeployer()),
+            address(new BlackjackModuleDeployer()),
+            address(new PokerModuleDeployer()),
+            address(new CheminDeFerModuleDeployer())
+        );
 
         autoVrfCoordinator = new VRFCoordinatorMock();
         manualVrfCoordinator = new ManualVRFCoordinatorMock();

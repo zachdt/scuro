@@ -7,6 +7,7 @@ require_cmd bun
 require_cmd forge
 require_cmd anvil
 require_cmd curl
+require_cmd bash
 
 ROOT="$(repo_root)"
 STATE_DIR="${ROOT}/.scuro-testnet"
@@ -35,6 +36,13 @@ bun test --cwd "${ROOT}/ops/aws-testnet"
 echo "[2/5] Targeted forge build for AWS scripts"
 cd "${ROOT}"
 forge build \
+  script/aws/BetaDeployCommon.s.sol \
+  script/aws/DeployCore.s.sol \
+  script/aws/DeployNumberPickerModule.s.sol \
+  script/aws/DeployPokerTournamentModule.s.sol \
+  script/aws/DeployPokerPvPModule.s.sol \
+  script/aws/DeployBlackjackModule.s.sol \
+  script/aws/DeployFinalize.s.sol \
   script/aws/FixtureLoaders.sol \
   script/aws/SmokeNumberPicker.s.sol \
   script/aws/SmokePokerFixture.s.sol \
@@ -50,7 +58,7 @@ echo "[3/5] Focused forge tests"
 forge test --match-path 'test/aws/*.t.sol' --offline
 
 echo "[4/5] Start Anvil"
-anvil --port "${RPC_PORT}" --disable-code-size-limit >"${ANVIL_LOG}" 2>&1 &
+anvil --port "${RPC_PORT}" --disable-code-size-limit --gas-limit 100000000 >"${ANVIL_LOG}" 2>&1 &
 ANVIL_PID=$!
 
 rpc_ready() {
@@ -81,13 +89,7 @@ extract_value() {
 
 deploy_stack() {
   : >"${DEPLOY_LOG}"
-  PRIVATE_KEY="${ADMIN_KEY}" forge script script/DeployLocal.s.sol:DeployLocal \
-    --rpc-url "${RPC_URL}" \
-    --broadcast \
-    --offline \
-    --skip-simulation \
-    --non-interactive \
-    --disable-code-size-limit \
+  PRIVATE_KEY="${ADMIN_KEY}" bash "${ROOT}/script/aws/deploy_staged.sh" "${RPC_URL}" \
     2>&1 | tee "${DEPLOY_LOG}" >/dev/null
 
   SCURO_TOKEN="$(extract_value ScuroToken)"
@@ -95,6 +97,7 @@ deploy_stack() {
   PROTOCOL_SETTLEMENT="$(extract_value ProtocolSettlement)"
   GAME_CATALOG="$(extract_value GameCatalog)"
   DEVELOPER_REWARDS="$(extract_value DeveloperRewards)"
+  DEVELOPER_EXPRESSION_REGISTRY="$(extract_value DeveloperExpressionRegistry)"
   NUMBER_PICKER_ADAPTER="$(extract_value NumberPickerAdapter)"
   NUMBER_PICKER_ENGINE="$(extract_value NumberPickerEngine)"
   TOURNAMENT_CONTROLLER="$(extract_value TournamentController)"
@@ -115,6 +118,7 @@ deploy_stack() {
     PROTOCOL_SETTLEMENT \
     GAME_CATALOG \
     DEVELOPER_REWARDS \
+    DEVELOPER_EXPRESSION_REGISTRY \
     NUMBER_PICKER_ADAPTER \
     NUMBER_PICKER_ENGINE \
     TOURNAMENT_CONTROLLER \

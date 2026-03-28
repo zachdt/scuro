@@ -40,4 +40,11 @@ export interface DeploymentManifest {
   };
   contracts: Record<string, string>;
   actors: Record<string, string>;
+  deploymentStatus?: "completed" | "failed";
+  deploymentStages?: Array<{
+    name: string;
+    status: "completed" | "failed";
+  }>;
+  failedStage?: string;
+  deploymentError?: string;
 }

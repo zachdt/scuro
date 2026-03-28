@@ -46,6 +46,13 @@ jobs:
       - name: Targeted Forge build
         run: |
           forge build \
+            script/aws/BetaDeployCommon.s.sol \
+            script/aws/DeployCore.s.sol \
+            script/aws/DeployNumberPickerModule.s.sol \
+            script/aws/DeployPokerTournamentModule.s.sol \
+            script/aws/DeployPokerPvPModule.s.sol \
+            script/aws/DeployBlackjackModule.s.sol \
+            script/aws/DeployFinalize.s.sol \
             script/aws/FixtureLoaders.sol \
             script/aws/SmokeNumberPicker.s.sol \
             script/aws/SmokePokerFixture.s.sol \

@@ -1,0 +1,20 @@
+{
+  "factory_entrypoints": {
+    "number_picker": 1600000,
+    "poker_tournament": 6900000,
+    "poker_pvp": 6800000,
+    "blackjack": 7000000
+  },
+  "staged_deploy": {
+    "solo_module_deployer": 9800000,
+    "blackjack_module_deployer": 7500000,
+    "poker_module_deployer": 8600000,
+    "chemin_de_fer_module_deployer": 3300000,
+    "game_deployment_factory": 1500000,
+    "number_picker_module": 1600000,
+    "poker_tournament_module": 6900000,
+    "poker_pvp_module": 6800000,
+    "blackjack_module": 7000000,
+    "full_beta_deploy_total": 70000000
+  }
+}

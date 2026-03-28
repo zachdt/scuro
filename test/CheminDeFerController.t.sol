@@ -10,6 +10,10 @@ import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
 import {ScuroToken} from "../src/ScuroToken.sol";
 import {CheminDeFerController} from "../src/controllers/CheminDeFerController.sol";
 import {CheminDeFerEngine} from "../src/engines/CheminDeFerEngine.sol";
+import {BlackjackModuleDeployer} from "../src/factory/BlackjackModuleDeployer.sol";
+import {CheminDeFerModuleDeployer} from "../src/factory/CheminDeFerModuleDeployer.sol";
+import {PokerModuleDeployer} from "../src/factory/PokerModuleDeployer.sol";
+import {SoloModuleDeployer} from "../src/factory/SoloModuleDeployer.sol";
 import {BaccaratTypes} from "../src/libraries/BaccaratTypes.sol";
 import {ManualVRFCoordinatorMock} from "./e2e/helpers/ManualVRFCoordinatorMock.sol";
 import {BaccaratRulesHarness} from "./helpers/BaccaratRulesHarness.sol";
@@ -41,7 +45,15 @@ contract CheminDeFerControllerTest is Test {
         expressionRegistry = new DeveloperExpressionRegistry(address(this));
         developerRewards = new DeveloperRewards(address(this), address(token), 7 days);
         settlement = new ProtocolSettlement(address(token), address(catalog), address(expressionRegistry), address(developerRewards));
-        factory = new GameDeploymentFactory(address(this), address(catalog), address(settlement));
+        factory = new GameDeploymentFactory(
+            address(this),
+            address(catalog),
+            address(settlement),
+            address(new SoloModuleDeployer()),
+            address(new BlackjackModuleDeployer()),
+            address(new PokerModuleDeployer()),
+            address(new CheminDeFerModuleDeployer())
+        );
         manualVrfCoordinator = new ManualVRFCoordinatorMock();
         rulesHarness = new BaccaratRulesHarness();
 

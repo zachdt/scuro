@@ -6,6 +6,7 @@ export interface CommandOptions {
   env?: Record<string, string | undefined>;
   allowFailure?: boolean;
   streamOutputToPath?: string;
+  streamOutputAppend?: boolean;
   maxBufferedOutputBytes?: number;
 }
 
@@ -41,7 +42,9 @@ export const runCommand: CommandRunner = async function runCommand(
   });
 
   const maxBufferedOutputBytes = options.maxBufferedOutputBytes ?? 64 * 1024;
-  const outputStream = options.streamOutputToPath ? createWriteStream(options.streamOutputToPath, { flags: "w" }) : null;
+  const outputStream = options.streamOutputToPath
+    ? createWriteStream(options.streamOutputToPath, { flags: options.streamOutputAppend ? "a" : "w" })
+    : null;
 
   async function consumeStream(
     stream: ReadableStream<Uint8Array>,

@@ -10,6 +10,10 @@ import { ProtocolSettlement } from "../src/ProtocolSettlement.sol";
 import { ScuroToken } from "../src/ScuroToken.sol";
 import { SlotMachineController } from "../src/controllers/SlotMachineController.sol";
 import { SlotMachineEngine } from "../src/engines/SlotMachineEngine.sol";
+import { BlackjackModuleDeployer } from "../src/factory/BlackjackModuleDeployer.sol";
+import { CheminDeFerModuleDeployer } from "../src/factory/CheminDeFerModuleDeployer.sol";
+import { PokerModuleDeployer } from "../src/factory/PokerModuleDeployer.sol";
+import { SoloModuleDeployer } from "../src/factory/SoloModuleDeployer.sol";
 import { VRFCoordinatorMock } from "../src/mocks/VRFCoordinatorMock.sol";
 import { ManualVRFCoordinatorMock } from "./e2e/helpers/ManualVRFCoordinatorMock.sol";
 import { SlotMachineControllerHarness } from "./helpers/SlotMachineControllerHarness.sol";
@@ -43,7 +47,15 @@ contract SlotMachineControllerTest is Test {
         settlement = new ProtocolSettlement(
             address(token), address(catalog), address(expressionRegistry), address(developerRewards)
         );
-        factory = new GameDeploymentFactory(address(this), address(catalog), address(settlement));
+        factory = new GameDeploymentFactory(
+            address(this),
+            address(catalog),
+            address(settlement),
+            address(new SoloModuleDeployer()),
+            address(new BlackjackModuleDeployer()),
+            address(new PokerModuleDeployer()),
+            address(new CheminDeFerModuleDeployer())
+        );
         autoVrfCoordinator = new VRFCoordinatorMock();
         manualVrfCoordinator = new ManualVRFCoordinatorMock();
 

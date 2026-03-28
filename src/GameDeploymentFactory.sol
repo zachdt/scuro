@@ -4,28 +4,12 @@ pragma solidity ^0.8.24;
 import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
 import {GameCatalog} from "./GameCatalog.sol";
 import {ProtocolSettlement} from "./ProtocolSettlement.sol";
-import {CheminDeFerController} from "./controllers/CheminDeFerController.sol";
-import {BlackjackController} from "./controllers/BlackjackController.sol";
-import {NumberPickerAdapter} from "./controllers/NumberPickerAdapter.sol";
-import {PvPController} from "./controllers/PvPController.sol";
-import {SlotMachineController} from "./controllers/SlotMachineController.sol";
-import {SuperBaccaratController} from "./controllers/SuperBaccaratController.sol";
-import {TournamentController} from "./controllers/TournamentController.sol";
-import {CheminDeFerEngine} from "./engines/CheminDeFerEngine.sol";
-import {NumberPickerEngine} from "./engines/NumberPickerEngine.sol";
-import {SingleDeckBlackjackEngine} from "./engines/SingleDeckBlackjackEngine.sol";
-import {SingleDraw2To7Engine} from "./engines/SingleDraw2To7Engine.sol";
-import {SlotMachineEngine} from "./engines/SlotMachineEngine.sol";
-import {SuperBaccaratEngine} from "./engines/SuperBaccaratEngine.sol";
-import {IScuroGameEngine} from "./interfaces/IScuroGameEngine.sol";
-import {BlackjackVerifierBundle} from "./verifiers/BlackjackVerifierBundle.sol";
-import {PokerVerifierBundle} from "./verifiers/PokerVerifierBundle.sol";
-import {BlackjackActionResolveVerifier} from "./verifiers/generated/BlackjackActionResolveVerifier.sol";
-import {BlackjackInitialDealVerifier} from "./verifiers/generated/BlackjackInitialDealVerifier.sol";
-import {BlackjackShowdownVerifier} from "./verifiers/generated/BlackjackShowdownVerifier.sol";
-import {PokerDrawResolveVerifier} from "./verifiers/generated/PokerDrawResolveVerifier.sol";
-import {PokerInitialDealVerifier} from "./verifiers/generated/PokerInitialDealVerifier.sol";
-import {PokerShowdownVerifier} from "./verifiers/generated/PokerShowdownVerifier.sol";
+import {
+    IBlackjackModuleDeployer,
+    ICheminDeFerModuleDeployer,
+    IPokerModuleDeployer,
+    ISoloModuleDeployer
+} from "./factory/IModuleDeployers.sol";
 
 /// @title Scuro game deployment factory
 /// @notice Deploys shipped controller/engine/verifier bundles and registers them in the catalog.
@@ -96,6 +80,10 @@ contract GameDeploymentFactory is AccessControl {
 
     GameCatalog internal immutable CATALOG;
     ProtocolSettlement internal immutable SETTLEMENT;
+    ISoloModuleDeployer internal immutable SOLO_MODULE_DEPLOYER;
+    IBlackjackModuleDeployer internal immutable BLACKJACK_MODULE_DEPLOYER;
+    IPokerModuleDeployer internal immutable POKER_MODULE_DEPLOYER;
+    ICheminDeFerModuleDeployer internal immutable CHEMIN_DE_FER_MODULE_DEPLOYER;
 
     /// @notice Emitted when the factory deploys a new module bundle.
     event ModuleDeployed(
@@ -109,9 +97,21 @@ contract GameDeploymentFactory is AccessControl {
     );
 
     /// @notice Initializes the factory and grants deploy permissions to the admin.
-    constructor(address admin, address catalogAddress, address settlementAddress) {
+    constructor(
+        address admin,
+        address catalogAddress,
+        address settlementAddress,
+        address soloModuleDeployer,
+        address blackjackModuleDeployer,
+        address pokerModuleDeployer,
+        address cheminDeFerModuleDeployer
+    ) {
         CATALOG = GameCatalog(catalogAddress);
         SETTLEMENT = ProtocolSettlement(settlementAddress);
+        SOLO_MODULE_DEPLOYER = ISoloModuleDeployer(soloModuleDeployer);
+        BLACKJACK_MODULE_DEPLOYER = IBlackjackModuleDeployer(blackjackModuleDeployer);
+        POKER_MODULE_DEPLOYER = IPokerModuleDeployer(pokerModuleDeployer);
+        CHEMIN_DE_FER_MODULE_DEPLOYER = ICheminDeFerModuleDeployer(cheminDeFerModuleDeployer);
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(DEPLOYER_ROLE, admin);
     }
@@ -132,111 +132,46 @@ contract GameDeploymentFactory is AccessControl {
         onlyRole(DEPLOYER_ROLE)
         returns (uint256 moduleId, address controller, address engine, address verifier)
     {
+        bytes32 engineType;
+        bytes32 configHash;
+        uint16 developerRewardBps;
+
         if (family == uint8(SoloFamily.NumberPicker)) {
             NumberPickerDeployment memory params = abi.decode(deploymentParams, (NumberPickerDeployment));
-            NumberPickerEngine numberPickerEngine = new NumberPickerEngine(address(CATALOG), params.vrfCoordinator);
-            NumberPickerAdapter numberPickerAdapter =
-                new NumberPickerAdapter(address(SETTLEMENT), address(CATALOG), address(numberPickerEngine));
-
-            controller = address(numberPickerAdapter);
-            engine = address(numberPickerEngine);
-            verifier = address(0);
-
-            moduleId = CATALOG.registerModule(
-                GameCatalog.Module({
-                    mode: GameCatalog.GameMode.Solo,
-                    controller: controller,
-                    engine: engine,
-                    engineType: numberPickerEngine.engineType(),
-                    verifier: verifier,
-                    configHash: params.configHash,
-                    developerRewardBps: params.developerRewardBps,
-                    status: GameCatalog.ModuleStatus.LIVE
-                })
+            (controller, engine, verifier, engineType) = SOLO_MODULE_DEPLOYER.deployNumberPickerModule(
+                address(CATALOG), address(SETTLEMENT), params.vrfCoordinator
             );
+            configHash = params.configHash;
+            developerRewardBps = params.developerRewardBps;
         } else if (family == uint8(SoloFamily.Blackjack)) {
             BlackjackDeployment memory params = abi.decode(deploymentParams, (BlackjackDeployment));
-
-            BlackjackInitialDealVerifier initialDealVerifier = new BlackjackInitialDealVerifier();
-            BlackjackActionResolveVerifier actionResolveVerifier = new BlackjackActionResolveVerifier();
-            BlackjackShowdownVerifier showdownVerifier = new BlackjackShowdownVerifier();
-            BlackjackVerifierBundle blackjackVerifierBundle = new BlackjackVerifierBundle(
-                msg.sender, address(initialDealVerifier), address(actionResolveVerifier), address(showdownVerifier)
+            (controller, engine, verifier, engineType) = BLACKJACK_MODULE_DEPLOYER.deployBlackjackModule(
+                address(CATALOG), address(SETTLEMENT), params.coordinator, params.defaultActionWindow, msg.sender
             );
-
-            SingleDeckBlackjackEngine blackjackEngine = new SingleDeckBlackjackEngine(
-                address(CATALOG), address(blackjackVerifierBundle), params.coordinator, params.defaultActionWindow
-            );
-            BlackjackController blackjackController =
-                new BlackjackController(address(SETTLEMENT), address(CATALOG), address(blackjackEngine));
-
-            controller = address(blackjackController);
-            engine = address(blackjackEngine);
-            verifier = address(blackjackVerifierBundle);
-
-            moduleId = CATALOG.registerModule(
-                GameCatalog.Module({
-                    mode: GameCatalog.GameMode.Solo,
-                    controller: controller,
-                    engine: engine,
-                    engineType: blackjackEngine.engineType(),
-                    verifier: verifier,
-                    configHash: params.configHash,
-                    developerRewardBps: params.developerRewardBps,
-                    status: GameCatalog.ModuleStatus.LIVE
-                })
-            );
+            configHash = params.configHash;
+            developerRewardBps = params.developerRewardBps;
         } else if (family == uint8(SoloFamily.SuperBaccarat)) {
             BaccaratDeployment memory params = abi.decode(deploymentParams, (BaccaratDeployment));
-
-            SuperBaccaratEngine baccaratEngine = new SuperBaccaratEngine(address(CATALOG), params.vrfCoordinator);
-            SuperBaccaratController baccaratController =
-                new SuperBaccaratController(address(SETTLEMENT), address(CATALOG), address(baccaratEngine));
-
-            controller = address(baccaratController);
-            engine = address(baccaratEngine);
-            verifier = address(0);
-
-            moduleId = CATALOG.registerModule(
-                GameCatalog.Module({
-                    mode: GameCatalog.GameMode.Solo,
-                    controller: controller,
-                    engine: engine,
-                    engineType: baccaratEngine.engineType(),
-                    verifier: verifier,
-                    configHash: params.configHash,
-                    developerRewardBps: params.developerRewardBps,
-                    status: GameCatalog.ModuleStatus.LIVE
-                })
+            (controller, engine, verifier, engineType) = SOLO_MODULE_DEPLOYER.deploySuperBaccaratModule(
+                address(CATALOG), address(SETTLEMENT), params.vrfCoordinator
             );
+            configHash = params.configHash;
+            developerRewardBps = params.developerRewardBps;
         } else if (family == uint8(SoloFamily.SlotMachine)) {
             SlotDeployment memory params = abi.decode(deploymentParams, (SlotDeployment));
-
-            SlotMachineEngine slotEngine = new SlotMachineEngine(msg.sender, address(CATALOG), params.vrfCoordinator);
-            SlotMachineController slotController =
-                new SlotMachineController(address(SETTLEMENT), address(CATALOG), address(slotEngine));
-
-            controller = address(slotController);
-            engine = address(slotEngine);
-            verifier = address(0);
-
-            moduleId = CATALOG.registerModule(
-                GameCatalog.Module({
-                    mode: GameCatalog.GameMode.Solo,
-                    controller: controller,
-                    engine: engine,
-                    engineType: slotEngine.engineType(),
-                    verifier: verifier,
-                    configHash: params.configHash,
-                    developerRewardBps: params.developerRewardBps,
-                    status: GameCatalog.ModuleStatus.LIVE
-                })
+            (controller, engine, verifier, engineType) = SOLO_MODULE_DEPLOYER.deploySlotMachineModule(
+                address(CATALOG), address(SETTLEMENT), params.vrfCoordinator, msg.sender
             );
+            configHash = params.configHash;
+            developerRewardBps = params.developerRewardBps;
         } else {
             revert("Factory: unsupported solo family");
         }
 
-        emit ModuleDeployed(moduleId, GameCatalog.GameMode.Solo, family, controller, engine, verifier, CATALOG.getModule(moduleId).configHash);
+        moduleId = _registerModule(
+            GameCatalog.GameMode.Solo, controller, engine, engineType, verifier, configHash, developerRewardBps
+        );
+        emit ModuleDeployed(moduleId, GameCatalog.GameMode.Solo, family, controller, engine, verifier, configHash);
     }
 
     /// @notice Deploys a supported PvP-family module and registers it in the catalog.
@@ -247,45 +182,42 @@ contract GameDeploymentFactory is AccessControl {
     {
         if (family == uint8(MatchFamily.PokerSingleDraw2To7)) {
             PokerDeployment memory params = abi.decode(deploymentParams, (PokerDeployment));
-
-            (engine, verifier) = _deployPokerEngine(params);
-            controller = address(new PvPController(msg.sender, address(SETTLEMENT), address(CATALOG), engine));
-
-            moduleId = CATALOG.registerModule(
-                GameCatalog.Module({
-                    mode: GameCatalog.GameMode.PvP,
-                    controller: controller,
-                    engine: engine,
-                    engineType: IScuroGameEngine(engine).engineType(),
-                    verifier: verifier,
-                    configHash: params.configHash,
-                    developerRewardBps: params.developerRewardBps,
-                    status: GameCatalog.ModuleStatus.LIVE
-                })
+            bytes32 engineType;
+            (controller, engine, verifier, engineType) = POKER_MODULE_DEPLOYER.deployPvPModule(
+                address(CATALOG),
+                address(SETTLEMENT),
+                params.coordinator,
+                params.smallBlind,
+                params.bigBlind,
+                params.blindEscalationInterval,
+                params.actionWindow,
+                msg.sender
+            );
+            moduleId = _registerModule(
+                GameCatalog.GameMode.PvP,
+                controller,
+                engine,
+                engineType,
+                verifier,
+                params.configHash,
+                params.developerRewardBps
             );
 
             emit ModuleDeployed(moduleId, GameCatalog.GameMode.PvP, family, controller, engine, verifier, params.configHash);
         } else if (family == uint8(MatchFamily.CheminDeFerBaccarat)) {
             CheminDeFerDeployment memory params = abi.decode(deploymentParams, (CheminDeFerDeployment));
-
-            CheminDeFerEngine baccaratEngine = new CheminDeFerEngine(address(CATALOG), params.vrfCoordinator);
-            controller = address(
-                new CheminDeFerController(address(SETTLEMENT), address(CATALOG), address(baccaratEngine), params.joinWindow)
+            bytes32 engineType;
+            (controller, engine, verifier, engineType) = CHEMIN_DE_FER_MODULE_DEPLOYER.deployCheminDeFerModule(
+                address(CATALOG), address(SETTLEMENT), params.vrfCoordinator, params.joinWindow
             );
-            engine = address(baccaratEngine);
-            verifier = address(0);
-
-            moduleId = CATALOG.registerModule(
-                GameCatalog.Module({
-                    mode: GameCatalog.GameMode.PvP,
-                    controller: controller,
-                    engine: engine,
-                    engineType: baccaratEngine.engineType(),
-                    verifier: verifier,
-                    configHash: params.configHash,
-                    developerRewardBps: params.developerRewardBps,
-                    status: GameCatalog.ModuleStatus.LIVE
-                })
+            moduleId = _registerModule(
+                GameCatalog.GameMode.PvP,
+                controller,
+                engine,
+                engineType,
+                verifier,
+                params.configHash,
+                params.developerRewardBps
             );
 
             emit ModuleDeployed(moduleId, GameCatalog.GameMode.PvP, family, controller, engine, verifier, params.configHash);
@@ -302,21 +234,27 @@ contract GameDeploymentFactory is AccessControl {
     {
         require(family == uint8(MatchFamily.PokerSingleDraw2To7), "Factory: unsupported tournament family");
         PokerDeployment memory params = abi.decode(deploymentParams, (PokerDeployment));
+        bytes32 engineType;
 
-        (engine, verifier) = _deployPokerEngine(params);
-        controller = address(new TournamentController(msg.sender, address(SETTLEMENT), address(CATALOG), engine));
+        (controller, engine, verifier, engineType) = POKER_MODULE_DEPLOYER.deployTournamentModule(
+            address(CATALOG),
+            address(SETTLEMENT),
+            params.coordinator,
+            params.smallBlind,
+            params.bigBlind,
+            params.blindEscalationInterval,
+            params.actionWindow,
+            msg.sender
+        );
 
-        moduleId = CATALOG.registerModule(
-            GameCatalog.Module({
-                mode: GameCatalog.GameMode.Tournament,
-                controller: controller,
-                engine: engine,
-                engineType: IScuroGameEngine(engine).engineType(),
-                verifier: verifier,
-                configHash: params.configHash,
-                developerRewardBps: params.developerRewardBps,
-                status: GameCatalog.ModuleStatus.LIVE
-            })
+        moduleId = _registerModule(
+            GameCatalog.GameMode.Tournament,
+            controller,
+            engine,
+            engineType,
+            verifier,
+            params.configHash,
+            params.developerRewardBps
         );
 
         emit ModuleDeployed(
@@ -324,24 +262,26 @@ contract GameDeploymentFactory is AccessControl {
         );
     }
 
-    function _deployPokerEngine(PokerDeployment memory params) internal returns (address engine, address verifier) {
-        PokerInitialDealVerifier initialDealVerifier = new PokerInitialDealVerifier();
-        PokerDrawResolveVerifier drawResolveVerifier = new PokerDrawResolveVerifier();
-        PokerShowdownVerifier showdownVerifier = new PokerShowdownVerifier();
-        PokerVerifierBundle pokerVerifierBundle = new PokerVerifierBundle(
-            msg.sender, address(initialDealVerifier), address(drawResolveVerifier), address(showdownVerifier)
+    function _registerModule(
+        GameCatalog.GameMode mode,
+        address controller,
+        address engine,
+        bytes32 engineType,
+        address verifier,
+        bytes32 configHash,
+        uint16 developerRewardBps
+    ) internal returns (uint256 moduleId) {
+        moduleId = CATALOG.registerModule(
+            GameCatalog.Module({
+                mode: mode,
+                controller: controller,
+                engine: engine,
+                engineType: engineType,
+                verifier: verifier,
+                configHash: configHash,
+                developerRewardBps: developerRewardBps,
+                status: GameCatalog.ModuleStatus.LIVE
+            })
         );
-
-        SingleDraw2To7Engine pokerEngine = new SingleDraw2To7Engine(
-            address(CATALOG),
-            params.smallBlind,
-            params.bigBlind,
-            params.blindEscalationInterval,
-            params.actionWindow,
-            address(pokerVerifierBundle),
-            params.coordinator
-        );
-
-        return (address(pokerEngine), address(pokerVerifierBundle));
     }
 }
