@@ -69,13 +69,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/scuro-release/foundry-tools
-          key: beta-foundry-tools-${{ runner.os }}-${{ env.FOUNDRY_GIT_REF }}-${{ hashFiles('script/aws/build_foundry_al2023_tools.sh') }}
+          key: beta-foundry-tools-v2-${{ runner.os }}-${{ env.FOUNDRY_GIT_REF }}-${{ hashFiles('script/aws/build_foundry_al2023_tools.sh') }}
 
       - name: Build Amazon Linux Foundry tools
         if: steps.foundry-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p /tmp/scuro-release/foundry-tools
           bash script/aws/build_foundry_al2023_tools.sh /tmp/scuro-release/foundry-tools
+
+      - name: Record bundled Foundry versions
+        run: |
+          mkdir -p /tmp/scuro-release
+          cp /tmp/scuro-release/foundry-tools/foundry-versions.txt /tmp/scuro-release/foundry-tool-versions.txt
+          sed -n '1,120p' /tmp/scuro-release/foundry-tool-versions.txt
 
       - name: Build Linux bundle
         env:
@@ -170,6 +176,37 @@ jobs:
           bash script/aws/remote_wait_for_deploy_job.sh "${INSTANCE_ID}" "${DEPLOY_JOB_ID}" "${AWS_REGION}" \
             | tee /tmp/scuro-release/deploy-job.json
 
+      - name: Refresh deploy artifacts after async wait
+        if: ${{ always() && inputs.deploy_protocol && env.DEPLOY_JOB_ID != '' && env.INSTANCE_ID != '' }}
+        run: |
+          set +e
+
+          bash script/aws/remote_operator.sh "${INSTANCE_ID}" GET "/deploy-jobs/${DEPLOY_JOB_ID}" "" "${AWS_REGION}" \
+            > /tmp/scuro-release/deploy-job.refresh.json
+          deploy_status=$?
+          if [[ -s /tmp/scuro-release/deploy-job.refresh.json ]]; then
+            mv /tmp/scuro-release/deploy-job.refresh.json /tmp/scuro-release/deploy-job.json
+          else
+            rm -f /tmp/scuro-release/deploy-job.refresh.json
+          fi
+
+          bash script/aws/remote_operator.sh "${INSTANCE_ID}" GET /manifest "" "${AWS_REGION}" \
+            > /tmp/scuro-release/manifest.refresh.json
+          manifest_status=$?
+          if [[ -s /tmp/scuro-release/manifest.refresh.json ]]; then
+            mv /tmp/scuro-release/manifest.refresh.json /tmp/scuro-release/manifest.json
+          else
+            rm -f /tmp/scuro-release/manifest.refresh.json
+          fi
+
+          if [[ "${deploy_status}" -ne 0 ]]; then
+            echo "final deploy-job refresh exited ${deploy_status}" >&2
+          fi
+          if [[ "${manifest_status}" -ne 0 ]]; then
+            echo "final manifest refresh exited ${manifest_status}" >&2
+          fi
+          exit 0
+
       - name: Check manifest and actors
         if: ${{ inputs.deploy_protocol }}
         run: |
@@ -234,8 +271,7 @@ jobs:
         if: always() && env.INSTANCE_ID != ''
         run: |
           mkdir -p /tmp/scuro-release
-          bash script/aws/remote_collect_diagnostics.sh "${INSTANCE_ID}" "${AWS_REGION}" \
-            | tee /tmp/scuro-release/host-diagnostics.txt || true
+          bash script/aws/remote_collect_diagnostics.sh "${INSTANCE_ID}" "${AWS_REGION}" /tmp/scuro-release || true
 
       - name: Upload iteration artifacts
         if: always()

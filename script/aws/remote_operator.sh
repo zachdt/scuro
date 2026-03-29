@@ -28,21 +28,33 @@ URL="http://127.0.0.1:${PORT}${PATHNAME}"
 run_curl() {
   if [[ -n "${BODY_B64}" ]]; then
     printf '%s' '${BODY_B64}' | base64 -d >/tmp/scuro-operator-body.json
-    curl -sS -X "${METHOD}" -H 'Content-Type: application/json' --data-binary @/tmp/scuro-operator-body.json "\${URL}"
+    curl -sS -w '\n%{http_code}' -X "${METHOD}" -H 'Content-Type: application/json' --data-binary @/tmp/scuro-operator-body.json "\${URL}"
   else
-    curl -sS -X "${METHOD}" "\${URL}"
+    curl -sS -w '\n%{http_code}' -X "${METHOD}" "\${URL}"
   fi
 }
 
 set +e
-run_curl
+RESPONSE="\$(run_curl)"
 curl_status=\$?
 set -e
 
-if [[ "\${curl_status}" -ne 0 ]]; then
+BODY="\$(printf '%s\n' "\${RESPONSE}" | sed '\$d')"
+HTTP_STATUS="\$(printf '%s\n' "\${RESPONSE}" | tail -n1)"
+
+if [[ -n "\${BODY}" ]]; then
+  printf '%s\n' "\${BODY}"
+fi
+
+if [[ "\${curl_status}" -ne 0 || ! "\${HTTP_STATUS}" =~ ^2[0-9][0-9]\$ ]]; then
   echo "==== operator request failed ====" >&2
   echo "curl exit status: \${curl_status}" >&2
+  echo "http status: \${HTTP_STATUS}" >&2
   echo "url: \${URL}" >&2
+  if [[ -n "\${BODY}" ]]; then
+    echo "==== operator response body ====" >&2
+    printf '%s\n' "\${BODY}" >&2
+  fi
   echo "==== operator health after failure ====" >&2
   curl -sS http://127.0.0.1:${PORT}/health >&2 || true
   echo >&2
@@ -56,7 +68,10 @@ if [[ "\${curl_status}" -ne 0 ]]; then
   tail -n 160 /var/lib/scuro-testnet/deploy.log >&2 || true
   echo "==== kernel log tail ====" >&2
   journalctl -k --no-pager -n 120 >&2 || true
-  exit "\${curl_status}"
+  if [[ "\${curl_status}" -ne 0 ]]; then
+    exit "\${curl_status}"
+  fi
+  exit 1
 fi
 EOF
 )

@@ -67,7 +67,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/scuro-release/foundry-tools
-          key: beta-foundry-tools-${{ runner.os }}-${{ env.FOUNDRY_GIT_REF }}-${{ hashFiles('script/aws/build_foundry_al2023_tools.sh') }}
+          key: beta-foundry-tools-v2-${{ runner.os }}-${{ env.FOUNDRY_GIT_REF }}-${{ hashFiles('script/aws/build_foundry_al2023_tools.sh') }}
 
       - name: Build Amazon Linux Foundry tools
         if: steps.foundry-cache.outputs.cache-hit != 'true'
@@ -80,6 +80,12 @@ jobs:
           command -v bun
           bun --version
 
+      - name: Record bundled Foundry versions
+        run: |
+          mkdir -p /tmp/scuro-release
+          cp /tmp/scuro-release/foundry-tools/foundry-versions.txt /tmp/scuro-release/foundry-tool-versions.txt
+          sed -n '1,120p' /tmp/scuro-release/foundry-tool-versions.txt
+
       - name: Build Linux bundle
         env:
           SCURO_BUNDLE_FORGE_BIN: /tmp/scuro-release/foundry-tools/forge
@@ -90,11 +96,20 @@ jobs:
           mkdir -p /tmp/scuro-release
           bash script/aws/build_bundle.sh "/tmp/scuro-release/${GITHUB_SHA}.tar.gz"
 
+      - name: Preflight bundled DeployCore
+        run: |
+          bash script/aws/preflight_host_deploy.sh \
+            /tmp/scuro-release/foundry-tools \
+            /tmp/scuro-release/preflight-deploycore.log
+
       - name: Upload bundle artifact
         uses: actions/upload-artifact@v4
         with:
           name: beta-bundle
-          path: /tmp/scuro-release/${{ github.sha }}.tar.gz
+          path: |
+            /tmp/scuro-release/${{ github.sha }}.tar.gz
+            /tmp/scuro-release/foundry-tool-versions.txt
+            /tmp/scuro-release/preflight-deploycore.log
 
       - name: Write Terraform config
         run: |
@@ -277,6 +292,37 @@ jobs:
           bash script/aws/remote_wait_for_deploy_job.sh "${INSTANCE_ID}" "${DEPLOY_JOB_ID}" "${AWS_REGION}" \
             | tee /tmp/scuro-release/deploy-job.json
 
+      - name: Refresh deploy artifacts after async wait
+        if: always() && env.DEPLOY_JOB_ID != '' && env.INSTANCE_ID != ''
+        run: |
+          set +e
+
+          bash script/aws/remote_operator.sh "${INSTANCE_ID}" GET "/deploy-jobs/${DEPLOY_JOB_ID}" "" "${AWS_REGION}" \
+            > /tmp/scuro-release/deploy-job.refresh.json
+          deploy_status=$?
+          if [[ -s /tmp/scuro-release/deploy-job.refresh.json ]]; then
+            mv /tmp/scuro-release/deploy-job.refresh.json /tmp/scuro-release/deploy-job.json
+          else
+            rm -f /tmp/scuro-release/deploy-job.refresh.json
+          fi
+
+          bash script/aws/remote_operator.sh "${INSTANCE_ID}" GET /manifest "" "${AWS_REGION}" \
+            > /tmp/scuro-release/manifest.refresh.json
+          manifest_status=$?
+          if [[ -s /tmp/scuro-release/manifest.refresh.json ]]; then
+            mv /tmp/scuro-release/manifest.refresh.json /tmp/scuro-release/manifest.json
+          else
+            rm -f /tmp/scuro-release/manifest.refresh.json
+          fi
+
+          if [[ "${deploy_status}" -ne 0 ]]; then
+            echo "final deploy-job refresh exited ${deploy_status}" >&2
+          fi
+          if [[ "${manifest_status}" -ne 0 ]]; then
+            echo "final manifest refresh exited ${manifest_status}" >&2
+          fi
+          exit 0
+
       - name: Check manifest and actors
         run: |
           set -euo pipefail
@@ -354,8 +400,7 @@ jobs:
         if: always() && env.INSTANCE_ID != ''
         run: |
           mkdir -p /tmp/scuro-release
-          bash script/aws/remote_collect_diagnostics.sh "${INSTANCE_ID}" "${AWS_REGION}" \
-            | tee /tmp/scuro-release/host-diagnostics.txt || true
+          bash script/aws/remote_collect_diagnostics.sh "${INSTANCE_ID}" "${AWS_REGION}" /tmp/scuro-release || true
 
       - name: Publish release records to S3
         env:
@@ -376,6 +421,8 @@ jobs:
               "bundleUri": os.environ["BUNDLE_URI"],
               "cloudFrontDomain": os.environ["CLOUDFRONT_DOMAIN"],
               "publicRpcUrl": os.environ["PUBLIC_RPC_URL"],
+              "foundryToolVersionsKey": f"releases/{os.environ['GITHUB_SHA']}/foundry-tool-versions.txt",
+              "preflightDeployCoreKey": f"releases/{os.environ['GITHUB_SHA']}/preflight-deploycore.log",
               "deploySubmitKey": f"releases/{os.environ['GITHUB_SHA']}/deploy-submit.json",
               "deployJobKey": f"releases/{os.environ['GITHUB_SHA']}/deploy-job.json",
               "manifestKey": f"releases/{os.environ['GITHUB_SHA']}/manifest.json",
@@ -383,6 +430,11 @@ jobs:
               "publicRpcHealthKey": f"releases/{os.environ['GITHUB_SHA']}/public-rpc-health.json",
               "publicRpcBlockNumberKey": f"releases/{os.environ['GITHUB_SHA']}/public-rpc-block-number.json",
               "hostDiagnosticsKey": f"releases/{os.environ['GITHUB_SHA']}/host-diagnostics.txt",
+              "hostSystemSummaryKey": f"releases/{os.environ['GITHUB_SHA']}/host-system-summary.txt",
+              "hostDeployJobsKey": f"releases/{os.environ['GITHUB_SHA']}/host-deploy-jobs.txt",
+              "hostDeployLogKey": f"releases/{os.environ['GITHUB_SHA']}/host-deploy-log.txt",
+              "hostOperatorLogKey": f"releases/{os.environ['GITHUB_SHA']}/host-operator-log.txt",
+              "hostAnvilVersionKey": f"releases/{os.environ['GITHUB_SHA']}/host-anvil-version.txt",
           }
 
           snapshot_path = "/tmp/scuro-release/snapshot.json"
@@ -396,6 +448,8 @@ jobs:
           PY
 
           for file in \
+            foundry-tool-versions.txt \
+            preflight-deploycore.log \
             deploy-submit.json \
             deploy-job.json \
             manifest.json \
@@ -404,6 +458,18 @@ jobs:
             public-rpc-health.json \
             public-rpc-block-number.json \
             host-diagnostics.txt \
+            host-system-summary.txt \
+            host-manifest.json \
+            host-actors.json \
+            host-deploy-jobs.txt \
+            host-deploy-log.txt \
+            host-operator-log.txt \
+            host-anvil-log.txt \
+            host-worker-log.txt \
+            host-anvil-version.txt \
+            host-nginx-status.txt \
+            host-nginx-config.txt \
+            host-nginx-error.log \
             release-record.json
           do
             if [[ -f "/tmp/scuro-release/${file}" ]]; then
@@ -427,26 +493,34 @@ jobs:
       - name: Add release summary
         if: always()
         run: |
-          DEPLOY_JOB_STATUS="$(python3 - <<'PY'
+          json_field() {
+            python3 - <<'PY' "$1" "$2" "$3"
           import json
+          import sys
           from pathlib import Path
-          path = Path("/tmp/scuro-release/deploy-job.json")
+          path = Path(sys.argv[1])
+          key = sys.argv[2]
+          default = sys.argv[3]
           if not path.exists():
               print("missing")
-          else:
-              print(json.loads(path.read_text()).get("status", "unknown"))
-          PY
-          )"
-          MANIFEST_STATUS="$(python3 - <<'PY'
-          import json
-          from pathlib import Path
-          path = Path("/tmp/scuro-release/manifest.json")
-          if not path.exists():
+              raise SystemExit(0)
+          raw = path.read_text().strip()
+          if not raw:
               print("missing")
-          else:
-              print(json.loads(path.read_text()).get("deploymentStatus", "available"))
+              raise SystemExit(0)
+          try:
+              payload = json.loads(raw)
+          except json.JSONDecodeError:
+              print("missing")
+              raise SystemExit(0)
+          if not isinstance(payload, dict):
+              print("missing")
+              raise SystemExit(0)
+          print(payload.get(key, default))
           PY
-          )"
+          }
+          DEPLOY_JOB_STATUS="$(json_field /tmp/scuro-release/deploy-job.json status unknown)"
+          MANIFEST_STATUS="$(json_field /tmp/scuro-release/manifest.json deploymentStatus available)"
           PUBLIC_RPC_STATUS="not-run"
           if [[ -f /tmp/scuro-release/public-rpc-chain-id.txt ]]; then
             PUBLIC_RPC_STATUS="ready ($(cat /tmp/scuro-release/public-rpc-chain-id.txt))"
@@ -471,6 +545,8 @@ jobs:
             echo "- Host Diagnostics: \`${HOST_DIAGNOSTICS_STATUS}\`"
             echo
             echo "Artifacts:"
+            echo "- foundry-tool-versions.txt"
+            echo "- preflight-deploycore.log"
             echo "- deploy-submit.json"
             echo "- deploy-job.json"
             echo "- manifest.json"
@@ -482,5 +558,10 @@ jobs:
             echo "- public-rpc-health.json"
             echo "- public-rpc-block-number.json"
             echo "- host-diagnostics.txt"
+            echo "- host-system-summary.txt"
+            echo "- host-deploy-jobs.txt"
+            echo "- host-deploy-log.txt"
+            echo "- host-operator-log.txt"
+            echo "- host-anvil-version.txt"
             echo "- release-record.json"
           } >> "${GITHUB_STEP_SUMMARY}"

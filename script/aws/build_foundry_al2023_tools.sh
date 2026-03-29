@@ -23,28 +23,30 @@ docker run --rm \
   bash -lc "
 set -euo pipefail
 dnf install -y \
-  clang \
-  cmake \
-  gcc \
-  gcc-c++ \
-  git \
-  make \
-  openssl-devel \
-  perl-core \
-  pkgconf-pkg-config \
+  ca-certificates \
+  curl \
   tar \
   xz
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-source /root/.cargo/env
-rm -rf /tmp/foundry
-git clone --depth 1 --branch '${FOUNDRY_GIT_REF}' https://github.com/foundry-rs/foundry /tmp/foundry
-cargo install --locked --path /tmp/foundry/crates/forge --root /tmp/foundry-bin
-cargo install --locked --path /tmp/foundry/crates/cast --root /tmp/foundry-bin
-cargo install --locked --path /tmp/foundry/crates/anvil --root /tmp/foundry-bin
+FOUNDRY_VERSION=\"${FOUNDRY_GIT_REF#v}\"
+FOUNDRY_TAG=\"v${FOUNDRY_VERSION}\"
+ASSET_NAME=\"foundry_${FOUNDRY_TAG}_linux_amd64.tar.gz\"
+ASSET_URL=\"https://github.com/foundry-rs/foundry/releases/download/${FOUNDRY_TAG}/${ASSET_NAME}\"
+rm -rf /tmp/foundry /root/.svm
+mkdir -p /tmp/foundry
+curl --proto '=https' --tlsv1.2 -sSfL \"${ASSET_URL}\" -o /tmp/foundry.tar.gz
+tar -xzf /tmp/foundry.tar.gz -C /tmp/foundry
+cp /tmp/foundry/forge /out/forge
+cp /tmp/foundry/cast /out/cast
+cp /tmp/foundry/anvil /out/anvil
+chmod +x /out/forge /out/cast /out/anvil
+{
+  /out/forge --version
+  /out/cast --version
+  /out/anvil --version
+} | tee /out/foundry-versions.txt
 cd /work
-/tmp/foundry-bin/bin/forge build >/dev/null
-cp /tmp/foundry-bin/bin/forge /out/forge
-cp /tmp/foundry-bin/bin/cast /out/cast
-cp /tmp/foundry-bin/bin/anvil /out/anvil
-cp -R /root/.svm /out/svm
+PATH=\"/out:${PATH}\" /out/forge build >/dev/null
+if [[ -d /root/.svm ]]; then
+  cp -R /root/.svm /out/svm
+fi
 "

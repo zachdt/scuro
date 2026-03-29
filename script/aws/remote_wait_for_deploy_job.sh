@@ -15,9 +15,11 @@ JOB_ID="$2"
 REGION="$(resolve_region "${3:-}")"
 ATTEMPTS="${4:-120}"
 SLEEP_SECONDS="${5:-10}"
+LAST_OUTPUT=""
 
 for attempt in $(seq 1 "${ATTEMPTS}"); do
   OUTPUT="$("$(dirname "$0")/remote_operator.sh" "${INSTANCE_ID}" GET "/deploy-jobs/${JOB_ID}" "" "${REGION}")"
+  LAST_OUTPUT="${OUTPUT}"
   STATUS="$(printf '%s' "${OUTPUT}" | python3 -c 'import json, sys; print(json.load(sys.stdin).get("status", ""))')"
 
   if [[ "${STATUS}" == "completed" ]]; then
@@ -26,7 +28,8 @@ for attempt in $(seq 1 "${ATTEMPTS}"); do
   fi
 
   if [[ "${STATUS}" == "failed" ]]; then
-    printf '%s\n' "${OUTPUT}" >&2
+    printf '%s\n' "${OUTPUT}"
+    echo "deploy job ${JOB_ID} failed" >&2
     exit 1
   fi
 
@@ -34,5 +37,8 @@ for attempt in $(seq 1 "${ATTEMPTS}"); do
   sleep "${SLEEP_SECONDS}"
 done
 
+if [[ -n "${LAST_OUTPUT}" ]]; then
+  printf '%s\n' "${LAST_OUTPUT}"
+fi
 echo "deploy job ${JOB_ID} did not complete in time" >&2
 exit 1
