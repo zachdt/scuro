@@ -12,6 +12,10 @@ fi
 
 OUTPUT_DIR="$1"
 FOUNDRY_GIT_REF="${FOUNDRY_GIT_REF:-v1.5.1}"
+FOUNDRY_VERSION="${FOUNDRY_GIT_REF#v}"
+FOUNDRY_TAG="v${FOUNDRY_VERSION}"
+ASSET_NAME="foundry_${FOUNDRY_TAG}_linux_amd64.tar.gz"
+ASSET_URL="https://github.com/foundry-rs/foundry/releases/download/${FOUNDRY_TAG}/${ASSET_NAME}"
 ROOT="$(repo_root)"
 
 mkdir -p "${OUTPUT_DIR}"
@@ -27,10 +31,6 @@ dnf install -y \
   curl \
   tar \
   xz
-FOUNDRY_VERSION=\"${FOUNDRY_GIT_REF#v}\"
-FOUNDRY_TAG=\"v${FOUNDRY_VERSION}\"
-ASSET_NAME=\"foundry_${FOUNDRY_TAG}_linux_amd64.tar.gz\"
-ASSET_URL=\"https://github.com/foundry-rs/foundry/releases/download/${FOUNDRY_TAG}/${ASSET_NAME}\"
 rm -rf /tmp/foundry /root/.svm
 mkdir -p /tmp/foundry
 curl --proto '=https' --tlsv1.2 -sSfL \"${ASSET_URL}\" -o /tmp/foundry.tar.gz
