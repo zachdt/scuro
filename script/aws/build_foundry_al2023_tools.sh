@@ -28,6 +28,7 @@ docker run --rm \
 set -euo pipefail
 dnf install -y \
   ca-certificates \
+  gzip \
   tar \
   xz
 rm -rf /tmp/foundry /root/.svm
