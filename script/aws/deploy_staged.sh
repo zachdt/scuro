@@ -13,6 +13,8 @@ fi
 RPC_URL="$1"
 ROOT="$(repo_root)"
 PRIVATE_KEY="${PRIVATE_KEY:-}"
+PLAYER1_PRIVATE_KEY="${PLAYER1_PRIVATE_KEY:-}"
+PLAYER2_PRIVATE_KEY="${PLAYER2_PRIVATE_KEY:-}"
 
 if [[ -z "${PRIVATE_KEY}" ]]; then
   echo "PRIVATE_KEY is required" >&2
@@ -39,6 +41,8 @@ run_stage() {
       -u no_proxy \
       "$@" \
       PRIVATE_KEY="${PRIVATE_KEY}" \
+      PLAYER1_PRIVATE_KEY="${PLAYER1_PRIVATE_KEY}" \
+      PLAYER2_PRIVATE_KEY="${PLAYER2_PRIVATE_KEY}" \
       forge script "${target}" \
       --rpc-url "${RPC_URL}" \
       --broadcast \
@@ -58,6 +62,8 @@ run_stage() {
       -u NO_PROXY \
       -u no_proxy \
       PRIVATE_KEY="${PRIVATE_KEY}" \
+      PLAYER1_PRIVATE_KEY="${PLAYER1_PRIVATE_KEY}" \
+      PLAYER2_PRIVATE_KEY="${PLAYER2_PRIVATE_KEY}" \
       forge script "${target}" \
       --rpc-url "${RPC_URL}" \
       --broadcast \

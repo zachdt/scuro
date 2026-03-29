@@ -27,7 +27,9 @@ const DEPLOY_STAGES: DeployStage[] = [
 
 function deployEnv(config: AppConfig): Record<string, string> {
   return {
-    PRIVATE_KEY: config.adminPrivateKey
+    PRIVATE_KEY: config.adminPrivateKey,
+    PLAYER1_PRIVATE_KEY: config.player1PrivateKey,
+    PLAYER2_PRIVATE_KEY: config.player2PrivateKey
   };
 }
 

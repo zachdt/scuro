@@ -4,8 +4,10 @@ pragma solidity ^0.8.24;
 import {Script, console} from "forge-std/Script.sol";
 
 abstract contract BetaDeployCommon is Script {
-    address internal constant PLAYER1 = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
-    address internal constant PLAYER2 = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC;
+    uint256 internal constant DEFAULT_PLAYER1_PRIVATE_KEY =
+        0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d;
+    uint256 internal constant DEFAULT_PLAYER2_PRIVATE_KEY =
+        0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a;
     address internal constant SOLO_DEVELOPER = 0x90F79bf6EB2c4f870365E785982E1f101E93b906;
     address internal constant POKER_DEVELOPER = 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65;
     uint256 internal constant PLAYER_FUNDS = 10_000 ether;
@@ -17,6 +19,22 @@ abstract contract BetaDeployCommon is Script {
 
     function adminAddress() internal view returns (address) {
         return vm.addr(adminPrivateKey());
+    }
+
+    function player1PrivateKey() internal view returns (uint256) {
+        return vm.envOr("PLAYER1_PRIVATE_KEY", DEFAULT_PLAYER1_PRIVATE_KEY);
+    }
+
+    function player2PrivateKey() internal view returns (uint256) {
+        return vm.envOr("PLAYER2_PRIVATE_KEY", DEFAULT_PLAYER2_PRIVATE_KEY);
+    }
+
+    function player1Address() internal view returns (address) {
+        return vm.addr(player1PrivateKey());
+    }
+
+    function player2Address() internal view returns (address) {
+        return vm.addr(player2PrivateKey());
     }
 
     function envAddress(string memory key) internal view returns (address) {

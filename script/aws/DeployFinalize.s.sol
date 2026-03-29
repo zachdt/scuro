@@ -15,6 +15,8 @@ contract DeployFinalize is BetaDeployCommon {
     function run() external {
         uint256 deployerPrivateKey = adminPrivateKey();
         address admin = vm.addr(deployerPrivateKey);
+        address player1 = player1Address();
+        address player2 = player2Address();
         vm.startBroadcast(deployerPrivateKey);
 
         logStage("DeployFinalize");
@@ -48,9 +50,9 @@ contract DeployFinalize is BetaDeployCommon {
         expressionRegistry.transferFrom(admin, POKER_DEVELOPER, pokerExpressionTokenId);
 
         logStageAction("Finalize:MintPlayer1");
-        token.mint(PLAYER1, PLAYER_FUNDS);
+        token.mint(player1, PLAYER_FUNDS);
         logStageAction("Finalize:MintPlayer2");
-        token.mint(PLAYER2, PLAYER_FUNDS);
+        token.mint(player2, PLAYER_FUNDS);
         logStageAction("Finalize:MintAdmin");
         token.mint(admin, PLAYER_FUNDS);
         logStageAction("Finalize:MintSoloDeveloper");
@@ -77,8 +79,8 @@ contract DeployFinalize is BetaDeployCommon {
 
         logAddress("GameDeploymentFactory", address(factory));
         logAddress("Admin", admin);
-        logAddress("Player1", PLAYER1);
-        logAddress("Player2", PLAYER2);
+        logAddress("Player1", player1);
+        logAddress("Player2", player2);
         logAddress("SoloDeveloper", SOLO_DEVELOPER);
         logAddress("PokerDeveloper", POKER_DEVELOPER);
         logUint("NumberPickerExpressionTokenId", numberPickerExpressionTokenId);

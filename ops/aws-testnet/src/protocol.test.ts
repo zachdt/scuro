@@ -232,6 +232,8 @@ describe("protocol and worker-job verification", () => {
     expect(forgeCalls[5]?.args[1]).toBe("script/aws/DeployFinalize.s.sol:DeployFinalize");
     expect(forgeCalls[0]?.options?.streamOutputToPath).toBe(path.join(config.stateDir, "deploy-core.log"));
     expect(forgeCalls[0]?.args.includes("-vvvv")).toBe(false);
+    expect(forgeCalls[0]?.options?.env?.PLAYER1_PRIVATE_KEY).toBe(config.player1PrivateKey);
+    expect(forgeCalls[0]?.options?.env?.PLAYER2_PRIVATE_KEY).toBe(config.player2PrivateKey);
     expect(calls.filter((call) => call.cmd === "cast" && call.args[1] === "address")).toHaveLength(3);
     expect(calls.filter((call) => call.cmd === "cast" && call.args[3] === "anvil_setBalance")).toHaveLength(3);
     expect(manifest.deploymentStatus).toBe("completed");
