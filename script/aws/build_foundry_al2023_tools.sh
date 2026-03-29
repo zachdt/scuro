@@ -40,21 +40,39 @@ dnf install -y \
   xz
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
 source /root/.cargo/env
-rm -rf /tmp/foundry /root/.svm
+rm -rf /tmp/foundry /tmp/foundry-home /tmp/solc-bootstrap /root/.svm
 git clone --depth 1 --branch \"${FOUNDRY_TAG}\" \"${REPO_URL}\" /tmp/foundry
 cargo build --locked --release --bins --manifest-path /tmp/foundry/Cargo.toml
 cp /tmp/foundry/target/release/forge /out/forge
 cp /tmp/foundry/target/release/cast /out/cast
 cp /tmp/foundry/target/release/anvil /out/anvil
 chmod +x /out/forge /out/cast /out/anvil
+mkdir -p /tmp/foundry-home /tmp/solc-bootstrap/src
+cat >/tmp/solc-bootstrap/foundry.toml <<'EOF'
+[profile.default]
+src = \"src\"
+out = \"out\"
+solc = \"0.8.24\"
+EOF
+cat >/tmp/solc-bootstrap/src/SolcBootstrap.sol <<'EOF'
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.24;
+
+contract SolcBootstrap {}
+EOF
+HOME=/tmp/foundry-home PATH=\"/out:\${PATH}\" /out/forge build --root /tmp/solc-bootstrap >/dev/null
 {
   echo \"Requested Foundry Tag: ${FOUNDRY_TAG}\"
   echo \"Build Source: ${REPO_URL}#${FOUNDRY_TAG}\"
   /out/forge --version
   /out/cast --version
   /out/anvil --version
+  if [[ -d /tmp/foundry-home/.svm ]]; then
+    echo \"Bundled solc versions:\"
+    find /tmp/foundry-home/.svm -maxdepth 2 -type f -name 'solc-*' -print | sort
+  fi
 } | tee /out/foundry-versions.txt
-if [[ -d /root/.svm ]]; then
-  cp -R /root/.svm /out/svm
+if [[ -d /tmp/foundry-home/.svm ]]; then
+  cp -R /tmp/foundry-home/.svm /out/svm
 fi
 "
