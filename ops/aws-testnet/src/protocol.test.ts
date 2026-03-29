@@ -113,6 +113,21 @@ describe("protocol and worker-job verification", () => {
     const manifest = await deployProtocol(config, {
       async commandRunner(cmd, args, options) {
         calls.push({ cmd, args, options });
+        if (cmd === "cast" && args[0] === "wallet" && args[1] === "address") {
+          const privateKey = args[3];
+          return {
+            stdout: `${privateKey}-address\n`,
+            stderr: "",
+            exitCode: 0
+          };
+        }
+        if (cmd === "cast" && args[0] === "rpc" && args[3] === "anvil_setBalance") {
+          return {
+            stdout: "true\n",
+            stderr: "",
+            exitCode: 0
+          };
+        }
         const target = args[1];
         const stageOutputForTarget = (() => {
           if (target === "script/aws/DeployCore.s.sol:DeployCore") {
@@ -212,16 +227,30 @@ describe("protocol and worker-job verification", () => {
     expect(manifest.contracts.ScuroToken).toBe("0x1");
     expect(manifest.contracts.GameDeploymentFactory).toBe("0x16");
     expect(calls.filter((call) => call.cmd === "forge")).toHaveLength(6);
-    expect(calls[0]?.args[1]).toBe("script/aws/DeployCore.s.sol:DeployCore");
-    expect(calls[5]?.args[1]).toBe("script/aws/DeployFinalize.s.sol:DeployFinalize");
-    expect(calls[0]?.options?.streamOutputToPath).toBe(path.join(config.stateDir, "deploy-core.log"));
-    expect(calls[0]?.args.includes("-vvvv")).toBe(false);
+    const forgeCalls = calls.filter((call) => call.cmd === "forge");
+    expect(forgeCalls[0]?.args[1]).toBe("script/aws/DeployCore.s.sol:DeployCore");
+    expect(forgeCalls[5]?.args[1]).toBe("script/aws/DeployFinalize.s.sol:DeployFinalize");
+    expect(forgeCalls[0]?.options?.streamOutputToPath).toBe(path.join(config.stateDir, "deploy-core.log"));
+    expect(forgeCalls[0]?.args.includes("-vvvv")).toBe(false);
+    expect(calls.filter((call) => call.cmd === "cast" && call.args[1] === "address")).toHaveLength(3);
+    expect(calls.filter((call) => call.cmd === "cast" && call.args[3] === "anvil_setBalance")).toHaveLength(3);
     expect(manifest.deploymentStatus).toBe("completed");
     expect(manifest.deploymentStages?.every((stage) => stage.status === "completed")).toBe(true);
 
     await runPokerSmoke(config, makeManifest(), {
       async commandRunner(cmd, args, options) {
         calls.push({ cmd, args, options });
+        if (cmd === "cast" && args[0] === "wallet" && args[1] === "address") {
+          const privateKey = args[3];
+          return {
+            stdout: `${privateKey}-address\n`,
+            stderr: "",
+            exitCode: 0
+          };
+        }
+        if (cmd === "cast" && args[0] === "rpc" && args[3] === "anvil_setBalance") {
+          return { stdout: "true\n", stderr: "", exitCode: 0 };
+        }
         return { stdout: "", stderr: "", exitCode: 0 };
       }
     });
@@ -238,6 +267,16 @@ describe("protocol and worker-job verification", () => {
     await expect(
       deployProtocol(config, {
         async commandRunner(_cmd, args, options) {
+          if (_cmd === "cast" && args[0] === "wallet" && args[1] === "address") {
+            return {
+              stdout: `${args[3]}-address\n`,
+              stderr: "",
+              exitCode: 0
+            };
+          }
+          if (_cmd === "cast" && args[0] === "rpc" && args[3] === "anvil_setBalance") {
+            return { stdout: "true\n", stderr: "", exitCode: 0 };
+          }
           const target = args[1];
           if (target === "script/aws/DeployCore.s.sol:DeployCore") {
             if (options?.streamOutputToPath) {
@@ -300,7 +339,9 @@ describe("protocol and worker-job verification", () => {
       }
     });
 
-    expect(calls.filter((call) => call.cmd === "cast").length).toBe(4);
+    expect(calls.filter((call) => call.cmd === "cast" && call.args[1] === "address").length).toBe(3);
+    expect(calls.filter((call) => call.cmd === "cast" && call.args[3] === "anvil_setBalance").length).toBe(3);
+    expect(calls.filter((call) => call.cmd === "cast" && call.args.includes("approve(address,uint256)")).length).toBe(4);
 
     await exportSnapshot(config, "snap-1", {
       async commandRunner(cmd, args) {

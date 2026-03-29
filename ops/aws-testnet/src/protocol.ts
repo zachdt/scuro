@@ -9,6 +9,7 @@ import type { DeploymentManifest } from "./types";
 
 const MAX_UINT256 =
   "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+const PREALLOCATED_NATIVE_BALANCE = `0x${(10_000n * 10n ** 18n).toString(16)}`;
 
 interface DeployStage {
   name: string;
@@ -64,6 +65,45 @@ function combineStageOutput(stageOutput: string, bufferedOutput: string): string
     return normalizedBufferedOutput;
   }
   return `${normalizedStageOutput}\n${normalizedBufferedOutput}`;
+}
+
+async function privateKeyToAddress(
+  privateKey: string,
+  deps: ProtocolDeps
+): Promise<string> {
+  const result = await deps.commandRunner("cast", ["wallet", "address", "--private-key", privateKey]);
+  return result.stdout.trim();
+}
+
+async function fundAddress(
+  address: string,
+  config: AppConfig,
+  deps: ProtocolDeps
+): Promise<void> {
+  await deps.commandRunner("cast", [
+    "rpc",
+    "--rpc-url",
+    config.rpcUrl,
+    "anvil_setBalance",
+    `["${address}","${PREALLOCATED_NATIVE_BALANCE}"]`,
+    "--raw"
+  ]);
+}
+
+async function ensureFundedAccounts(
+  config: AppConfig,
+  deps: ProtocolDeps
+): Promise<void> {
+  const privateKeys = [...new Set([
+    config.adminPrivateKey,
+    config.player1PrivateKey,
+    config.player2PrivateKey
+  ])];
+
+  for (const privateKey of privateKeys) {
+    const address = await privateKeyToAddress(privateKey, deps);
+    await fundAddress(address, config, deps);
+  }
 }
 
 function smokeEnv(config: AppConfig, manifest: DeploymentManifest): Record<string, string> {
@@ -141,6 +181,7 @@ export async function deployProtocol(
 ): Promise<DeploymentManifest> {
   const deps = withProtocolDeps(depsOverrides);
   await Bun.write(config.deployLogPath, "");
+  await ensureFundedAccounts(config, deps);
   let contracts: Record<string, string> = {};
   const deploymentStages: Array<{ name: string; status: "completed" | "failed" }> = [];
 
@@ -215,6 +256,7 @@ export async function seedApprovals(
   depsOverrides: Partial<ProtocolDeps> = {}
 ): Promise<void> {
   const deps = withProtocolDeps(depsOverrides);
+  await ensureFundedAccounts(config, deps);
   const activeManifest = manifest ?? (await deps.loadManifest(config.manifestPath));
   if (!activeManifest) {
     throw notFound("manifest not found");
@@ -326,6 +368,7 @@ async function runSmokeScript(
   manifest: DeploymentManifest,
   deps: ProtocolDeps
 ): Promise<Record<string, string>> {
+  await ensureFundedAccounts(config, deps);
   await deps.commandRunner(
     "forge",
     [

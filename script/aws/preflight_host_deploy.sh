@@ -15,14 +15,16 @@ ROOT="$(repo_root)"
 RPC_PORT="${RPC_PORT:-9555}"
 RPC_URL="http://127.0.0.1:${RPC_PORT}"
 PRIVATE_KEY="${PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
+FUNDED_BALANCE_HEX="${FUNDED_BALANCE_HEX:-0x21e19e0c9bab2400000}"
 
 FORGE_BIN="${TOOLS_DIR}/forge"
 ANVIL_BIN="${TOOLS_DIR}/anvil"
+CAST_BIN="${TOOLS_DIR}/cast"
 
 require_cmd curl
 
-if [[ ! -x "${FORGE_BIN}" || ! -x "${ANVIL_BIN}" ]]; then
-  echo "expected bundled forge and anvil binaries in ${TOOLS_DIR}" >&2
+if [[ ! -x "${FORGE_BIN}" || ! -x "${ANVIL_BIN}" || ! -x "${CAST_BIN}" ]]; then
+  echo "expected bundled forge, cast, and anvil binaries in ${TOOLS_DIR}" >&2
   exit 1
 fi
 
@@ -71,6 +73,13 @@ if ! rpc_ready; then
   sed -n '1,200p' "${ANVIL_LOG}" >&2 || true
   exit 1
 fi
+
+ADMIN_ADDRESS="$("${CAST_BIN}" wallet address --private-key "${PRIVATE_KEY}")"
+"${CAST_BIN}" rpc \
+  --rpc-url "${RPC_URL}" \
+  anvil_setBalance \
+  "[\"${ADMIN_ADDRESS}\",\"${FUNDED_BALANCE_HEX}\"]" \
+  --raw >/dev/null
 
 cd "${ROOT}"
 
