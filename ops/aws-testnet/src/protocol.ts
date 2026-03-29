@@ -358,7 +358,8 @@ export async function restoreSnapshot(
     "--rpc-url",
     config.rpcUrl,
     "anvil_loadState",
-    state.trim()
+    JSON.stringify([state.trim()]),
+    "--raw"
   ]);
 
   return { snapshotName, localPath };

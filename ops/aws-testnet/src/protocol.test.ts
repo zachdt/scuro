@@ -361,6 +361,8 @@ describe("protocol and worker-job verification", () => {
 
     expect(calls.some((call) => call.args.includes("anvil_dumpState"))).toBe(true);
     expect(calls.some((call) => call.args.includes("anvil_loadState"))).toBe(true);
+    expect(calls.some((call) => call.args.includes("--raw"))).toBe(true);
+    expect(calls.some((call) => call.args.includes("[\"0xdeadbeef\"]"))).toBe(true);
     rmSync(tempDir, { recursive: true, force: true });
   });
 

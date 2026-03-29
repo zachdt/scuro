@@ -152,7 +152,7 @@ export_baseline_snapshot() {
 }
 
 restore_baseline_snapshot() {
-  cast rpc --rpc-url "${RPC_URL}" anvil_loadState "$(tr -d '\n' <"${SNAPSHOT_FILE}")" >/dev/null
+  cast rpc --rpc-url "${RPC_URL}" anvil_loadState "[\"$(tr -d '\n' <"${SNAPSHOT_FILE}")\"]" --raw >/dev/null
 }
 
 run_smoke() {
