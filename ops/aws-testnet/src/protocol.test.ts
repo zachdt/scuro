@@ -366,6 +366,24 @@ describe("protocol and worker-job verification", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
+  test("normalizes snapshot state before restoring", async () => {
+    const calls: Array<{ cmd: string; args: string[] }> = [];
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), "scuro-protocol-"));
+    const config = makeConfig(tempDir);
+    await Bun.$`mkdir -p ${config.snapshotsDir}`.quiet();
+    writeFileSync(path.join(config.snapshotsDir, "snap-1.json"), "\"deadbeef\"\n");
+
+    await restoreSnapshot(config, { name: "snap-1" }, {
+      async commandRunner(cmd, args) {
+        calls.push({ cmd, args });
+        return { stdout: "", stderr: "", exitCode: 0 };
+      }
+    });
+
+    expect(calls.some((call) => call.args.includes("[\"0xdeadbeef\"]"))).toBe(true);
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
   test("assembles fixture submission jobs and rejects live gameplay", async () => {
     const calls: Array<{ cmd: string; args: string[] }> = [];
     const tempDir = mkdtempSync(path.join(os.tmpdir(), "scuro-jobs-"));

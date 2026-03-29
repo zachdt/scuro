@@ -108,6 +108,31 @@ async function ensureFundedAccounts(
   }
 }
 
+function normalizeSnapshotState(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    throw new Error("snapshot state is empty");
+  }
+
+  let normalized = trimmed;
+  if (normalized.startsWith("\"") && normalized.endsWith("\"")) {
+    try {
+      const parsed = JSON.parse(normalized);
+      if (typeof parsed === "string" && parsed.trim()) {
+        normalized = parsed.trim();
+      }
+    } catch {
+      // Keep the raw value if it was not valid JSON.
+    }
+  }
+
+  if (!normalized.startsWith("0x")) {
+    normalized = `0x${normalized}`;
+  }
+
+  return normalized;
+}
+
 function smokeEnv(config: AppConfig, manifest: DeploymentManifest): Record<string, string> {
   return {
     PRIVATE_KEY: config.adminPrivateKey,
@@ -309,12 +334,12 @@ export async function exportSnapshot(
   const deps = withProtocolDeps(depsOverrides);
   const snapshotName = name ?? new Date().toISOString().replace(/[:.]/g, "-");
   const localPath = path.join(config.snapshotsDir, `${snapshotName}.json`);
-  const state = (await deps.commandRunner("cast", [
+  const state = normalizeSnapshotState((await deps.commandRunner("cast", [
     "rpc",
     "--rpc-url",
     config.rpcUrl,
     "anvil_dumpState"
-  ])).stdout.trim();
+  ])).stdout);
 
   await Bun.write(localPath, state + "\n");
 
@@ -352,13 +377,13 @@ export async function restoreSnapshot(
     ]);
   }
 
-  const state = await Bun.file(localPath).text();
+  const state = normalizeSnapshotState(await Bun.file(localPath).text());
   await deps.commandRunner("cast", [
     "rpc",
     "--rpc-url",
     config.rpcUrl,
     "anvil_loadState",
-    JSON.stringify([state.trim()]),
+    JSON.stringify([state]),
     "--raw"
   ]);
 
