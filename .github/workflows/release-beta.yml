@@ -80,18 +80,33 @@ jobs:
           command -v bun
           bun --version
 
-      - name: Record bundled Foundry versions
+      - name: Assemble and verify bundled host tools
         run: |
           mkdir -p /tmp/scuro-release
-          cp /tmp/scuro-release/foundry-tools/foundry-versions.txt /tmp/scuro-release/foundry-tool-versions.txt
+          mkdir -p /tmp/scuro-release/host-tools/bin
+          cp "$(command -v bun)" /tmp/scuro-release/host-tools/bin/bun
+          cp /tmp/scuro-release/foundry-tools/forge /tmp/scuro-release/host-tools/bin/forge
+          cp /tmp/scuro-release/foundry-tools/cast /tmp/scuro-release/host-tools/bin/cast
+          cp /tmp/scuro-release/foundry-tools/anvil /tmp/scuro-release/host-tools/bin/anvil
+          if [[ -d /tmp/scuro-release/foundry-tools/svm ]]; then
+            cp -R /tmp/scuro-release/foundry-tools/svm /tmp/scuro-release/host-tools/svm
+          fi
+          {
+            echo "Bundled bun source: $(command -v bun)"
+            echo
+            sed -n '1,120p' /tmp/scuro-release/foundry-tools/foundry-versions.txt
+            echo
+            bash script/aws/verify_host_tools_al2023.sh /tmp/scuro-release/host-tools
+          } | tee /tmp/scuro-release/foundry-tool-versions.txt
           sed -n '1,120p' /tmp/scuro-release/foundry-tool-versions.txt
 
       - name: Build Linux bundle
         env:
-          SCURO_BUNDLE_FORGE_BIN: /tmp/scuro-release/foundry-tools/forge
-          SCURO_BUNDLE_CAST_BIN: /tmp/scuro-release/foundry-tools/cast
-          SCURO_BUNDLE_ANVIL_BIN: /tmp/scuro-release/foundry-tools/anvil
-          SCURO_BUNDLE_SVM_DIR: /tmp/scuro-release/foundry-tools/svm
+          SCURO_BUNDLE_BUN_BIN: /tmp/scuro-release/host-tools/bin/bun
+          SCURO_BUNDLE_FORGE_BIN: /tmp/scuro-release/host-tools/bin/forge
+          SCURO_BUNDLE_CAST_BIN: /tmp/scuro-release/host-tools/bin/cast
+          SCURO_BUNDLE_ANVIL_BIN: /tmp/scuro-release/host-tools/bin/anvil
+          SCURO_BUNDLE_SVM_DIR: /tmp/scuro-release/host-tools/svm
         run: |
           mkdir -p /tmp/scuro-release
           bash script/aws/build_bundle.sh "/tmp/scuro-release/${GITHUB_SHA}.tar.gz"
