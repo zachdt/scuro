@@ -235,10 +235,22 @@ jobs:
         if: ${{ inputs.run_smokes }}
         run: |
           set -euo pipefail
+          SMOKE_BASELINE_NAME="beta-smoke-baseline-${GITHUB_SHA:0:12}"
+          bash script/aws/remote_snapshot_export.sh "${INSTANCE_ID}" "${SMOKE_BASELINE_NAME}" "${AWS_REGION}" \
+            | tee /tmp/scuro-release/smoke-baseline.json
+
+          bash script/aws/remote_snapshot_restore.sh "${INSTANCE_ID}" "${SMOKE_BASELINE_NAME}" "${AWS_REGION}" \
+            | tee /tmp/scuro-release/smoke-number-picker-restore.json
           bash script/aws/remote_smoke.sh "${INSTANCE_ID}" number-picker "${AWS_REGION}" \
             | tee /tmp/scuro-release/smoke-number-picker.json
+
+          bash script/aws/remote_snapshot_restore.sh "${INSTANCE_ID}" "${SMOKE_BASELINE_NAME}" "${AWS_REGION}" \
+            | tee /tmp/scuro-release/smoke-poker-restore.json
           bash script/aws/remote_smoke.sh "${INSTANCE_ID}" poker "${AWS_REGION}" \
             | tee /tmp/scuro-release/smoke-poker.json
+
+          bash script/aws/remote_snapshot_restore.sh "${INSTANCE_ID}" "${SMOKE_BASELINE_NAME}" "${AWS_REGION}" \
+            | tee /tmp/scuro-release/smoke-blackjack-restore.json
           bash script/aws/remote_smoke.sh "${INSTANCE_ID}" blackjack "${AWS_REGION}" \
             | tee /tmp/scuro-release/smoke-blackjack.json
 

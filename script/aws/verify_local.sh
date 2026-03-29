@@ -6,6 +6,7 @@ source "$(dirname "$0")/lib/common.sh"
 require_cmd bun
 require_cmd forge
 require_cmd anvil
+require_cmd cast
 require_cmd curl
 require_cmd bash
 
@@ -18,22 +19,23 @@ PLAYER1_KEY="${PLAYER1_PRIVATE_KEY:-0x59c6995e998f97a5a0044966f0945389dc9e86dae8
 PLAYER2_KEY="${PLAYER2_PRIVATE_KEY:-0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a}"
 ANVIL_LOG="$(mktemp)"
 DEPLOY_LOG="$(mktemp)"
+SNAPSHOT_FILE="$(mktemp)"
 
 cleanup() {
   if [[ -n "${ANVIL_PID:-}" ]]; then
     kill "${ANVIL_PID}" >/dev/null 2>&1 || true
   fi
-  rm -f "${ANVIL_LOG}" "${DEPLOY_LOG}"
+  rm -f "${ANVIL_LOG}" "${DEPLOY_LOG}" "${SNAPSHOT_FILE}"
 }
 trap cleanup EXIT
 
 mkdir -p "${STATE_DIR}"
 
-echo "[1/5] Bun check + tests"
+echo "[1/6] Bun check + tests"
 bun run --cwd "${ROOT}/ops/aws-testnet" check
 bun test --cwd "${ROOT}/ops/aws-testnet"
 
-echo "[2/5] Targeted forge build for AWS scripts"
+echo "[2/6] Targeted forge build for AWS scripts"
 cd "${ROOT}"
 forge build \
   script/aws/BetaDeployCommon.s.sol \
@@ -54,10 +56,10 @@ forge build \
   script/aws/SubmitBlackjackAction.s.sol \
   script/aws/SubmitBlackjackShowdown.s.sol
 
-echo "[3/5] Focused forge tests"
+echo "[3/6] Focused forge tests"
 forge test --match-path 'test/aws/*.t.sol' --offline
 
-echo "[4/5] Start Anvil"
+echo "[4/6] Start Anvil"
 anvil --port "${RPC_PORT}" --disable-code-size-limit --gas-limit 100000000 >"${ANVIL_LOG}" 2>&1 &
 ANVIL_PID=$!
 
@@ -77,6 +79,7 @@ done
 
 if ! rpc_ready; then
   echo "anvil did not start; falling back to in-process forge smoke verification"
+  echo "workflow-parity snapshot isolation was not exercised in this fallback path"
   forge test --match-path 'test/aws/LocalSmokeFallback.t.sol' --offline
   echo "local verification passed (forge smoke fallback)"
   exit 0
@@ -89,7 +92,10 @@ extract_value() {
 
 deploy_stack() {
   : >"${DEPLOY_LOG}"
-  PRIVATE_KEY="${ADMIN_KEY}" bash "${ROOT}/script/aws/deploy_staged.sh" "${RPC_URL}" \
+  PRIVATE_KEY="${ADMIN_KEY}" \
+    PLAYER1_PRIVATE_KEY="${PLAYER1_KEY}" \
+    PLAYER2_PRIVATE_KEY="${PLAYER2_KEY}" \
+    bash "${ROOT}/script/aws/deploy_staged.sh" "${RPC_URL}" \
     2>&1 | tee "${DEPLOY_LOG}" >/dev/null
 
   SCURO_TOKEN="$(extract_value ScuroToken)"
@@ -141,23 +147,45 @@ reset_chain() {
     "${RPC_URL}" >/dev/null
 }
 
-echo "[5/5] Local Anvil smoke passes"
-reset_chain
-deploy_stack
-PRIVATE_KEY="${ADMIN_KEY}" PLAYER1_PRIVATE_KEY="${PLAYER1_KEY}" PLAYER2_PRIVATE_KEY="${PLAYER2_KEY}" \
-  forge script script/aws/SmokeNumberPicker.s.sol:SmokeNumberPicker \
-  --rpc-url "${RPC_URL}" --broadcast --offline --skip-simulation --non-interactive --disable-code-size-limit >/dev/null
+export_baseline_snapshot() {
+  cast rpc --rpc-url "${RPC_URL}" anvil_dumpState >"${SNAPSHOT_FILE}"
+}
 
-reset_chain
-deploy_stack
-PRIVATE_KEY="${ADMIN_KEY}" PLAYER1_PRIVATE_KEY="${PLAYER1_KEY}" PLAYER2_PRIVATE_KEY="${PLAYER2_KEY}" \
-  forge script script/aws/SmokePokerFixture.s.sol:SmokePokerFixture \
-  --rpc-url "${RPC_URL}" --broadcast --offline --skip-simulation --non-interactive --disable-code-size-limit >/dev/null
+restore_baseline_snapshot() {
+  cast rpc --rpc-url "${RPC_URL}" anvil_loadState "$(tr -d '\n' <"${SNAPSHOT_FILE}")" >/dev/null
+}
 
+run_smoke() {
+  local target="$1"
+  PRIVATE_KEY="${ADMIN_KEY}" PLAYER1_PRIVATE_KEY="${PLAYER1_KEY}" PLAYER2_PRIVATE_KEY="${PLAYER2_KEY}" \
+    forge script "${target}" \
+      --rpc-url "${RPC_URL}" \
+      --broadcast \
+      --offline \
+      --skip-simulation \
+      --non-interactive \
+      --disable-code-size-limit >/dev/null
+}
+
+echo "[5/6] Reproduce shared-state smoke coupling"
 reset_chain
 deploy_stack
-PRIVATE_KEY="${ADMIN_KEY}" PLAYER1_PRIVATE_KEY="${PLAYER1_KEY}" PLAYER2_PRIVATE_KEY="${PLAYER2_KEY}" \
-  forge script script/aws/SmokeBlackjackFixture.s.sol:SmokeBlackjackFixture \
-  --rpc-url "${RPC_URL}" --broadcast --offline --skip-simulation --non-interactive --disable-code-size-limit >/dev/null
+export_baseline_snapshot
+run_smoke "script/aws/SmokeNumberPicker.s.sol:SmokeNumberPicker"
+
+if run_smoke "script/aws/SmokePokerFixture.s.sol:SmokePokerFixture"; then
+  echo "expected poker smoke to fail after number-picker without restoring baseline state" >&2
+  exit 1
+fi
+
+echo "[6/6] Workflow-parity smoke isolation passes"
+restore_baseline_snapshot
+run_smoke "script/aws/SmokeNumberPicker.s.sol:SmokeNumberPicker"
+
+restore_baseline_snapshot
+run_smoke "script/aws/SmokePokerFixture.s.sol:SmokePokerFixture"
+
+restore_baseline_snapshot
+run_smoke "script/aws/SmokeBlackjackFixture.s.sol:SmokeBlackjackFixture"
 
 echo "local verification passed"
