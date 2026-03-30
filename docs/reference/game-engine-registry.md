@@ -1,51 +1,25 @@
 # GameEngineRegistry
 
-## Purpose
+## Status
 
-`GameEngineRegistry` is an alternate engine-centric registry that stores engine metadata and capability flags. It is currently not the primary launch/settlement gate, but it remains part of the protocol surface.
+`GameEngineRegistry` is deprecated and is not part of the canonical beta release surface.
 
-## Caller Model
+SDK, frontend, and indexer integrations should not depend on it for discovery, settlement authorization, or release manifests.
 
-- Governance or admin tooling writes metadata
-- Clients may read capability flags and developer reward config
+## Replacement Surfaces
 
-## Roles And Permissions
+- Use `GameCatalog` as the canonical registry for deployed controller/engine/verifier bundles, lifecycle status, and reward-bps metadata.
+- Use `DeveloperExpressionRegistry` for expression compatibility keyed by `engineType`.
+- Use the beta release `manifest.json` and `actors.json` as the published integration handoff for deployed addresses.
 
-- `DEFAULT_ADMIN_ROLE`
-- `REGISTRAR_ROLE`
+## Why It Was Deprecated
 
-## Constructor And Config
+- The live protocol path does not read from `GameEngineRegistry`.
+- `GameCatalog` already stores the engine-centric metadata the runtime actually uses.
+- Keeping both registries active creates overlapping sources of truth for engine metadata.
 
-- `constructor(admin)` grants both roles to `admin`
+## Migration Guidance
 
-## Public API
-
-- `registerEngine(engine, metadata)`
-- `setEngineActive(engine, active)`
-- `getEngineMetadata(engine)`
-- `isActive(engine)`
-- `isRegisteredForTournament(engine)`
-- `isRegisteredForPvP(engine)`
-- `isRegisteredForSolo(engine)`
-- `getDeveloperRewardConfig(engine)`
-
-## Events
-
-- `EngineRegistered`
-- `EngineDeactivated`
-
-## State And Lifecycle Notes
-
-- Engines must start active
-- Capability flags are explicit booleans, not derived from engine type
-
-## Revert Conditions
-
-- Zero engine address
-- Zero engine type
-- Invalid `developerRewardBps`
-- Unknown engine on update or guarded reads
-
-## Test Anchors
-
-- Not currently covered by the shipped E2E matrix; treat as a documented but secondary surface
+- Prefer `GameCatalog.getModuleByEngine(engine)` for verifier, config hash, module status, and reward-bps reads.
+- Prefer `GameCatalog.isLaunchableEngine(engine)` and `GameCatalog.isSettlableEngine(engine)` for lifecycle gating.
+- Prefer `DeveloperExpressionRegistry.isExpressionCompatible(engineType, expressionTokenId)` for expression compatibility checks.

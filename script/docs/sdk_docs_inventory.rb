@@ -6,7 +6,6 @@ module SdkDocsInventory
       ["ProtocolSettlement", "src/ProtocolSettlement.sol", "docs/reference/protocol-settlement.md", "core"],
       ["GameCatalog", "src/GameCatalog.sol", "docs/reference/game-catalog.md", "core"],
       ["GameDeploymentFactory", "src/GameDeploymentFactory.sol", "docs/reference/game-deployment-factory.md", "core"],
-      ["GameEngineRegistry", "src/GameEngineRegistry.sol", "docs/reference/game-engine-registry.md", "core"],
       ["DeveloperExpressionRegistry", "src/DeveloperExpressionRegistry.sol", "docs/reference/developer-expression-registry.md", "economics"],
       ["DeveloperRewards", "src/DeveloperRewards.sol", "docs/reference/developer-rewards.md", "economics"],
       ["ScuroToken", "src/ScuroToken.sol", "docs/reference/scuro-token.md", "economics"],

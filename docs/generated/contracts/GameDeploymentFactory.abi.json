@@ -16,6 +16,26 @@
         "name": "settlementAddress",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "soloModuleDeployer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "blackjackModuleDeployer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "pokerModuleDeployer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "cheminDeFerModuleDeployer",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"

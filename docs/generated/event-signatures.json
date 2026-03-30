@@ -65,33 +65,6 @@
       "anonymous": false
     }
   ],
-  "GameEngineRegistry": [
-    {
-      "name": "EngineDeactivated",
-      "signature": "EngineDeactivated(address,bool)",
-      "anonymous": false
-    },
-    {
-      "name": "EngineRegistered",
-      "signature": "EngineRegistered(address,bytes32,uint16)",
-      "anonymous": false
-    },
-    {
-      "name": "RoleAdminChanged",
-      "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
-      "anonymous": false
-    },
-    {
-      "name": "RoleGranted",
-      "signature": "RoleGranted(bytes32,address,address)",
-      "anonymous": false
-    },
-    {
-      "name": "RoleRevoked",
-      "signature": "RoleRevoked(bytes32,address,address)",
-      "anonymous": false
-    }
-  ],
   "DeveloperExpressionRegistry": [
     {
       "name": "Approval",

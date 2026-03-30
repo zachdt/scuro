@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
 
+/// @dev Deprecated: this registry is not part of the canonical beta release surface.
+/// Use GameCatalog for engine/module lifecycle and DeveloperExpressionRegistry for expression compatibility.
 contract GameEngineRegistry is AccessControl {
     bytes32 public constant REGISTRAR_ROLE = keccak256("REGISTRAR_ROLE");
 

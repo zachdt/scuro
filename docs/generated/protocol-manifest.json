@@ -65,28 +65,6 @@
       ]
     },
     {
-      "name": "GameEngineRegistry",
-      "category": "core",
-      "source": "src/GameEngineRegistry.sol",
-      "artifact": "out/GameEngineRegistry.sol/GameEngineRegistry.json",
-      "reference_doc": "docs/reference/game-engine-registry.md",
-      "abi_path": "docs/generated/contracts/GameEngineRegistry.abi.json",
-      "functions": [
-        "getDeveloperRewardConfig",
-        "getEngineMetadata",
-        "isActive",
-        "isRegisteredForPvP",
-        "isRegisteredForSolo",
-        "isRegisteredForTournament",
-        "registerEngine",
-        "setEngineActive"
-      ],
-      "events": [
-        "EngineDeactivated",
-        "EngineRegistered"
-      ]
-    },
-    {
       "name": "DeveloperExpressionRegistry",
       "category": "economics",
       "source": "src/DeveloperExpressionRegistry.sol",

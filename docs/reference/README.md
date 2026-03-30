@@ -7,7 +7,6 @@ These pages are the contract-by-contract source of truth for SDK authors. Each p
 - [ProtocolSettlement](./protocol-settlement.md)
 - [GameCatalog](./game-catalog.md)
 - [GameDeploymentFactory](./game-deployment-factory.md)
-- [GameEngineRegistry](./game-engine-registry.md)
 
 ## Economics And Governance
 
