@@ -161,13 +161,43 @@ function smokeEnv(config: AppConfig, manifest: DeploymentManifest): Record<strin
 
 export interface ProtocolDeps {
   commandRunner: CommandRunner;
+  rpcRequest: (config: AppConfig, method: string, params: unknown[]) => Promise<unknown>;
   loadManifest: typeof loadManifest;
   writeManifest: typeof writeManifest;
+}
+
+async function defaultRpcRequest(
+  config: AppConfig,
+  method: string,
+  params: unknown[]
+): Promise<unknown> {
+  const response = await fetch(config.rpcUrl, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  const payload = await response.json() as { result?: unknown; error?: unknown };
+  if (!response.ok) {
+    throw new Error(`rpc request failed: ${method} (${response.status})`);
+  }
+  if ("error" in payload && payload.error !== undefined) {
+    throw new Error(`rpc request failed: ${method}\n${JSON.stringify(payload.error)}`);
+  }
+  return payload.result;
 }
 
 function withProtocolDeps(overrides: Partial<ProtocolDeps> = {}): ProtocolDeps {
   return {
     commandRunner: runCommand,
+    rpcRequest: defaultRpcRequest,
     loadManifest,
     writeManifest,
     ...overrides
@@ -334,12 +364,7 @@ export async function exportSnapshot(
   const deps = withProtocolDeps(depsOverrides);
   const snapshotName = name ?? new Date().toISOString().replace(/[:.]/g, "-");
   const localPath = path.join(config.snapshotsDir, `${snapshotName}.json`);
-  const state = normalizeSnapshotState((await deps.commandRunner("cast", [
-    "rpc",
-    "--rpc-url",
-    config.rpcUrl,
-    "anvil_dumpState"
-  ])).stdout);
+  const state = normalizeSnapshotState(String(await deps.rpcRequest(config, "anvil_dumpState", [])));
 
   await Bun.write(localPath, state + "\n");
 
@@ -378,14 +403,7 @@ export async function restoreSnapshot(
   }
 
   const state = normalizeSnapshotState(await Bun.file(localPath).text());
-  await deps.commandRunner("cast", [
-    "rpc",
-    "--rpc-url",
-    config.rpcUrl,
-    "anvil_loadState",
-    JSON.stringify([state]),
-    "--raw"
-  ]);
+  await deps.rpcRequest(config, "anvil_loadState", [state]);
 
   return { snapshotName, localPath };
 }

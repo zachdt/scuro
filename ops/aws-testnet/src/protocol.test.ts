@@ -331,6 +331,7 @@ describe("protocol and worker-job verification", () => {
 
   test("assembles approval and snapshot commands", async () => {
     const calls: Array<{ cmd: string; args: string[] }> = [];
+    const rpcCalls: Array<{ method: string; params: unknown[] }> = [];
     const tempDir = mkdtempSync(path.join(os.tmpdir(), "scuro-protocol-"));
     const config = makeConfig(tempDir);
     await Bun.$`mkdir -p ${config.snapshotsDir}`.quiet();
@@ -346,6 +347,10 @@ describe("protocol and worker-job verification", () => {
     expect(calls.filter((call) => call.cmd === "cast" && call.args.includes("approve(address,uint256)")).length).toBe(4);
 
     await exportSnapshot(config, "snap-1", {
+      async rpcRequest(_config, method, params) {
+        rpcCalls.push({ method, params });
+        return "0xdeadbeef";
+      },
       async commandRunner(cmd, args) {
         calls.push({ cmd, args });
         return { stdout: "0xdeadbeef", stderr: "", exitCode: 0 };
@@ -353,34 +358,40 @@ describe("protocol and worker-job verification", () => {
     });
     writeFileSync(path.join(config.snapshotsDir, "snap-1.json"), "0xdeadbeef\n");
     await restoreSnapshot(config, { name: "snap-1" }, {
+      async rpcRequest(_config, method, params) {
+        rpcCalls.push({ method, params });
+        return null;
+      },
       async commandRunner(cmd, args) {
         calls.push({ cmd, args });
         return { stdout: "", stderr: "", exitCode: 0 };
       }
     });
 
-    expect(calls.some((call) => call.args.includes("anvil_dumpState"))).toBe(true);
-    expect(calls.some((call) => call.args.includes("anvil_loadState"))).toBe(true);
-    expect(calls.some((call) => call.args.includes("--raw"))).toBe(true);
-    expect(calls.some((call) => call.args.includes("[\"0xdeadbeef\"]"))).toBe(true);
+    expect(rpcCalls).toEqual([
+      { method: "anvil_dumpState", params: [] },
+      { method: "anvil_loadState", params: ["0xdeadbeef"] }
+    ]);
     rmSync(tempDir, { recursive: true, force: true });
   });
 
   test("normalizes snapshot state before restoring", async () => {
-    const calls: Array<{ cmd: string; args: string[] }> = [];
+    const rpcCalls: Array<{ method: string; params: unknown[] }> = [];
     const tempDir = mkdtempSync(path.join(os.tmpdir(), "scuro-protocol-"));
     const config = makeConfig(tempDir);
     await Bun.$`mkdir -p ${config.snapshotsDir}`.quiet();
     writeFileSync(path.join(config.snapshotsDir, "snap-1.json"), "\"deadbeef\"\n");
 
     await restoreSnapshot(config, { name: "snap-1" }, {
-      async commandRunner(cmd, args) {
-        calls.push({ cmd, args });
-        return { stdout: "", stderr: "", exitCode: 0 };
+      async rpcRequest(_config, method, params) {
+        rpcCalls.push({ method, params });
+        return null;
       }
     });
 
-    expect(calls.some((call) => call.args.includes("[\"0xdeadbeef\"]"))).toBe(true);
+    expect(rpcCalls).toEqual([
+      { method: "anvil_loadState", params: ["0xdeadbeef"] }
+    ]);
     rmSync(tempDir, { recursive: true, force: true });
   });
 
