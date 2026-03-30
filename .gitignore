@@ -16,6 +16,7 @@
 /zk/**/*.r1cs
 /zk/**/*.wasm
 /.scuro-testnet/
+/.codex-tmp/
 /infra/aws/testnet/.terraform/
 /infra/aws/testnet/*.tfstate
 /infra/aws/testnet/*.tfstate.*
