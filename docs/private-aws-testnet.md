@@ -159,6 +159,56 @@ This guide covers the new private AWS-hosted Scuro testnet runtime added under:
 - SDK assumptions based on this beta:
 ```
 
+## Beta Release Handoff (2026-03-30)
+
+This is the first successful `release-beta.yml` run with the full beta workflow enabled. Treat it as the handoff point between the `scuro-sdk` team and the platform teams (`frontend`, `indexer`, `auth`) ahead of the first tagged beta release.
+
+- Workflow run: [Release Beta #23722592085](https://github.com/zachdt/scuro/actions/runs/23722592085)
+- Git SHA: `3aa323990fbb7c16341393655e162c46401825fd`
+- AWS region: `us-east-1`
+- Stack name: `scuro-testnet-beta`
+- Instance ID: `i-0effcfe43055983e7`
+- Public RPC URL: `https://d1eu0nzcw8l9ul.cloudfront.net`
+- Public RPC chain ID: `31337` (`0x7a69`)
+- Bundle URI: `s3://scuro-testnet-beta-artifacts-20260328225139708000000001/bundles/3aa323990fbb7c16341393655e162c46401825fd.tar.gz`
+- Snapshot: `beta-3aa323990fbb`
+- Snapshot S3 path: `s3://scuro-testnet-beta-artifacts-20260328225139708000000001/snapshots/beta-3aa323990fbb.json`
+
+### Validation Summary
+
+- Protocol deploy completed all stages: `core`, `number-picker`, `poker-tournament`, `poker-pvp`, `blackjack`, `finalize`
+- `smoke-number-picker`, `smoke-poker`, and `smoke-blackjack` all completed successfully
+- Release snapshot export succeeded
+- Public RPC chain ID and block-number checks succeeded
+- Release records were published to S3 for downstream consumers
+
+### Canonical Release Artifacts
+
+Use the S3 release record for all downstream integration and release-tag prep:
+
+- `s3://scuro-testnet-beta-artifacts-20260328225139708000000001/releases/latest.json`
+- `s3://scuro-testnet-beta-artifacts-20260328225139708000000001/releases/3aa323990fbb7c16341393655e162c46401825fd/manifest.json`
+- `s3://scuro-testnet-beta-artifacts-20260328225139708000000001/releases/3aa323990fbb7c16341393655e162c46401825fd/actors.json`
+- `s3://scuro-testnet-beta-artifacts-20260328225139708000000001/releases/3aa323990fbb7c16341393655e162c46401825fd/release-record.json`
+
+The release manifest is the source of truth for deployed contract addresses, actor roles, expression token IDs, and AWS/runtime metadata for this beta.
+
+### Team Handoff
+
+- `scuro-sdk`: use the release `manifest.json` and `actors.json` as the canonical config for chain ID, contract addresses, actor identities, and expression token IDs. This is the release candidate baseline to prepare for tagging.
+- `frontend`: integrate against the public RPC URL only. Operator/admin routes remain private. Use manifest addresses for Number Picker, Poker, Blackjack, token balances, settlement, rewards, and catalog-driven discovery.
+- `indexer`: index from chain ID `31337` using the public RPC endpoint and current manifest addresses. Prioritize protocol events emitted by token contracts, `GameCatalog`, controllers, engines, settlement, developer rewards, and expression registry flows.
+- `auth`: no public end-user auth system ships as part of this beta release. Runtime actor keys are still operator-managed environment credentials and should not be treated as a user-facing auth model.
+
+### Current Beta Scope
+
+- Public JSON-RPC is available through CloudFront
+- Operator APIs stay private behind the host
+- Queue mode is currently `file`
+- Poker and Blackjack are validated through fixture-backed smoke coverage in this release workflow
+
+If we tag from this line, platform work should anchor on the published release record rather than ad hoc workflow artifacts or local manifests.
+
 ## AWS Prerequisites
 
 - Create the Terraform backend before enabling GitHub applies.
