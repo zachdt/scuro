@@ -403,6 +403,7 @@ export async function restoreSnapshot(
   }
 
   const state = normalizeSnapshotState(await Bun.file(localPath).text());
+  await deps.rpcRequest(config, "anvil_reset", []);
   await deps.rpcRequest(config, "anvil_loadState", [state]);
 
   return { snapshotName, localPath };

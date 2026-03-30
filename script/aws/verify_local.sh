@@ -163,6 +163,7 @@ normalize_snapshot_state() {
 }
 
 restore_baseline_snapshot() {
+  cast rpc --rpc-url "${RPC_URL}" anvil_reset >/dev/null
   cast rpc --rpc-url "${RPC_URL}" anvil_loadState "[\"$(normalize_snapshot_state)\"]" --raw >/dev/null
 }
 

@@ -370,6 +370,7 @@ describe("protocol and worker-job verification", () => {
 
     expect(rpcCalls).toEqual([
       { method: "anvil_dumpState", params: [] },
+      { method: "anvil_reset", params: [] },
       { method: "anvil_loadState", params: ["0xdeadbeef"] }
     ]);
     rmSync(tempDir, { recursive: true, force: true });
@@ -390,6 +391,7 @@ describe("protocol and worker-job verification", () => {
     });
 
     expect(rpcCalls).toEqual([
+      { method: "anvil_reset", params: [] },
       { method: "anvil_loadState", params: ["0xdeadbeef"] }
     ]);
     rmSync(tempDir, { recursive: true, force: true });
