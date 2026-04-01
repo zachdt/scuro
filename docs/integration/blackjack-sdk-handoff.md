@@ -1,11 +1,11 @@
-# Blackjack V2 SDK Handoff
+# Blackjack SDK Handoff
 
-This handoff covers the breaking blackjack-module upgrade that moves suit-aware blackjack semantics into the proof system and on-chain session state.
+This handoff covers the canonical blackjack proof and engine surface. Suit-aware blackjack semantics now live in the proof system and on-chain session state, and SDK/frontend integrations should treat this shape as the only supported blackjack flow.
 
-## Release Marker
+## Config Marker
 
-- New blackjack config hash label: `single-deck-blackjack-zk-v2`
-- Frontends and SDKs should treat this as a new blackjack module version, not an in-place patch on the old config
+- Blackjack config hash label: `single-deck-blackjack-zk-v2`
+- Frontends and SDKs should route module compatibility off this config hash and the current manifest/ABI surface
 
 ## Card Proxy Encoding
 
@@ -75,12 +75,12 @@ The important behavior change is that payout classes, action masks, and revealed
   - shared card-proxy decoding (`rank`, `suit`, sentinel handling)
   - grouping flattened `playerCards` into visible per-hand arrays using `hands[].cardCount`
 - Update coordinator proof-provider typings for the expanded blackjack proof args
-- Route module compatibility off the new config hash label `single-deck-blackjack-zk-v2`
+- Route module compatibility off the blackjack config hash label `single-deck-blackjack-zk-v2`
 
 ## SDK Team Checklist
 
 - Update generated contract bindings for `SingleDeckBlackjackEngine`
-- Update manifest/config-hash handling for blackjack v2
+- Update manifest/config-hash handling for the current blackjack module
 - Add a typed `BlackjackHandPayoutKind` decode surface
 - Add a typed `dealerRevealMask` decode surface
 - Add helpers to convert flattened blackjack card arrays into per-hand UI groups

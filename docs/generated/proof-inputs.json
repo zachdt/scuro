@@ -39,6 +39,7 @@
     "playerCiphertextRef",
     "dealerCiphertextRef",
     "dealerUpValue",
+    "baseWager",
     "handCount",
     "activeHandIndex",
     "payout",
@@ -46,7 +47,12 @@
     "handValues",
     "softMask",
     "handStatuses",
-    "allowedActionMasks"
+    "allowedActionMasks",
+    "handCardCounts",
+    "handPayoutKinds",
+    "playerCards",
+    "dealerCards",
+    "dealerRevealMask"
   ],
   "IBlackjackVerifierBundle.ActionPublicInputs": [
     "sessionId",
@@ -65,7 +71,12 @@
     "handValues",
     "softMask",
     "handStatuses",
-    "allowedActionMasks"
+    "allowedActionMasks",
+    "handCardCounts",
+    "handPayoutKinds",
+    "playerCards",
+    "dealerCards",
+    "dealerRevealMask"
   ],
   "IBlackjackVerifierBundle.ShowdownPublicInputs": [
     "sessionId",
@@ -76,6 +87,13 @@
     "dealerFinalValue",
     "handCount",
     "activeHandIndex",
-    "handStatuses"
+    "handStatuses",
+    "handValues",
+    "handWagers",
+    "handCardCounts",
+    "handPayoutKinds",
+    "playerCards",
+    "dealerCards",
+    "dealerRevealMask"
   ]
 }

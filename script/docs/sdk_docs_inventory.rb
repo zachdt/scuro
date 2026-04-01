@@ -1,5 +1,6 @@
 module SdkDocsInventory
   module_function
+  ROOT = File.expand_path("../..", __dir__)
 
   def entries
     @entries ||= [
@@ -55,6 +56,7 @@ module SdkDocsInventory
         "4" => "ALLOW_DOUBLE",
         "8" => "ALLOW_SPLIT"
       },
+      "SingleDeckBlackjackEngine.HandPayoutKind" => blackjack_payout_kind_labels,
       "SingleDraw2To7Engine.MatchState" => { "0" => "Inactive", "1" => "Active", "2" => "Completed" },
       "SingleDraw2To7Engine.HandPhase" => {
         "0" => "None",
@@ -70,32 +72,11 @@ module SdkDocsInventory
   end
 
   def proof_inputs
-    {
-      "IPokerVerifierBundle.InitialDealPublicInputs" => %w[
-        gameId handNumber handNonce deckCommitment handCommitments encryptionKeyCommitments ciphertextRefs
-      ],
-      "IPokerVerifierBundle.DrawPublicInputs" => %w[
-        gameId handNumber handNonce playerIndex deckCommitment oldCommitment newCommitment
-        newEncryptionKeyCommitment newCiphertextRef discardMask proofSequence
-      ],
-      "IPokerVerifierBundle.ShowdownPublicInputs" => %w[
-        gameId handNumber handNonce handCommitments winnerIndex isTie
-      ],
-      "IBlackjackVerifierBundle.InitialDealPublicInputs" => %w[
-        sessionId handNonce deckCommitment playerStateCommitment dealerStateCommitment playerKeyCommitment
-        playerCiphertextRef dealerCiphertextRef dealerUpValue handCount activeHandIndex payout
-        immediateResultCode handValues softMask handStatuses allowedActionMasks
-      ],
-      "IBlackjackVerifierBundle.ActionPublicInputs" => %w[
-        sessionId proofSequence pendingAction oldPlayerStateCommitment newPlayerStateCommitment
-        dealerStateCommitment playerKeyCommitment playerCiphertextRef dealerCiphertextRef dealerUpValue
-        handCount activeHandIndex nextPhase handValues softMask handStatuses allowedActionMasks
-      ],
-      "IBlackjackVerifierBundle.ShowdownPublicInputs" => %w[
-        sessionId proofSequence playerStateCommitment dealerStateCommitment payout dealerFinalValue
-        handCount activeHandIndex handStatuses
-      ]
-    }
+    proof_input_interface_sources.each_with_object({}) do |(interface_name, source), structs|
+      struct_fields_for_source(source).each do |struct_name, field_names|
+        structs["#{interface_name}.#{struct_name}"] = field_names
+      end
+    end
   end
 
   def local_defaults
@@ -142,5 +123,37 @@ module SdkDocsInventory
       "actors" => %w[Admin Player1 Player2 SoloDeveloper PokerDeveloper],
       "expressions" => %w[NumberPickerExpressionTokenId PokerExpressionTokenId BlackjackExpressionTokenId]
     }
+  end
+
+  def blackjack_payout_kind_labels
+    engine_source = File.read(File.join(ROOT, "src/engines/SingleDeckBlackjackEngine.sol"))
+    engine_source.scan(/uint8\s+public\s+constant\s+(HAND_PAYOUT_[A-Z0-9_]+)\s*=\s*(\d+);/).each_with_object({}) do |(label, value), labels|
+      labels[value] = label
+    end
+  end
+
+  def proof_input_interface_sources
+    {
+      "IPokerVerifierBundle" => "src/interfaces/IPokerVerifierBundle.sol",
+      "IBlackjackVerifierBundle" => "src/interfaces/IBlackjackVerifierBundle.sol"
+    }
+  end
+
+  def struct_fields_for_source(source)
+    body = File.read(File.join(ROOT, source))
+    body.scan(/struct\s+([A-Za-z0-9_]+)\s*\{(.*?)^\s*\}/m).each_with_object({}) do |(struct_name, struct_body), structs|
+      fields = struct_body.each_line.each_with_object([]) do |line, names|
+        candidate = line.sub(%r{//.*$}, "").strip
+        next if candidate.empty? || candidate.start_with?("///", "/**", "*", "*/")
+        next unless candidate.end_with?(";")
+
+        match = candidate.match(/^[A-Za-z0-9_\[\]]+\s+([A-Za-z_][A-Za-z0-9_]*)\s*;$/)
+        raise "unsupported struct field syntax in #{source}: #{candidate}" unless match
+
+        names << match[1]
+      end
+
+      structs[struct_name] = fields
+    end
   end
 end
