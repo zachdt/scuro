@@ -35,7 +35,9 @@ contract DeployFinalize is BetaDeployCommon {
         );
         logStageAction("Finalize:BlackjackExpression");
         uint256 blackjackExpressionTokenId = expressionRegistry.mintExpression(
-            blackjackEngine.engineType(), keccak256("single-deck-blackjack-zk"), "ipfs://scuro/single-deck-blackjack-zk"
+            blackjackEngine.engineType(),
+            keccak256("single-deck-blackjack-zk-v2"),
+            "ipfs://scuro/single-deck-blackjack-zk-v2"
         );
         logStageAction("Finalize:PokerExpression");
         uint256 pokerExpressionTokenId = expressionRegistry.mintExpression(

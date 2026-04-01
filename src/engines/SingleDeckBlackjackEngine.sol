@@ -9,6 +9,7 @@ import {ISoloLifecycleEngine} from "../interfaces/ISoloLifecycleEngine.sol";
 /// @notice Manages blackjack session state, player actions, coordinator proofs, and solo settlement outcomes.
 contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
     bytes32 public constant ENGINE_TYPE = keccak256("BLACKJACK_SINGLE_DECK_ZK");
+    uint8 public constant CARD_EMPTY = 52;
 
     uint8 public constant ACTION_HIT = 1;
     uint8 public constant ACTION_STAND = 2;
@@ -19,6 +20,13 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
     uint8 public constant ALLOW_STAND = 2;
     uint8 public constant ALLOW_DOUBLE = 4;
     uint8 public constant ALLOW_SPLIT = 8;
+
+    uint8 public constant HAND_PAYOUT_NONE = 0;
+    uint8 public constant HAND_PAYOUT_LOSS = 1;
+    uint8 public constant HAND_PAYOUT_PUSH = 2;
+    uint8 public constant HAND_PAYOUT_EVEN_MONEY = 3;
+    uint8 public constant HAND_PAYOUT_BLACKJACK_3_TO_2 = 4;
+    uint8 public constant HAND_PAYOUT_SUITED_BLACKJACK_2_TO_1 = 5;
 
     /// @notice Session lifecycle values exposed to clients as raw `uint8` data.
     enum SessionPhase {
@@ -35,6 +43,8 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         uint256 value;
         uint8 status;
         uint8 allowedActionMask;
+        uint8 cardCount;
+        uint8 payoutKind;
     }
 
     /// @notice Stored mutable session state.
@@ -62,7 +72,10 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         uint256 payout;
         uint256 softMask;
         uint256 pendingAdditionalBurn;
+        uint8 dealerRevealMask;
         HandView[4] hands;
+        uint8[8] playerCards;
+        uint8[4] dealerCards;
     }
 
     /// @notice Fully expanded read-only session snapshot returned by `getSession`.
@@ -89,7 +102,10 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         uint8 immediateResultCode;
         uint256 payout;
         uint256 softMask;
+        uint8 dealerRevealMask;
         HandView[4] hands;
+        uint8[8] playerCards;
+        uint8[4] dealerCards;
     }
 
     GameCatalog internal immutable CATALOG;
@@ -149,6 +165,12 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         session.playerKeyCommitment = playerKeyCommitment;
         session.handCount = 1;
         session.hands[0].wager = wager;
+        for (uint256 i = 0; i < 8; i++) {
+            session.playerCards[i] = CARD_EMPTY;
+        }
+        for (uint256 i = 0; i < 4; i++) {
+            session.dealerCards[i] = CARD_EMPTY;
+        }
         emit SessionOpened(sessionId, player, wager, playRef);
     }
 
@@ -162,6 +184,8 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         bytes32 playerCiphertextRef,
         bytes32 dealerCiphertextRef,
         uint256 dealerVisibleValue,
+        uint8[8] calldata playerCards,
+        uint8[4] calldata dealerCards,
         uint8 handCount,
         uint8 activeHandIndex,
         uint256 payout,
@@ -169,6 +193,9 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         uint256[4] calldata handValues,
         uint8[4] calldata handStatuses,
         uint8[4] calldata allowedActionMasks,
+        uint8[4] calldata handCardCounts,
+        uint8[4] calldata handPayoutKinds,
+        uint8 dealerRevealMask,
         uint256 softMask,
         bytes calldata proof
     ) external {
@@ -189,6 +216,7 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
             playerCiphertextRef: uint256(playerCiphertextRef),
             dealerCiphertextRef: uint256(dealerCiphertextRef),
             dealerUpValue: dealerVisibleValue,
+            baseWager: session.hands[0].wager,
             handCount: handCount,
             activeHandIndex: activeHandIndex,
             payout: payout,
@@ -201,7 +229,36 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
                 uint256(allowedActionMasks[1]),
                 uint256(allowedActionMasks[2]),
                 uint256(allowedActionMasks[3])
-            ]
+            ],
+            handCardCounts: [
+                uint256(handCardCounts[0]),
+                uint256(handCardCounts[1]),
+                uint256(handCardCounts[2]),
+                uint256(handCardCounts[3])
+            ],
+            handPayoutKinds: [
+                uint256(handPayoutKinds[0]),
+                uint256(handPayoutKinds[1]),
+                uint256(handPayoutKinds[2]),
+                uint256(handPayoutKinds[3])
+            ],
+            playerCards: [
+                uint256(playerCards[0]),
+                uint256(playerCards[1]),
+                uint256(playerCards[2]),
+                uint256(playerCards[3]),
+                uint256(playerCards[4]),
+                uint256(playerCards[5]),
+                uint256(playerCards[6]),
+                uint256(playerCards[7])
+            ],
+            dealerCards: [
+                uint256(dealerCards[0]),
+                uint256(dealerCards[1]),
+                uint256(dealerCards[2]),
+                uint256(dealerCards[3])
+            ],
+            dealerRevealMask: dealerRevealMask
         });
         require(VERIFIER_BUNDLE.verifyInitialDeal(proof, inputs), "Blackjack: invalid init proof");
 
@@ -217,10 +274,17 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         session.payout = payout;
         session.immediateResultCode = immediateResultCode;
         session.softMask = softMask;
+        session.dealerRevealMask = dealerRevealMask;
         for (uint256 i = 0; i < 4; i++) {
             session.hands[i].value = handValues[i];
             session.hands[i].status = handStatuses[i];
             session.hands[i].allowedActionMask = allowedActionMasks[i];
+            session.hands[i].cardCount = handCardCounts[i];
+            session.hands[i].payoutKind = handPayoutKinds[i];
+            session.dealerCards[i] = dealerCards[i];
+        }
+        for (uint256 i = 0; i < 8; i++) {
+            session.playerCards[i] = playerCards[i];
         }
 
         if (payout > 0 || immediateResultCode != 0) {
@@ -298,12 +362,17 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         bytes32 playerCiphertextRef,
         bytes32 dealerCiphertextRef,
         uint256 dealerVisibleValue,
+        uint8[8] calldata playerCards,
+        uint8[4] calldata dealerCards,
         uint8 handCount,
         uint8 activeHandIndex,
         uint8 nextPhase,
         uint256[4] calldata handValues,
         uint8[4] calldata handStatuses,
         uint8[4] calldata allowedActionMasks,
+        uint8[4] calldata handCardCounts,
+        uint8[4] calldata handPayoutKinds,
+        uint8 dealerRevealMask,
         uint256 softMask,
         bytes calldata proof
     ) external {
@@ -336,7 +405,36 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
                 uint256(allowedActionMasks[1]),
                 uint256(allowedActionMasks[2]),
                 uint256(allowedActionMasks[3])
-            ]
+            ],
+            handCardCounts: [
+                uint256(handCardCounts[0]),
+                uint256(handCardCounts[1]),
+                uint256(handCardCounts[2]),
+                uint256(handCardCounts[3])
+            ],
+            handPayoutKinds: [
+                uint256(handPayoutKinds[0]),
+                uint256(handPayoutKinds[1]),
+                uint256(handPayoutKinds[2]),
+                uint256(handPayoutKinds[3])
+            ],
+            playerCards: [
+                uint256(playerCards[0]),
+                uint256(playerCards[1]),
+                uint256(playerCards[2]),
+                uint256(playerCards[3]),
+                uint256(playerCards[4]),
+                uint256(playerCards[5]),
+                uint256(playerCards[6]),
+                uint256(playerCards[7])
+            ],
+            dealerCards: [
+                uint256(dealerCards[0]),
+                uint256(dealerCards[1]),
+                uint256(dealerCards[2]),
+                uint256(dealerCards[3])
+            ],
+            dealerRevealMask: dealerRevealMask
         });
         require(VERIFIER_BUNDLE.verifyAction(proof, inputs), "Blackjack: invalid action proof");
 
@@ -351,10 +449,17 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         session.handCount = handCount;
         session.activeHandIndex = activeHandIndex;
         session.softMask = softMask;
+        session.dealerRevealMask = dealerRevealMask;
         for (uint256 i = 0; i < 4; i++) {
             session.hands[i].value = handValues[i];
             session.hands[i].status = handStatuses[i];
             session.hands[i].allowedActionMask = allowedActionMasks[i];
+            session.hands[i].cardCount = handCardCounts[i];
+            session.hands[i].payoutKind = handPayoutKinds[i];
+            session.dealerCards[i] = dealerCards[i];
+        }
+        for (uint256 i = 0; i < 8; i++) {
+            session.playerCards[i] = playerCards[i];
         }
 
         session.pendingAction = 0;
@@ -374,9 +479,15 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         bytes32 dealerStateCommitment,
         uint256 payout,
         uint256 dealerFinalValue,
+        uint8[8] calldata playerCards,
+        uint8[4] calldata dealerCards,
         uint8 handCount,
         uint8 activeHandIndex,
         uint8[4] calldata handStatuses,
+        uint256[4] calldata handValues,
+        uint8[4] calldata handCardCounts,
+        uint8[4] calldata handPayoutKinds,
+        uint8 dealerRevealMask,
         bytes calldata proof
     ) external {
         _requireSettlableModule();
@@ -395,7 +506,43 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
             dealerFinalValue: dealerFinalValue,
             handCount: handCount,
             activeHandIndex: activeHandIndex,
-            handStatuses: [uint256(handStatuses[0]), uint256(handStatuses[1]), uint256(handStatuses[2]), uint256(handStatuses[3])]
+            handStatuses: [uint256(handStatuses[0]), uint256(handStatuses[1]), uint256(handStatuses[2]), uint256(handStatuses[3])],
+            handValues: handValues,
+            handWagers: [
+                session.hands[0].wager,
+                session.hands[1].wager,
+                session.hands[2].wager,
+                session.hands[3].wager
+            ],
+            handCardCounts: [
+                uint256(handCardCounts[0]),
+                uint256(handCardCounts[1]),
+                uint256(handCardCounts[2]),
+                uint256(handCardCounts[3])
+            ],
+            handPayoutKinds: [
+                uint256(handPayoutKinds[0]),
+                uint256(handPayoutKinds[1]),
+                uint256(handPayoutKinds[2]),
+                uint256(handPayoutKinds[3])
+            ],
+            playerCards: [
+                uint256(playerCards[0]),
+                uint256(playerCards[1]),
+                uint256(playerCards[2]),
+                uint256(playerCards[3]),
+                uint256(playerCards[4]),
+                uint256(playerCards[5]),
+                uint256(playerCards[6]),
+                uint256(playerCards[7])
+            ],
+            dealerCards: [
+                uint256(dealerCards[0]),
+                uint256(dealerCards[1]),
+                uint256(dealerCards[2]),
+                uint256(dealerCards[3])
+            ],
+            dealerRevealMask: dealerRevealMask
         });
         require(VERIFIER_BUNDLE.verifyShowdown(proof, inputs), "Blackjack: invalid showdown proof");
 
@@ -406,9 +553,17 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         session.dealerVisibleValue = dealerFinalValue;
         session.handCount = handCount;
         session.activeHandIndex = activeHandIndex;
+        session.dealerRevealMask = dealerRevealMask;
         for (uint256 i = 0; i < 4; i++) {
+            session.hands[i].value = handValues[i];
             session.hands[i].status = handStatuses[i];
             session.hands[i].allowedActionMask = 0;
+            session.hands[i].cardCount = handCardCounts[i];
+            session.hands[i].payoutKind = handPayoutKinds[i];
+            session.dealerCards[i] = dealerCards[i];
+        }
+        for (uint256 i = 0; i < 8; i++) {
+            session.playerCards[i] = playerCards[i];
         }
         session.pendingAction = 0;
         session.pendingAdditionalBurn = 0;
@@ -443,8 +598,13 @@ contract SingleDeckBlackjackEngine is ISoloLifecycleEngine {
         viewState.immediateResultCode = session.immediateResultCode;
         viewState.payout = session.payout;
         viewState.softMask = session.softMask;
+        viewState.dealerRevealMask = session.dealerRevealMask;
         for (uint256 i = 0; i < 4; i++) {
             viewState.hands[i] = session.hands[i];
+            viewState.dealerCards[i] = session.dealerCards[i];
+        }
+        for (uint256 i = 0; i < 8; i++) {
+            viewState.playerCards[i] = session.playerCards[i];
         }
     }
 

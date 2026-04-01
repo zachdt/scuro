@@ -97,6 +97,8 @@ contract SmokeBlackjackFixture is FixtureLoaders {
             initialDeal.playerCiphertextRef,
             initialDeal.dealerCiphertextRef,
             initialDeal.dealerVisibleValue,
+            initialDeal.playerCards,
+            initialDeal.dealerCards,
             initialDeal.handCount,
             initialDeal.activeHandIndex,
             initialDeal.payout,
@@ -104,6 +106,9 @@ contract SmokeBlackjackFixture is FixtureLoaders {
             initialDeal.handValues,
             initialDeal.handStatuses,
             initialDeal.allowedActionMasks,
+            initialDeal.handCardCounts,
+            initialDeal.handPayoutKinds,
+            initialDeal.dealerRevealMask,
             initialDeal.softMask,
             initialDeal.proof
         );
@@ -124,12 +129,17 @@ contract SmokeBlackjackFixture is FixtureLoaders {
             actionFixture.playerCiphertextRef,
             actionFixture.dealerCiphertextRef,
             actionFixture.dealerVisibleValue,
+            actionFixture.playerCards,
+            actionFixture.dealerCards,
             actionFixture.handCount,
             actionFixture.activeHandIndex,
             actionFixture.nextPhase,
             actionFixture.handValues,
             actionFixture.handStatuses,
             actionFixture.allowedActionMasks,
+            actionFixture.handCardCounts,
+            actionFixture.handPayoutKinds,
+            actionFixture.dealerRevealMask,
             actionFixture.softMask,
             actionFixture.proof
         );
@@ -150,9 +160,15 @@ contract SmokeBlackjackFixture is FixtureLoaders {
             showdownFixture.dealerStateCommitment,
             showdownFixture.payout,
             showdownFixture.dealerFinalValue,
+            showdownFixture.playerCards,
+            showdownFixture.dealerCards,
             showdownFixture.handCount,
             showdownFixture.activeHandIndex,
             showdownFixture.handStatuses,
+            showdownFixture.handValues,
+            showdownFixture.handCardCounts,
+            showdownFixture.handPayoutKinds,
+            showdownFixture.dealerRevealMask,
             showdownFixture.proof
         );
         controller.settle(sessionId);

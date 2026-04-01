@@ -71,6 +71,8 @@ contract LocalSmokeFallbackTest is BaseE2ETest {
             fixture.playerCiphertextRef,
             fixture.dealerCiphertextRef,
             fixture.dealerVisibleValue,
+            fixture.playerCards,
+            fixture.dealerCards,
             fixture.handCount,
             fixture.activeHandIndex,
             fixture.payout,
@@ -78,6 +80,9 @@ contract LocalSmokeFallbackTest is BaseE2ETest {
             fixture.handValues,
             fixture.handStatuses,
             fixture.allowedActionMasks,
+            fixture.handCardCounts,
+            fixture.handPayoutKinds,
+            fixture.dealerRevealMask,
             fixture.softMask,
             fixture.proof
         );
@@ -91,12 +96,17 @@ contract LocalSmokeFallbackTest is BaseE2ETest {
             fixture.playerCiphertextRef,
             fixture.dealerCiphertextRef,
             fixture.dealerVisibleValue,
+            fixture.playerCards,
+            fixture.dealerCards,
             fixture.handCount,
             fixture.activeHandIndex,
             fixture.nextPhase,
             fixture.handValues,
             fixture.handStatuses,
             fixture.allowedActionMasks,
+            fixture.handCardCounts,
+            fixture.handPayoutKinds,
+            fixture.dealerRevealMask,
             fixture.softMask,
             fixture.proof
         );
@@ -109,9 +119,15 @@ contract LocalSmokeFallbackTest is BaseE2ETest {
             fixture.dealerStateCommitment,
             fixture.payout,
             fixture.dealerFinalValue,
+            fixture.playerCards,
+            fixture.dealerCards,
             fixture.handCount,
             fixture.activeHandIndex,
             fixture.handStatuses,
+            fixture.handValues,
+            fixture.handCardCounts,
+            fixture.handPayoutKinds,
+            fixture.dealerRevealMask,
             fixture.proof
         );
     }

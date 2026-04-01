@@ -151,7 +151,7 @@ contract DeployLocal is Script {
         GameDeploymentFactory.BlackjackDeployment memory blackjackParams = GameDeploymentFactory.BlackjackDeployment({
             coordinator: admin,
             defaultActionWindow: 60,
-            configHash: keccak256("single-deck-blackjack-zk"),
+            configHash: keccak256("single-deck-blackjack-zk-v2"),
             developerRewardBps: 500
         });
         uint256 blackjackModuleId;
@@ -177,7 +177,9 @@ contract DeployLocal is Script {
         );
         console.log("StageAction", "Finalize:BlackjackExpression");
         uint256 blackjackExpressionTokenId = expressionRegistry.mintExpression(
-            blackjackEngine.engineType(), keccak256("single-deck-blackjack-zk"), "ipfs://scuro/single-deck-blackjack-zk"
+            blackjackEngine.engineType(),
+            keccak256("single-deck-blackjack-zk-v2"),
+            "ipfs://scuro/single-deck-blackjack-zk-v2"
         );
         console.log("StageAction", "Finalize:PokerExpression");
         uint256 pokerExpressionTokenId = expressionRegistry.mintExpression(

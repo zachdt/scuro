@@ -51,6 +51,11 @@ abstract contract ZkFixtureLoader is Test {
         uint256[4] handValues;
         uint8[4] handStatuses;
         uint8[4] allowedActionMasks;
+        uint8[4] handCardCounts;
+        uint8[4] handPayoutKinds;
+        uint8[8] playerCards;
+        uint8[4] dealerCards;
+        uint8 dealerRevealMask;
     }
 
     struct BlackjackActionFixture {
@@ -71,6 +76,11 @@ abstract contract ZkFixtureLoader is Test {
         uint256[4] handValues;
         uint8[4] handStatuses;
         uint8[4] allowedActionMasks;
+        uint8[4] handCardCounts;
+        uint8[4] handPayoutKinds;
+        uint8[8] playerCards;
+        uint8[4] dealerCards;
+        uint8 dealerRevealMask;
     }
 
     struct BlackjackShowdownFixture {
@@ -83,6 +93,12 @@ abstract contract ZkFixtureLoader is Test {
         uint8 handCount;
         uint8 activeHandIndex;
         uint8[4] handStatuses;
+        uint256[4] handValues;
+        uint8[4] handCardCounts;
+        uint8[4] handPayoutKinds;
+        uint8[8] playerCards;
+        uint8[4] dealerCards;
+        uint8 dealerRevealMask;
     }
 
     function _loadPokerInitialDealFixture() internal view returns (PokerInitialDealFixture memory fixture) {
@@ -124,7 +140,15 @@ abstract contract ZkFixtureLoader is Test {
     }
 
     function _loadBlackjackInitialDealFixture() internal view returns (BlackjackInitialDealFixture memory fixture) {
-        string memory json = vm.readFile(_fixturePath("blackjack_initial_deal"));
+        return _loadBlackjackInitialDealFixture("blackjack_initial_deal");
+    }
+
+    function _loadBlackjackInitialDealFixture(string memory name)
+        internal
+        view
+        returns (BlackjackInitialDealFixture memory fixture)
+    {
+        string memory json = vm.readFile(_fixturePath(name));
         string[] memory publicSignals = json.readStringArray(".publicSignals");
 
         fixture.proof = json.readBytes(".proof");
@@ -136,18 +160,27 @@ abstract contract ZkFixtureLoader is Test {
         fixture.playerCiphertextRef = _bytes32FromString(publicSignals[6]);
         fixture.dealerCiphertextRef = _bytes32FromString(publicSignals[7]);
         fixture.dealerVisibleValue = vm.parseUint(publicSignals[8]);
-        fixture.handCount = uint8(vm.parseUint(publicSignals[9]));
-        fixture.activeHandIndex = uint8(vm.parseUint(publicSignals[10]));
-        fixture.payout = vm.parseUint(publicSignals[11]);
-        fixture.immediateResultCode = uint8(vm.parseUint(publicSignals[12]));
-        fixture.handValues = _toUint256x4(publicSignals, 13);
-        fixture.softMask = vm.parseUint(publicSignals[17]);
-        fixture.handStatuses = _toUint8x4(publicSignals, 18);
-        fixture.allowedActionMasks = _toUint8x4(publicSignals, 22);
+        fixture.handCount = uint8(vm.parseUint(publicSignals[10]));
+        fixture.activeHandIndex = uint8(vm.parseUint(publicSignals[11]));
+        fixture.payout = vm.parseUint(publicSignals[12]);
+        fixture.immediateResultCode = uint8(vm.parseUint(publicSignals[13]));
+        fixture.handValues = _toUint256x4(publicSignals, 14);
+        fixture.softMask = vm.parseUint(publicSignals[18]);
+        fixture.handStatuses = _toUint8x4(publicSignals, 19);
+        fixture.allowedActionMasks = _toUint8x4(publicSignals, 23);
+        fixture.handCardCounts = _toUint8x4(publicSignals, 27);
+        fixture.handPayoutKinds = _toUint8x4(publicSignals, 31);
+        fixture.playerCards = _toUint8x8(publicSignals, 35);
+        fixture.dealerCards = _toUint8x4(publicSignals, 43);
+        fixture.dealerRevealMask = uint8(vm.parseUint(publicSignals[47]));
     }
 
     function _loadBlackjackActionFixture() internal view returns (BlackjackActionFixture memory fixture) {
-        string memory json = vm.readFile(_fixturePath("blackjack_action_resolve"));
+        return _loadBlackjackActionFixture("blackjack_action_resolve");
+    }
+
+    function _loadBlackjackActionFixture(string memory name) internal view returns (BlackjackActionFixture memory fixture) {
+        string memory json = vm.readFile(_fixturePath(name));
         string[] memory publicSignals = json.readStringArray(".publicSignals");
 
         fixture.proof = json.readBytes(".proof");
@@ -167,10 +200,23 @@ abstract contract ZkFixtureLoader is Test {
         fixture.softMask = vm.parseUint(publicSignals[17]);
         fixture.handStatuses = _toUint8x4(publicSignals, 18);
         fixture.allowedActionMasks = _toUint8x4(publicSignals, 22);
+        fixture.handCardCounts = _toUint8x4(publicSignals, 26);
+        fixture.handPayoutKinds = _toUint8x4(publicSignals, 30);
+        fixture.playerCards = _toUint8x8(publicSignals, 34);
+        fixture.dealerCards = _toUint8x4(publicSignals, 42);
+        fixture.dealerRevealMask = uint8(vm.parseUint(publicSignals[46]));
     }
 
     function _loadBlackjackShowdownFixture() internal view returns (BlackjackShowdownFixture memory fixture) {
-        string memory json = vm.readFile(_fixturePath("blackjack_showdown"));
+        return _loadBlackjackShowdownFixture("blackjack_showdown");
+    }
+
+    function _loadBlackjackShowdownFixture(string memory name)
+        internal
+        view
+        returns (BlackjackShowdownFixture memory fixture)
+    {
+        string memory json = vm.readFile(_fixturePath(name));
         string[] memory publicSignals = json.readStringArray(".publicSignals");
 
         fixture.proof = json.readBytes(".proof");
@@ -182,6 +228,12 @@ abstract contract ZkFixtureLoader is Test {
         fixture.handCount = uint8(vm.parseUint(publicSignals[6]));
         fixture.activeHandIndex = uint8(vm.parseUint(publicSignals[7]));
         fixture.handStatuses = _toUint8x4(publicSignals, 8);
+        fixture.handValues = _toUint256x4(publicSignals, 12);
+        fixture.handCardCounts = _toUint8x4(publicSignals, 20);
+        fixture.handPayoutKinds = _toUint8x4(publicSignals, 24);
+        fixture.playerCards = _toUint8x8(publicSignals, 28);
+        fixture.dealerCards = _toUint8x4(publicSignals, 36);
+        fixture.dealerRevealMask = uint8(vm.parseUint(publicSignals[40]));
     }
 
     function _corruptProof(bytes memory proof) internal pure returns (bytes memory) {
@@ -206,6 +258,12 @@ abstract contract ZkFixtureLoader is Test {
 
     function _toUint8x4(string[] memory values, uint256 offset) private pure returns (uint8[4] memory out) {
         for (uint256 i = 0; i < 4; i++) {
+            out[i] = uint8(vm.parseUint(values[offset + i]));
+        }
+    }
+
+    function _toUint8x8(string[] memory values, uint256 offset) private pure returns (uint8[8] memory out) {
+        for (uint256 i = 0; i < 8; i++) {
             out[i] = uint8(vm.parseUint(values[offset + i]));
         }
     }

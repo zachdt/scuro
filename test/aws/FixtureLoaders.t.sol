@@ -27,10 +27,13 @@ contract FixtureLoadersTest is Test {
     function test_LoadBlackjackFixtures() public view {
         FixtureLoadersHarness.BlackjackInitialDealFixture memory initialDeal = harness.loadBlackjackInitialDeal();
         FixtureLoadersHarness.BlackjackActionFixture memory actionFixture = harness.loadBlackjackAction();
+        FixtureLoadersHarness.BlackjackShowdownFixture memory showdownFixture = harness.loadBlackjackShowdown();
 
         assertTrue(initialDeal.proof.length > 0, "initial proof missing");
         assertTrue(initialDeal.playerKeyCommitment != bytes32(0), "player key commitment missing");
         assertTrue(actionFixture.proof.length > 0, "action proof missing");
         assertTrue(actionFixture.newPlayerStateCommitment != bytes32(0), "new state commitment missing");
+        assertTrue(showdownFixture.proof.length > 0, "showdown proof missing");
+        assertEq(showdownFixture.dealerRevealMask, 7, "showdown should reveal all dealer cards");
     }
 }

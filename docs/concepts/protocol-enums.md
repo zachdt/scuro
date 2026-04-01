@@ -46,6 +46,17 @@ Clients should use these mappings explicitly instead of inferring integer meanin
 | `4` | `ALLOW_DOUBLE` |
 | `8` | `ALLOW_SPLIT` |
 
+## `SingleDeckBlackjackEngine` hand payout kinds
+
+| Value | Label |
+| --- | --- |
+| `0` | `HAND_PAYOUT_NONE` |
+| `1` | `HAND_PAYOUT_LOSS` |
+| `2` | `HAND_PAYOUT_PUSH` |
+| `3` | `HAND_PAYOUT_EVEN_MONEY` |
+| `4` | `HAND_PAYOUT_BLACKJACK_3_TO_2` |
+| `5` | `HAND_PAYOUT_SUITED_BLACKJACK_2_TO_1` |
+
 ## `SingleDraw2To7Engine.MatchState`
 
 | Value | Label |

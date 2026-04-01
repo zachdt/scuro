@@ -19,7 +19,7 @@
 ## Constructor And Config
 
 - `constructor(catalogAddress, verifierBundleAddress, coordinatorAddress, defaultActionWindow)`
-- Constants exposed for action ids and action-mask flags
+- Constants exposed for action ids, action-mask flags, payout-kind enums, and `CARD_EMPTY`
 
 ## Public API
 
@@ -47,6 +47,9 @@
 ## State And Lifecycle Notes
 
 - `SessionPhase` values are documented in [Enum and Phase Mappings](../concepts/protocol-enums.md)
+- `getSession(sessionId)` now returns proof-backed `playerCards`, `dealerCards`, `dealerRevealMask`, and per-hand `cardCount` / `payoutKind`
+- Blackjack payout classes are proof-derived; clients should render from `hands[i].payoutKind` plus settled `payout`, not recompute bonuses locally
+- Dealer read policy is explicit: the upcard is visible during play, and hole / final dealer cards appear only when the proof raises `dealerRevealMask`
 - `requiredAdditionalBurn` is nonzero only for valid `doubleDown` or `split` states
 - `submitActionProof` updates proof sequence, commitments, hand metadata, phase, and deadline together
 - `submitShowdownProof` is the terminal engine step before controller settlement

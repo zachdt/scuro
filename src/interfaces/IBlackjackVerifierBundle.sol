@@ -15,6 +15,7 @@ interface IBlackjackVerifierBundle {
         uint256 playerCiphertextRef;
         uint256 dealerCiphertextRef;
         uint256 dealerUpValue;
+        uint256 baseWager;
         uint256 handCount;
         uint256 activeHandIndex;
         uint256 payout;
@@ -23,6 +24,11 @@ interface IBlackjackVerifierBundle {
         uint256 softMask;
         uint256[4] handStatuses;
         uint256[4] allowedActionMasks;
+        uint256[4] handCardCounts;
+        uint256[4] handPayoutKinds;
+        uint256[8] playerCards;
+        uint256[4] dealerCards;
+        uint256 dealerRevealMask;
     }
 
     /// @notice Public inputs for the blackjack action-resolution proof.
@@ -44,6 +50,11 @@ interface IBlackjackVerifierBundle {
         uint256 softMask;
         uint256[4] handStatuses;
         uint256[4] allowedActionMasks;
+        uint256[4] handCardCounts;
+        uint256[4] handPayoutKinds;
+        uint256[8] playerCards;
+        uint256[4] dealerCards;
+        uint256 dealerRevealMask;
     }
 
     /// @notice Public inputs for the blackjack showdown proof.
@@ -57,6 +68,13 @@ interface IBlackjackVerifierBundle {
         uint256 handCount;
         uint256 activeHandIndex;
         uint256[4] handStatuses;
+        uint256[4] handValues;
+        uint256[4] handWagers;
+        uint256[4] handCardCounts;
+        uint256[4] handPayoutKinds;
+        uint256[8] playerCards;
+        uint256[4] dealerCards;
+        uint256 dealerRevealMask;
     }
 
     /// @notice Verifies the initial-deal proof against the supplied public inputs.

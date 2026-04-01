@@ -16,7 +16,7 @@ const CIRCUITS = [
   { circuit: "blackjack_showdown", contract: "BlackjackShowdownVerifier" }
 ];
 
-const PTAU = path.join(CACHE_DIR, "pot14_final.ptau");
+const PTAU = path.join(CACHE_DIR, "pot15_final.ptau");
 
 await mkdir(CACHE_DIR, { recursive: true });
 await mkdir(VKEY_DIR, { recursive: true });
@@ -37,9 +37,9 @@ async function ensurePtau() {
     return;
   } catch {}
 
-  const p0 = path.join(CACHE_DIR, "pot14_0000.ptau");
-  const p1 = path.join(CACHE_DIR, "pot14_0001.ptau");
-  await execa("bunx", ["snarkjs", "powersoftau", "new", "bn128", "14", p0, "-v"], { cwd: ROOT });
+  const p0 = path.join(CACHE_DIR, "pot15_0000.ptau");
+  const p1 = path.join(CACHE_DIR, "pot15_0001.ptau");
+  await execa("bunx", ["snarkjs", "powersoftau", "new", "bn128", "15", p0, "-v"], { cwd: ROOT });
   await execa("bunx", ["snarkjs", "powersoftau", "contribute", p0, p1, "--name=Scuro", "-e=real-zk-rollout"], {
     cwd: ROOT
   });

@@ -30,7 +30,7 @@ Current local-script note:
 | Slot machine | factory-supported with `SlotDeployment(vrfCoordinator, configHash, developerRewardBps)`; canonical local deploy script still pending |
 | Tournament poker | `smallBlind = 10`, `bigBlind = 20`, `blindEscalationInterval = 180`, `actionWindow = 60`, `developerRewardBps = 1000` |
 | PvP poker | same defaults as tournament poker, with `configHash = keccak256("single-draw-2-7-pvp")` |
-| Blackjack | `defaultActionWindow = 60`, `developerRewardBps = 500`, `configHash = keccak256("single-deck-blackjack-zk")` |
+| Blackjack | `defaultActionWindow = 60`, `developerRewardBps = 500`, `configHash = keccak256("single-deck-blackjack-zk-v2")` |
 
 ## SDK Guidance
 

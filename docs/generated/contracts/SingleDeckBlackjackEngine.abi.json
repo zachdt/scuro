@@ -147,6 +147,21 @@
   },
   {
     "type": "function",
+    "name": "CARD_EMPTY",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "COORDINATOR",
     "inputs": [
 
@@ -186,6 +201,96 @@
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "HAND_PAYOUT_BLACKJACK_3_TO_2",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "HAND_PAYOUT_EVEN_MONEY",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "HAND_PAYOUT_LOSS",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "HAND_PAYOUT_NONE",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "HAND_PAYOUT_PUSH",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "HAND_PAYOUT_SUITED_BLACKJACK_2_TO_1",
+    "inputs": [
+
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
       }
     ],
     "stateMutability": "view"
@@ -407,6 +512,11 @@
             "internalType": "uint256"
           },
           {
+            "name": "dealerRevealMask",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
             "name": "hands",
             "type": "tuple[4]",
             "internalType": "struct SingleDeckBlackjackEngine.HandView[4]",
@@ -430,8 +540,28 @@
                 "name": "allowedActionMask",
                 "type": "uint8",
                 "internalType": "uint8"
+              },
+              {
+                "name": "cardCount",
+                "type": "uint8",
+                "internalType": "uint8"
+              },
+              {
+                "name": "payoutKind",
+                "type": "uint8",
+                "internalType": "uint8"
               }
             ]
+          },
+          {
+            "name": "playerCards",
+            "type": "uint8[8]",
+            "internalType": "uint8[8]"
+          },
+          {
+            "name": "dealerCards",
+            "type": "uint8[4]",
+            "internalType": "uint8[4]"
           }
         ]
       }
@@ -580,6 +710,16 @@
         "internalType": "uint256"
       },
       {
+        "name": "playerCards",
+        "type": "uint8[8]",
+        "internalType": "uint8[8]"
+      },
+      {
+        "name": "dealerCards",
+        "type": "uint8[4]",
+        "internalType": "uint8[4]"
+      },
+      {
         "name": "handCount",
         "type": "uint8",
         "internalType": "uint8"
@@ -608,6 +748,21 @@
         "name": "allowedActionMasks",
         "type": "uint8[4]",
         "internalType": "uint8[4]"
+      },
+      {
+        "name": "handCardCounts",
+        "type": "uint8[4]",
+        "internalType": "uint8[4]"
+      },
+      {
+        "name": "handPayoutKinds",
+        "type": "uint8[4]",
+        "internalType": "uint8[4]"
+      },
+      {
+        "name": "dealerRevealMask",
+        "type": "uint8",
+        "internalType": "uint8"
       },
       {
         "name": "softMask",
@@ -670,6 +825,16 @@
         "internalType": "uint256"
       },
       {
+        "name": "playerCards",
+        "type": "uint8[8]",
+        "internalType": "uint8[8]"
+      },
+      {
+        "name": "dealerCards",
+        "type": "uint8[4]",
+        "internalType": "uint8[4]"
+      },
+      {
         "name": "handCount",
         "type": "uint8",
         "internalType": "uint8"
@@ -703,6 +868,21 @@
         "name": "allowedActionMasks",
         "type": "uint8[4]",
         "internalType": "uint8[4]"
+      },
+      {
+        "name": "handCardCounts",
+        "type": "uint8[4]",
+        "internalType": "uint8[4]"
+      },
+      {
+        "name": "handPayoutKinds",
+        "type": "uint8[4]",
+        "internalType": "uint8[4]"
+      },
+      {
+        "name": "dealerRevealMask",
+        "type": "uint8",
+        "internalType": "uint8"
       },
       {
         "name": "softMask",
@@ -750,6 +930,16 @@
         "internalType": "uint256"
       },
       {
+        "name": "playerCards",
+        "type": "uint8[8]",
+        "internalType": "uint8[8]"
+      },
+      {
+        "name": "dealerCards",
+        "type": "uint8[4]",
+        "internalType": "uint8[4]"
+      },
+      {
         "name": "handCount",
         "type": "uint8",
         "internalType": "uint8"
@@ -763,6 +953,26 @@
         "name": "handStatuses",
         "type": "uint8[4]",
         "internalType": "uint8[4]"
+      },
+      {
+        "name": "handValues",
+        "type": "uint256[4]",
+        "internalType": "uint256[4]"
+      },
+      {
+        "name": "handCardCounts",
+        "type": "uint8[4]",
+        "internalType": "uint8[4]"
+      },
+      {
+        "name": "handPayoutKinds",
+        "type": "uint8[4]",
+        "internalType": "uint8[4]"
+      },
+      {
+        "name": "dealerRevealMask",
+        "type": "uint8",
+        "internalType": "uint8"
       },
       {
         "name": "proof",

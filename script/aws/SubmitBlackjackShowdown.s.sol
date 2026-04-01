@@ -18,9 +18,15 @@ contract SubmitBlackjackShowdown is FixtureLoaders {
             fixture.dealerStateCommitment,
             fixture.payout,
             fixture.dealerFinalValue,
+            fixture.playerCards,
+            fixture.dealerCards,
             fixture.handCount,
             fixture.activeHandIndex,
             fixture.handStatuses,
+            fixture.handValues,
+            fixture.handCardCounts,
+            fixture.handPayoutKinds,
+            fixture.dealerRevealMask,
             fixture.proof
         );
         vm.stopBroadcast();

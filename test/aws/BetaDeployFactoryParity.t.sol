@@ -141,7 +141,7 @@ contract BetaDeployFactoryParityTest is Test {
                 GameDeploymentFactory.BlackjackDeployment({
                     coordinator: address(this),
                     defaultActionWindow: 60,
-                    configHash: keccak256("single-deck-blackjack-zk"),
+                    configHash: keccak256("single-deck-blackjack-zk-v2"),
                     developerRewardBps: 500
                 })
             )
@@ -238,7 +238,7 @@ contract BetaDeployFactoryParityTest is Test {
                 GameDeploymentFactory.BlackjackDeployment({
                     coordinator: address(this),
                     defaultActionWindow: 60,
-                    configHash: keccak256("single-deck-blackjack-zk"),
+                    configHash: keccak256("single-deck-blackjack-zk-v2"),
                     developerRewardBps: 500
                 })
             )
@@ -257,7 +257,9 @@ contract BetaDeployFactoryParityTest is Test {
             numberPickerEngine.engineType(), keccak256("number-picker-auto"), "ipfs://scuro/number-picker-auto"
         );
         uint256 blackjackExpressionTokenId = expressionRegistry.mintExpression(
-            blackjackEngine.engineType(), keccak256("single-deck-blackjack-zk"), "ipfs://scuro/single-deck-blackjack-zk"
+            blackjackEngine.engineType(),
+            keccak256("single-deck-blackjack-zk-v2"),
+            "ipfs://scuro/single-deck-blackjack-zk-v2"
         );
         uint256 pokerExpressionTokenId = expressionRegistry.mintExpression(
             tournamentPokerEngine.engineType(), keccak256("single-draw-2-7"), "ipfs://scuro/single-draw-2-7"

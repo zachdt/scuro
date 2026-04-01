@@ -53,7 +53,7 @@ contract BlackjackControllerTest is ZkFixtureLoader {
         GameDeploymentFactory.BlackjackDeployment memory params = GameDeploymentFactory.BlackjackDeployment({
             coordinator: address(this),
             defaultActionWindow: 60,
-            configHash: keccak256("single-deck-blackjack-zk"),
+            configHash: keccak256("single-deck-blackjack-zk-v2"),
             developerRewardBps: 500
         });
         address controllerAddress;
@@ -66,7 +66,11 @@ contract BlackjackControllerTest is ZkFixtureLoader {
         bytes32 engineType = engine.engineType();
         vm.prank(developer);
         expressionTokenId =
-            expressionRegistry.mintExpression(engineType, keccak256("single-deck-blackjack-zk"), "ipfs://single-deck-blackjack-zk");
+            expressionRegistry.mintExpression(
+                engineType,
+                keccak256("single-deck-blackjack-zk-v2"),
+                "ipfs://single-deck-blackjack-zk-v2"
+            );
 
         token.mint(player, 1_000);
         vm.prank(player);
@@ -109,9 +113,7 @@ contract BlackjackControllerTest is ZkFixtureLoader {
     function test_BlackjackRejectsInvalidInitProofAndTimeoutAutoStands() public {
         BlackjackInitialDealFixture memory initial = _loadBlackjackInitialDealFixture();
 
-        vm.prank(player);
-        uint256 sessionId =
-            controller.startHand(100, keccak256("blackjack-timeout"), initial.playerKeyCommitment, expressionTokenId);
+        uint256 sessionId = _startHand(initial.playerKeyCommitment, keccak256("blackjack-timeout"));
 
         vm.expectRevert("Blackjack: invalid init proof");
         _submitInitialDealWithDeck(sessionId, initial, bytes32(uint256(initial.deckCommitment) + 1));
@@ -124,6 +126,170 @@ contract BlackjackControllerTest is ZkFixtureLoader {
         SingleDeckBlackjackEngine.SessionView memory session = engine.getSession(sessionId);
         assertEq(session.phase, uint8(SingleDeckBlackjackEngine.SessionPhase.AwaitingCoordinator));
         assertEq(session.pendingAction, engine.ACTION_STAND());
+    }
+
+    function test_BlackjackSuitedNaturalPaysTwoToOne() public {
+        BlackjackInitialDealFixture memory initial = _loadBlackjackInitialDealFixture("blackjack_initial_deal_suited_natural");
+
+        uint256 sessionId = _startHand(initial.playerKeyCommitment, keccak256("blackjack-suited-natural"));
+        _submitInitialDeal(sessionId, initial);
+
+        SingleDeckBlackjackEngine.SessionView memory session = engine.getSession(sessionId);
+        assertEq(session.phase, uint8(SingleDeckBlackjackEngine.SessionPhase.Completed));
+        assertEq(session.payout, 300);
+        assertEq(session.hands[0].payoutKind, engine.HAND_PAYOUT_SUITED_BLACKJACK_2_TO_1());
+        assertEq(session.dealerRevealMask, 3);
+        assertEq(session.dealerCards[0], initial.dealerCards[0]);
+        assertEq(session.dealerCards[1], initial.dealerCards[1]);
+
+        controller.settle(sessionId);
+        assertEq(token.balanceOf(player), 1_200);
+    }
+
+    function test_BlackjackUnsuitedNaturalPaysThreeToTwo() public {
+        BlackjackInitialDealFixture memory initial = _loadBlackjackInitialDealFixture("blackjack_initial_deal_unsuited_natural");
+
+        uint256 sessionId = _startHand(initial.playerKeyCommitment, keccak256("blackjack-unsuited-natural"));
+        _submitInitialDeal(sessionId, initial);
+
+        SingleDeckBlackjackEngine.SessionView memory session = engine.getSession(sessionId);
+        assertEq(session.phase, uint8(SingleDeckBlackjackEngine.SessionPhase.Completed));
+        assertEq(session.payout, 250);
+        assertEq(session.hands[0].payoutKind, engine.HAND_PAYOUT_BLACKJACK_3_TO_2());
+        assertEq(session.dealerRevealMask, 3);
+
+        controller.settle(sessionId);
+        assertEq(token.balanceOf(player), 1_150);
+    }
+
+    function test_BlackjackDealerNaturalPushesEvenAgainstSuitedBlackjack() public {
+        BlackjackInitialDealFixture memory initial = _loadBlackjackInitialDealFixture("blackjack_initial_deal_push_natural");
+
+        uint256 sessionId = _startHand(initial.playerKeyCommitment, keccak256("blackjack-push-natural"));
+        _submitInitialDeal(sessionId, initial);
+
+        SingleDeckBlackjackEngine.SessionView memory session = engine.getSession(sessionId);
+        assertEq(session.phase, uint8(SingleDeckBlackjackEngine.SessionPhase.Completed));
+        assertEq(session.payout, 100);
+        assertEq(session.hands[0].payoutKind, engine.HAND_PAYOUT_PUSH());
+        assertEq(session.immediateResultCode, 3);
+
+        controller.settle(sessionId);
+        assertEq(token.balanceOf(player), 1_000);
+    }
+
+    function test_BlackjackSplitEligibilityAndRevealStateDeriveFromCards() public {
+        BlackjackInitialDealFixture memory initial = _loadBlackjackInitialDealFixture("blackjack_initial_deal_split_pair");
+        BlackjackActionFixture memory action = _loadBlackjackActionFixture("blackjack_action_resolve_split");
+
+        uint256 sessionId = _startHand(initial.playerKeyCommitment, keccak256("blackjack-split"));
+        _submitInitialDeal(sessionId, initial);
+
+        SingleDeckBlackjackEngine.SessionView memory session = engine.getSession(sessionId);
+        assertEq(session.phase, uint8(SingleDeckBlackjackEngine.SessionPhase.AwaitingPlayerAction));
+        assertEq(session.dealerRevealMask, 1);
+        assertEq(session.dealerCards[0], initial.dealerCards[0]);
+        assertEq(session.dealerCards[1], engine.CARD_EMPTY());
+        assertEq(session.hands[0].cardCount, 2);
+        assertEq(session.hands[0].payoutKind, engine.HAND_PAYOUT_NONE());
+        assertEq(session.hands[0].allowedActionMask, engine.ALLOW_HIT() | engine.ALLOW_STAND() | engine.ALLOW_DOUBLE() | engine.ALLOW_SPLIT());
+        assertEq(engine.requiredAdditionalBurn(sessionId, engine.ACTION_SPLIT()), 100);
+
+        vm.prank(player);
+        controller.split(sessionId);
+        _submitActionProof(sessionId, action);
+
+        session = engine.getSession(sessionId);
+        assertEq(session.handCount, 2);
+        assertEq(session.activeHandIndex, 1);
+        assertEq(session.dealerRevealMask, 1);
+        assertEq(session.hands[0].cardCount, 2);
+        assertEq(session.hands[1].cardCount, 2);
+        assertEq(session.hands[0].payoutKind, engine.HAND_PAYOUT_NONE());
+        assertEq(session.hands[1].payoutKind, engine.HAND_PAYOUT_NONE());
+        assertEq(session.hands[1].allowedActionMask, engine.ALLOW_HIT() | engine.ALLOW_STAND() | engine.ALLOW_DOUBLE());
+        assertEq(token.balanceOf(player), 800);
+    }
+
+    function test_BlackjackShowdownRevealsDealerHoleAndFinalCards() public {
+        BlackjackInitialDealFixture memory initial = _loadBlackjackInitialDealFixture();
+        BlackjackActionFixture memory action = _loadBlackjackActionFixture();
+        BlackjackShowdownFixture memory showdown = _loadBlackjackShowdownFixture();
+
+        uint256 sessionId = _startHand(initial.playerKeyCommitment, keccak256("blackjack-reveal"));
+        _submitInitialDeal(sessionId, initial);
+
+        SingleDeckBlackjackEngine.SessionView memory session = engine.getSession(sessionId);
+        assertEq(session.dealerRevealMask, 1);
+        assertEq(session.dealerCards[1], engine.CARD_EMPTY());
+
+        vm.prank(player);
+        controller.hit(sessionId);
+        _submitActionProof(sessionId, action);
+
+        session = engine.getSession(sessionId);
+        assertEq(session.dealerRevealMask, 1);
+        assertEq(session.dealerCards[1], engine.CARD_EMPTY());
+
+        vm.prank(player);
+        controller.stand(sessionId);
+        _submitShowdownProof(sessionId, showdown);
+
+        session = engine.getSession(sessionId);
+        assertEq(session.phase, uint8(SingleDeckBlackjackEngine.SessionPhase.Completed));
+        assertEq(session.dealerRevealMask, 7);
+        assertEq(session.dealerCards[0], showdown.dealerCards[0]);
+        assertEq(session.dealerCards[1], showdown.dealerCards[1]);
+        assertEq(session.dealerCards[2], showdown.dealerCards[2]);
+    }
+
+    function test_BlackjackRejectsForgedInitialPayoutKindProof() public {
+        BlackjackInitialDealFixture memory initial = _loadBlackjackInitialDealFixture("blackjack_initial_deal_suited_natural");
+        initial.handPayoutKinds[0] = engine.HAND_PAYOUT_BLACKJACK_3_TO_2();
+
+        uint256 sessionId = _startHand(initial.playerKeyCommitment, keccak256("blackjack-forged-init-kind"));
+        vm.expectRevert("Blackjack: invalid init proof");
+        _submitInitialDeal(sessionId, initial);
+    }
+
+    function test_BlackjackRejectsForgedActionMaskProof() public {
+        BlackjackInitialDealFixture memory initial = _loadBlackjackInitialDealFixture();
+        BlackjackActionFixture memory action = _loadBlackjackActionFixture();
+
+        uint256 sessionId = _startHand(initial.playerKeyCommitment, keccak256("blackjack-forged-action-mask"));
+        _submitInitialDeal(sessionId, initial);
+
+        vm.prank(player);
+        controller.hit(sessionId);
+
+        action.allowedActionMasks[0] += 1;
+        vm.expectRevert("Blackjack: invalid action proof");
+        _submitActionProof(sessionId, action);
+    }
+
+    function test_BlackjackRejectsForgedShowdownPayoutProof() public {
+        BlackjackInitialDealFixture memory initial = _loadBlackjackInitialDealFixture();
+        BlackjackActionFixture memory action = _loadBlackjackActionFixture();
+        BlackjackShowdownFixture memory showdown = _loadBlackjackShowdownFixture();
+
+        uint256 sessionId = _startHand(initial.playerKeyCommitment, keccak256("blackjack-forged-showdown-payout"));
+        _submitInitialDeal(sessionId, initial);
+
+        vm.prank(player);
+        controller.hit(sessionId);
+        _submitActionProof(sessionId, action);
+
+        vm.prank(player);
+        controller.stand(sessionId);
+
+        showdown.payout += 1;
+        vm.expectRevert("Blackjack: invalid showdown proof");
+        _submitShowdownProof(sessionId, showdown);
+    }
+
+    function _startHand(bytes32 playerKeyCommitment, bytes32 playRef) internal returns (uint256 sessionId) {
+        vm.prank(player);
+        sessionId = controller.startHand(100, playRef, playerKeyCommitment, expressionTokenId);
     }
 
     function _submitInitialDeal(uint256 sessionId, BlackjackInitialDealFixture memory fixture) internal {
@@ -144,6 +310,8 @@ contract BlackjackControllerTest is ZkFixtureLoader {
             fixture.playerCiphertextRef,
             fixture.dealerCiphertextRef,
             fixture.dealerVisibleValue,
+            fixture.playerCards,
+            fixture.dealerCards,
             fixture.handCount,
             fixture.activeHandIndex,
             fixture.payout,
@@ -151,6 +319,9 @@ contract BlackjackControllerTest is ZkFixtureLoader {
             fixture.handValues,
             fixture.handStatuses,
             fixture.allowedActionMasks,
+            fixture.handCardCounts,
+            fixture.handPayoutKinds,
+            fixture.dealerRevealMask,
             fixture.softMask,
             fixture.proof
         );
@@ -164,12 +335,17 @@ contract BlackjackControllerTest is ZkFixtureLoader {
             fixture.playerCiphertextRef,
             fixture.dealerCiphertextRef,
             fixture.dealerVisibleValue,
+            fixture.playerCards,
+            fixture.dealerCards,
             fixture.handCount,
             fixture.activeHandIndex,
             fixture.nextPhase,
             fixture.handValues,
             fixture.handStatuses,
             fixture.allowedActionMasks,
+            fixture.handCardCounts,
+            fixture.handPayoutKinds,
+            fixture.dealerRevealMask,
             fixture.softMask,
             fixture.proof
         );
@@ -182,9 +358,15 @@ contract BlackjackControllerTest is ZkFixtureLoader {
             fixture.dealerStateCommitment,
             fixture.payout,
             fixture.dealerFinalValue,
+            fixture.playerCards,
+            fixture.dealerCards,
             fixture.handCount,
             fixture.activeHandIndex,
             fixture.handStatuses,
+            fixture.handValues,
+            fixture.handCardCounts,
+            fixture.handPayoutKinds,
+            fixture.dealerRevealMask,
             fixture.proof
         );
     }

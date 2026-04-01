@@ -345,6 +345,31 @@
             "name": "allowedActionMasks",
             "type": "uint256[4]",
             "internalType": "uint256[4]"
+          },
+          {
+            "name": "handCardCounts",
+            "type": "uint256[4]",
+            "internalType": "uint256[4]"
+          },
+          {
+            "name": "handPayoutKinds",
+            "type": "uint256[4]",
+            "internalType": "uint256[4]"
+          },
+          {
+            "name": "playerCards",
+            "type": "uint256[8]",
+            "internalType": "uint256[8]"
+          },
+          {
+            "name": "dealerCards",
+            "type": "uint256[4]",
+            "internalType": "uint256[4]"
+          },
+          {
+            "name": "dealerRevealMask",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ]
       }
@@ -418,6 +443,11 @@
             "internalType": "uint256"
           },
           {
+            "name": "baseWager",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
             "name": "handCount",
             "type": "uint256",
             "internalType": "uint256"
@@ -456,6 +486,31 @@
             "name": "allowedActionMasks",
             "type": "uint256[4]",
             "internalType": "uint256[4]"
+          },
+          {
+            "name": "handCardCounts",
+            "type": "uint256[4]",
+            "internalType": "uint256[4]"
+          },
+          {
+            "name": "handPayoutKinds",
+            "type": "uint256[4]",
+            "internalType": "uint256[4]"
+          },
+          {
+            "name": "playerCards",
+            "type": "uint256[8]",
+            "internalType": "uint256[8]"
+          },
+          {
+            "name": "dealerCards",
+            "type": "uint256[4]",
+            "internalType": "uint256[4]"
+          },
+          {
+            "name": "dealerRevealMask",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ]
       }
@@ -527,6 +582,41 @@
             "name": "handStatuses",
             "type": "uint256[4]",
             "internalType": "uint256[4]"
+          },
+          {
+            "name": "handValues",
+            "type": "uint256[4]",
+            "internalType": "uint256[4]"
+          },
+          {
+            "name": "handWagers",
+            "type": "uint256[4]",
+            "internalType": "uint256[4]"
+          },
+          {
+            "name": "handCardCounts",
+            "type": "uint256[4]",
+            "internalType": "uint256[4]"
+          },
+          {
+            "name": "handPayoutKinds",
+            "type": "uint256[4]",
+            "internalType": "uint256[4]"
+          },
+          {
+            "name": "playerCards",
+            "type": "uint256[8]",
+            "internalType": "uint256[8]"
+          },
+          {
+            "name": "dealerCards",
+            "type": "uint256[4]",
+            "internalType": "uint256[4]"
+          },
+          {
+            "name": "dealerRevealMask",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ]
       }

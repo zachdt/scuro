@@ -64,12 +64,21 @@ contract SmokeRealProofHands is Script {
         uint256[4] handValues;
         uint8[4] handStatuses;
         uint8[4] allowedActionMasks;
+        uint8[4] handCardCounts;
+        uint8[4] handPayoutKinds;
+        uint8[8] playerCards;
+        uint8[4] dealerCards;
+        uint8 dealerRevealMask;
     }
 
     struct BlackjackActionFixture {
         bytes proof;
+        uint256 proofSequence;
+        uint8 pendingAction;
+        bytes32 oldPlayerStateCommitment;
         bytes32 newPlayerStateCommitment;
         bytes32 dealerStateCommitment;
+        bytes32 playerKeyCommitment;
         bytes32 playerCiphertextRef;
         bytes32 dealerCiphertextRef;
         uint256 dealerVisibleValue;
@@ -80,10 +89,16 @@ contract SmokeRealProofHands is Script {
         uint256[4] handValues;
         uint8[4] handStatuses;
         uint8[4] allowedActionMasks;
+        uint8[4] handCardCounts;
+        uint8[4] handPayoutKinds;
+        uint8[8] playerCards;
+        uint8[4] dealerCards;
+        uint8 dealerRevealMask;
     }
 
     struct BlackjackShowdownFixture {
         bytes proof;
+        uint256 proofSequence;
         bytes32 playerStateCommitment;
         bytes32 dealerStateCommitment;
         uint256 payout;
@@ -91,6 +106,12 @@ contract SmokeRealProofHands is Script {
         uint8 handCount;
         uint8 activeHandIndex;
         uint8[4] handStatuses;
+        uint256[4] handValues;
+        uint8[4] handCardCounts;
+        uint8[4] handPayoutKinds;
+        uint8[8] playerCards;
+        uint8[4] dealerCards;
+        uint8 dealerRevealMask;
     }
 
     function run() external {
@@ -297,6 +318,8 @@ contract SmokeRealProofHands is Script {
             fixture.playerCiphertextRef,
             fixture.dealerCiphertextRef,
             fixture.dealerVisibleValue,
+            fixture.playerCards,
+            fixture.dealerCards,
             fixture.handCount,
             fixture.activeHandIndex,
             fixture.payout,
@@ -304,6 +327,9 @@ contract SmokeRealProofHands is Script {
             fixture.handValues,
             fixture.handStatuses,
             fixture.allowedActionMasks,
+            fixture.handCardCounts,
+            fixture.handPayoutKinds,
+            fixture.dealerRevealMask,
             fixture.softMask,
             fixture.proof
         );
@@ -322,12 +348,17 @@ contract SmokeRealProofHands is Script {
             fixture.playerCiphertextRef,
             fixture.dealerCiphertextRef,
             fixture.dealerVisibleValue,
+            fixture.playerCards,
+            fixture.dealerCards,
             fixture.handCount,
             fixture.activeHandIndex,
             fixture.nextPhase,
             fixture.handValues,
             fixture.handStatuses,
             fixture.allowedActionMasks,
+            fixture.handCardCounts,
+            fixture.handPayoutKinds,
+            fixture.dealerRevealMask,
             fixture.softMask,
             fixture.proof
         );
@@ -345,9 +376,15 @@ contract SmokeRealProofHands is Script {
             fixture.dealerStateCommitment,
             fixture.payout,
             fixture.dealerFinalValue,
+            fixture.playerCards,
+            fixture.dealerCards,
             fixture.handCount,
             fixture.activeHandIndex,
             fixture.handStatuses,
+            fixture.handValues,
+            fixture.handCardCounts,
+            fixture.handPayoutKinds,
+            fixture.dealerRevealMask,
             fixture.proof
         );
         vm.stopBroadcast();
@@ -395,22 +432,31 @@ contract SmokeRealProofHands is Script {
         fixture.playerCiphertextRef = _bytes32FromString(publicSignals[6]);
         fixture.dealerCiphertextRef = _bytes32FromString(publicSignals[7]);
         fixture.dealerVisibleValue = vm.parseUint(publicSignals[8]);
-        fixture.handCount = uint8(vm.parseUint(publicSignals[9]));
-        fixture.activeHandIndex = uint8(vm.parseUint(publicSignals[10]));
-        fixture.payout = vm.parseUint(publicSignals[11]);
-        fixture.immediateResultCode = uint8(vm.parseUint(publicSignals[12]));
-        fixture.handValues = _toUint256x4(publicSignals, 13);
-        fixture.softMask = vm.parseUint(publicSignals[17]);
-        fixture.handStatuses = _toUint8x4(publicSignals, 18);
-        fixture.allowedActionMasks = _toUint8x4(publicSignals, 22);
+        fixture.handCount = uint8(vm.parseUint(publicSignals[10]));
+        fixture.activeHandIndex = uint8(vm.parseUint(publicSignals[11]));
+        fixture.payout = vm.parseUint(publicSignals[12]);
+        fixture.immediateResultCode = uint8(vm.parseUint(publicSignals[13]));
+        fixture.handValues = _toUint256x4(publicSignals, 14);
+        fixture.softMask = vm.parseUint(publicSignals[18]);
+        fixture.handStatuses = _toUint8x4(publicSignals, 19);
+        fixture.allowedActionMasks = _toUint8x4(publicSignals, 23);
+        fixture.handCardCounts = _toUint8x4(publicSignals, 27);
+        fixture.handPayoutKinds = _toUint8x4(publicSignals, 31);
+        fixture.playerCards = _toUint8x8(publicSignals, 35);
+        fixture.dealerCards = _toUint8x4(publicSignals, 43);
+        fixture.dealerRevealMask = uint8(vm.parseUint(publicSignals[47]));
     }
 
     function _loadBlackjackActionFixture() internal view returns (BlackjackActionFixture memory fixture) {
         string memory json = vm.readFile(_fixturePath("blackjack_action_resolve"));
         string[] memory publicSignals = json.readStringArray(".publicSignals");
         fixture.proof = json.readBytes(".proof");
+        fixture.proofSequence = vm.parseUint(publicSignals[1]);
+        fixture.pendingAction = uint8(vm.parseUint(publicSignals[2]));
+        fixture.oldPlayerStateCommitment = _bytes32FromString(publicSignals[3]);
         fixture.newPlayerStateCommitment = _bytes32FromString(publicSignals[4]);
         fixture.dealerStateCommitment = _bytes32FromString(publicSignals[5]);
+        fixture.playerKeyCommitment = _bytes32FromString(publicSignals[6]);
         fixture.playerCiphertextRef = _bytes32FromString(publicSignals[7]);
         fixture.dealerCiphertextRef = _bytes32FromString(publicSignals[8]);
         fixture.dealerVisibleValue = vm.parseUint(publicSignals[9]);
@@ -421,12 +467,18 @@ contract SmokeRealProofHands is Script {
         fixture.softMask = vm.parseUint(publicSignals[17]);
         fixture.handStatuses = _toUint8x4(publicSignals, 18);
         fixture.allowedActionMasks = _toUint8x4(publicSignals, 22);
+        fixture.handCardCounts = _toUint8x4(publicSignals, 26);
+        fixture.handPayoutKinds = _toUint8x4(publicSignals, 30);
+        fixture.playerCards = _toUint8x8(publicSignals, 34);
+        fixture.dealerCards = _toUint8x4(publicSignals, 42);
+        fixture.dealerRevealMask = uint8(vm.parseUint(publicSignals[46]));
     }
 
     function _loadBlackjackShowdownFixture() internal view returns (BlackjackShowdownFixture memory fixture) {
         string memory json = vm.readFile(_fixturePath("blackjack_showdown"));
         string[] memory publicSignals = json.readStringArray(".publicSignals");
         fixture.proof = json.readBytes(".proof");
+        fixture.proofSequence = vm.parseUint(publicSignals[1]);
         fixture.playerStateCommitment = _bytes32FromString(publicSignals[2]);
         fixture.dealerStateCommitment = _bytes32FromString(publicSignals[3]);
         fixture.payout = vm.parseUint(publicSignals[4]);
@@ -434,6 +486,12 @@ contract SmokeRealProofHands is Script {
         fixture.handCount = uint8(vm.parseUint(publicSignals[6]));
         fixture.activeHandIndex = uint8(vm.parseUint(publicSignals[7]));
         fixture.handStatuses = _toUint8x4(publicSignals, 8);
+        fixture.handValues = _toUint256x4(publicSignals, 12);
+        fixture.handCardCounts = _toUint8x4(publicSignals, 20);
+        fixture.handPayoutKinds = _toUint8x4(publicSignals, 24);
+        fixture.playerCards = _toUint8x8(publicSignals, 28);
+        fixture.dealerCards = _toUint8x4(publicSignals, 36);
+        fixture.dealerRevealMask = uint8(vm.parseUint(publicSignals[40]));
     }
 
     function _fixturePath(string memory name) internal view returns (string memory) {
@@ -452,6 +510,12 @@ contract SmokeRealProofHands is Script {
 
     function _toUint8x4(string[] memory values, uint256 offset) internal pure returns (uint8[4] memory out) {
         for (uint256 i = 0; i < 4; i++) {
+            out[i] = uint8(vm.parseUint(values[offset + i]));
+        }
+    }
+
+    function _toUint8x8(string[] memory values, uint256 offset) internal pure returns (uint8[8] memory out) {
+        for (uint256 i = 0; i < 8; i++) {
             out[i] = uint8(vm.parseUint(values[offset + i]));
         }
     }

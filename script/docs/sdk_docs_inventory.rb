@@ -122,7 +122,7 @@ module SdkDocsInventory
         "developer_reward_bps" => 1000
       },
       "blackjack" => {
-        "config_hash_label" => "single-deck-blackjack-zk",
+        "config_hash_label" => "single-deck-blackjack-zk-v2",
         "default_action_window" => 60,
         "developer_reward_bps" => 500
       }

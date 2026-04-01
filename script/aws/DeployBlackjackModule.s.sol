@@ -18,7 +18,7 @@ contract DeployBlackjackModule is BetaDeployCommon {
                 GameDeploymentFactory.BlackjackDeployment({
                     coordinator: adminAddress(),
                     defaultActionWindow: 60,
-                    configHash: keccak256("single-deck-blackjack-zk"),
+                    configHash: keccak256("single-deck-blackjack-zk-v2"),
                     developerRewardBps: 500
                 })
             )

@@ -254,7 +254,7 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         GameDeploymentFactory.BlackjackDeployment memory blackjackParams = GameDeploymentFactory.BlackjackDeployment({
             coordinator: address(this),
             defaultActionWindow: 60,
-            configHash: keccak256("single-deck-blackjack-zk"),
+            configHash: keccak256("single-deck-blackjack-zk-v2"),
             developerRewardBps: SOLO_DEVELOPER_BPS
         });
         address blackjackControllerAddress;
@@ -300,7 +300,9 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
 
         vm.prank(soloDeveloper.addr);
         blackjackExpressionTokenId = expressionRegistry.mintExpression(
-            blackjackEngineType, keccak256("single-deck-blackjack-zk"), "ipfs://scuro/single-deck-blackjack-zk"
+            blackjackEngineType,
+            keccak256("single-deck-blackjack-zk-v2"),
+            "ipfs://scuro/single-deck-blackjack-zk-v2"
         );
     }
 
