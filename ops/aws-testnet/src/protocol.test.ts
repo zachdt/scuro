@@ -397,8 +397,8 @@ describe("protocol and worker-job verification", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test("assembles fixture submission jobs and rejects live gameplay", async () => {
-    const calls: Array<{ cmd: string; args: string[] }> = [];
+  test("assembles fixture and live blackjack submission jobs", async () => {
+    const calls: Array<{ cmd: string; args: string[]; env?: Record<string, string | undefined> }> = [];
     const tempDir = mkdtempSync(path.join(os.tmpdir(), "scuro-jobs-"));
     const config = makeConfig(tempDir);
     const job: ProofJobRecord = {
@@ -431,8 +431,8 @@ describe("protocol and worker-job verification", () => {
       async loadManifest() {
         return makeManifest();
       },
-      async commandRunner(cmd, args) {
-        calls.push({ cmd, args });
+      async commandRunner(cmd, args, options) {
+        calls.push({ cmd, args, env: options?.env });
         return { stdout: "", stderr: "", exitCode: 0 };
       },
       async runNumberPickerSmoke() {
@@ -448,11 +448,15 @@ describe("protocol and worker-job verification", () => {
 
     expect(calls.some((call) => call.args.includes("script/aws/SubmitPokerShowdown.s.sol:SubmitPokerShowdown"))).toBe(true);
 
-    await expect(processJob(config, {
+    await processJob(config, {
       ...job,
       id: "job-2",
       mode: "live",
-      jobType: "blackjack-showdown"
+      jobType: "blackjack-showdown",
+      payload: {
+        sessionId: 9,
+        witnessPath: "zk/fixtures/witness/blackjack_showdown.json"
+      }
     }, {
       fixture: {
         mode: "fixture",
@@ -463,10 +467,34 @@ describe("protocol and worker-job verification", () => {
       live: {
         mode: "live",
         async execute() {
-          throw new Error("live mode is not enabled for gameplay jobs in v1: blackjack-showdown");
+          return {
+            payloadPath: "/tmp/generated-blackjack-showdown.json",
+            payload: {},
+            phase: "showdown"
+          };
         }
       }
-    })).rejects.toThrow("live mode is not enabled for gameplay jobs in v1");
+    }, {
+      async loadManifest() {
+        return makeManifest();
+      },
+      async commandRunner(cmd, args, options) {
+        calls.push({ cmd, args, env: options?.env });
+        return { stdout: "", stderr: "", exitCode: 0 };
+      },
+      async runNumberPickerSmoke() {
+        return { status: "ok" };
+      },
+      async runPokerSmoke() {
+        return { status: "ok" };
+      },
+      async runBlackjackSmoke() {
+        return { status: "ok" };
+      }
+    });
+
+    const liveBlackjackCall = calls.find((call) => call.args.includes("script/aws/SubmitBlackjackShowdown.s.sol:SubmitBlackjackShowdown"));
+    expect(liveBlackjackCall?.env?.PROOF_PAYLOAD_PATH).toBe("/tmp/generated-blackjack-showdown.json");
 
     rmSync(tempDir, { recursive: true, force: true });
   });

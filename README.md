@@ -42,8 +42,10 @@ Get the Scuro protocol running locally in minutes:
 
 - **Build**: `forge build` compiles the smart contracts.
 - **Test**: `forge test --offline` runs the comprehensive test suite.
+- **Blackjack ZK Parity**: `bun run --cwd zk check:blackjack` verifies the checked-in blackjack fixtures still match the current verifier set.
 - **Slot Invariants**: `forge test --match-path 'test/invariants/*.t.sol' --offline` runs the slot-focused invariant suite.
 - **Smoke Check**: `./script/e2e_deploy_smoke.sh` performs a full-stack local integration test.
+- **ZK Resync**: `bun run --cwd zk resync` rebuilds verifier artifacts, regenerates fixtures, and reruns parity checks after circuit or verifier changes.
 
 For detailed setup instructions and ZK artifact guidance, see [Local Deployment and Testing](./docs/local-deployment-testing.md).
 

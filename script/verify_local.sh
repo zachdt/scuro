@@ -4,16 +4,19 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
 
-echo "[1/5] Foundry unit + integration"
+echo "[1/6] Foundry unit + integration"
 forge test --offline
 
-echo "[2/5] Foundry invariants"
+echo "[2/6] Blackjack zk artifact parity"
+bun run --cwd zk check:blackjack
+
+echo "[3/6] Foundry invariants"
 FOUNDRY_FUZZ_RUNS="${FOUNDRY_FUZZ_RUNS:-128}" forge test --match-path 'test/invariants/*.t.sol' --offline
 
-echo "[3/5] Slot gas test lane"
+echo "[4/6] Slot gas test lane"
 forge test --match-path 'test/SlotMachineController.t.sol' --match-test 'test_Gas' --offline
 
-echo "[4/5] Python slot EV lane"
+echo "[5/6] Python slot EV lane"
 if command -v python3 >/dev/null 2>&1; then
   if python3 - <<'PY'
 import importlib.util
@@ -31,5 +34,5 @@ else
   echo "python3 not installed; skipping EV analysis lane"
 fi
 
-echo "[5/5] Slither advisory"
+echo "[6/6] Slither advisory"
 "${ROOT}/script/check_slither.sh"

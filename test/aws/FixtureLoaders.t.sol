@@ -36,4 +36,17 @@ contract FixtureLoadersTest is Test {
         assertTrue(showdownFixture.proof.length > 0, "showdown proof missing");
         assertEq(showdownFixture.dealerRevealMask, 7, "showdown should reveal all dealer cards");
     }
+
+    function test_LoadBlackjackSubmissionPayloads() public {
+        string memory payloadPath = string.concat(
+            vm.projectRoot(), "/test/aws/fixtures/blackjack_initial_deal_payload.json"
+        );
+        vm.setEnv("PROOF_PAYLOAD_PATH", payloadPath);
+
+        FixtureLoadersHarness.BlackjackInitialDealFixture memory fixture = harness.loadBlackjackInitialDealForSubmission();
+        assertEq(fixture.proof, hex"1234", "submission proof mismatch");
+        assertEq(fixture.handNonce, bytes32(uint256(701)), "submission hand nonce mismatch");
+        assertEq(fixture.dealerVisibleValue, 10, "submission dealer value mismatch");
+        assertEq(fixture.playerCards[1], 16, "submission player cards mismatch");
+    }
 }

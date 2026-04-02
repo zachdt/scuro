@@ -9,7 +9,7 @@ contract SubmitBlackjackShowdown is FixtureLoaders {
         uint256 adminKey = vm.envUint("PRIVATE_KEY");
         uint256 sessionId = vm.envUint("SESSION_ID");
         SingleDeckBlackjackEngine engine = SingleDeckBlackjackEngine(vm.envAddress("BLACKJACK_ENGINE"));
-        BlackjackShowdownFixture memory fixture = _loadBlackjackShowdownFixture();
+        BlackjackShowdownFixture memory fixture = _loadBlackjackShowdownForSubmission();
 
         vm.startBroadcast(adminKey);
         engine.submitShowdownProof(

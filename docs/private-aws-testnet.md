@@ -43,7 +43,7 @@ This guide covers the new private AWS-hosted Scuro testnet runtime added under:
 - Private beta only: there is no public endpoint or application login flow in v1.
 - The current beta redeploy path exposes only public JSON-RPC via CloudFront; operator/admin remains private over SSM.
 - Poker and blackjack remain fixture-backed for gameplay flows.
-- Live proving remains benchmark/admin-only and is expected to reject gameplay jobs.
+- Live blackjack gameplay proving is available through `POST /proof-jobs` when `mode = live` and the payload includes either `witnessPath` or inline `witness` JSON for the requested blackjack phase.
 - The budget beta currently defaults to `t3.micro` with a `40 GiB` root volume, file-queue mode, and local-only logs.
 - CloudWatch log shipping, the SQS proof queue, NAT, ALB, NLB, and interface VPC endpoints are disabled by default for the first low-budget public beta.
 - Release bundles are Linux `x86_64` artifacts.
@@ -270,8 +270,9 @@ PLAYER2_PRIVATE_KEY=0x...
 ## Hybrid Coordinator Notes
 
 - Fixture-backed proof execution is the default gameplay path in v1.
-- Live proving is wired through the worker abstraction, but gameplay jobs intentionally reject `mode = live`.
-- The only supported live-mode job in this first cut is `benchmark-live-proof`, which is intended for operator benchmarking when the full proving toolchain is bundled.
+- Live blackjack gameplay proving is wired through the worker abstraction and shells to `bun run --cwd zk prove:blackjack`.
+- Supported live blackjack job payloads must include either `payload.witnessPath` or `payload.witness` matching the witness JSON shape for `blackjack-initial-deal`, `blackjack-action`, or `blackjack-showdown`.
+- `benchmark-live-proof` remains available for operator benchmarking when the full proving toolchain is bundled.
 
 ## Remote Operator Commands
 

@@ -70,7 +70,8 @@ async function runFixtureScript(
   config: AppConfig,
   target: string,
   job: ProofJobRecord,
-  deps: WorkerJobDeps
+  deps: WorkerJobDeps,
+  extraEnv: Record<string, string> = {}
 ): Promise<Record<string, string>> {
   const manifest = await deps.loadManifest(config.manifestPath);
   if (!manifest) {
@@ -83,7 +84,8 @@ async function runFixtureScript(
     PLAYER2_PRIVATE_KEY: config.player2PrivateKey,
     TOURNAMENT_POKER_ENGINE: manifest.contracts.TournamentPokerEngine,
     BLACKJACK_ENGINE: manifest.contracts.SingleDeckBlackjackEngine,
-    ...envForProofJob(config, job)
+    ...envForProofJob(config, job),
+    ...extraEnv
   };
 
   await deps.commandRunner(
@@ -127,6 +129,7 @@ export async function processJob(
 
   const provider = providers[job.mode];
   const resolved = await provider.execute(job);
+  const proofPayloadEnv = extractProofPayloadEnv(resolved);
 
   switch (job.jobType) {
     case "poker-initial-deal":
@@ -161,7 +164,8 @@ export async function processJob(
           config,
           "script/aws/SubmitBlackjackInitialDeal.s.sol:SubmitBlackjackInitialDeal",
           job,
-          deps
+          deps,
+          proofPayloadEnv
         ))
       };
     case "blackjack-action":
@@ -171,7 +175,8 @@ export async function processJob(
           config,
           "script/aws/SubmitBlackjackAction.s.sol:SubmitBlackjackAction",
           job,
-          deps
+          deps,
+          proofPayloadEnv
         ))
       };
     case "blackjack-showdown":
@@ -181,7 +186,8 @@ export async function processJob(
           config,
           "script/aws/SubmitBlackjackShowdown.s.sol:SubmitBlackjackShowdown",
           job,
-          deps
+          deps,
+          proofPayloadEnv
         ))
       };
     case "benchmark-live-proof":
@@ -189,4 +195,19 @@ export async function processJob(
     default:
       throw new Error(`unsupported job type: ${job.jobType}`);
   }
+}
+
+function extractProofPayloadEnv(resolved: unknown): Record<string, string> {
+  if (
+    typeof resolved === "object" &&
+    resolved !== null &&
+    "payloadPath" in resolved &&
+    typeof (resolved as { payloadPath?: unknown }).payloadPath === "string"
+  ) {
+    return {
+      PROOF_PAYLOAD_PATH: (resolved as { payloadPath: string }).payloadPath
+    };
+  }
+
+  return {};
 }

@@ -9,7 +9,7 @@ contract SubmitBlackjackAction is FixtureLoaders {
         uint256 adminKey = vm.envUint("PRIVATE_KEY");
         uint256 sessionId = vm.envUint("SESSION_ID");
         SingleDeckBlackjackEngine engine = SingleDeckBlackjackEngine(vm.envAddress("BLACKJACK_ENGINE"));
-        BlackjackActionFixture memory fixture = _loadBlackjackActionFixture();
+        BlackjackActionFixture memory fixture = _loadBlackjackActionForSubmission();
 
         vm.startBroadcast(adminKey);
         engine.submitActionProof(

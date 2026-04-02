@@ -1,0 +1,23 @@
+{
+  "proof": "0x1234",
+  "handNonce": "0x00000000000000000000000000000000000000000000000000000000000002bd",
+  "deckCommitment": "0x0000000000000000000000000000000000000000000000000000000000000001",
+  "playerStateCommitment": "0x0000000000000000000000000000000000000000000000000000000000000002",
+  "dealerStateCommitment": "0x0000000000000000000000000000000000000000000000000000000000000003",
+  "playerCiphertextRef": "0x0000000000000000000000000000000000000000000000000000000000000004",
+  "dealerCiphertextRef": "0x0000000000000000000000000000000000000000000000000000000000000005",
+  "dealerVisibleValue": "10",
+  "playerCards": ["7", "16", "52", "52", "52", "52", "52", "52"],
+  "dealerCards": ["9", "52", "52", "52"],
+  "handCount": "1",
+  "activeHandIndex": "0",
+  "payout": "0",
+  "immediateResultCode": "0",
+  "handValues": ["12", "0", "0", "0"],
+  "handStatuses": ["0", "0", "0", "0"],
+  "allowedActionMasks": ["7", "0", "0", "0"],
+  "handCardCounts": ["2", "0", "0", "0"],
+  "handPayoutKinds": ["0", "0", "0", "0"],
+  "dealerRevealMask": "1",
+  "softMask": "0"
+}

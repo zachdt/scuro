@@ -9,7 +9,10 @@
   "scripts": {
     "build": "bun run scripts/build-all.mjs",
     "prove": "bun run scripts/prove-fixtures.mjs",
-    "check": "bun run scripts/check-artifacts.mjs"
+    "check": "bun run scripts/check-artifacts.mjs",
+    "check:blackjack": "bun run scripts/check-blackjack-artifacts.mjs",
+    "prove:blackjack": "bun run scripts/prove-blackjack.mjs",
+    "resync": "bun run build && bun run prove && bun run check && bun run check:blackjack"
   },
   "devDependencies": {
     "circom2": "^0.2.22",

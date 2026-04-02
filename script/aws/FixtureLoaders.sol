@@ -135,6 +135,14 @@ abstract contract FixtureLoaders is Script {
         return _loadBlackjackInitialDealFixture("blackjack_initial_deal");
     }
 
+    function _loadBlackjackInitialDealForSubmission() internal view returns (BlackjackInitialDealFixture memory fixture) {
+        string memory payloadPath = vm.envOr("PROOF_PAYLOAD_PATH", string(""));
+        if (bytes(payloadPath).length == 0) {
+            return _loadBlackjackInitialDealFixture();
+        }
+        return _loadBlackjackInitialDealPayload(payloadPath);
+    }
+
     function _loadBlackjackInitialDealFixture(string memory name)
         internal
         view
@@ -170,6 +178,14 @@ abstract contract FixtureLoaders is Script {
         return _loadBlackjackActionFixture("blackjack_action_resolve");
     }
 
+    function _loadBlackjackActionForSubmission() internal view returns (BlackjackActionFixture memory fixture) {
+        string memory payloadPath = vm.envOr("PROOF_PAYLOAD_PATH", string(""));
+        if (bytes(payloadPath).length == 0) {
+            return _loadBlackjackActionFixture();
+        }
+        return _loadBlackjackActionPayload(payloadPath);
+    }
+
     function _loadBlackjackActionFixture(string memory name) internal view returns (BlackjackActionFixture memory fixture) {
         string memory json = vm.readFile(_fixturePath(name));
         string[] memory publicSignals = json.readStringArray(".publicSignals");
@@ -201,6 +217,14 @@ abstract contract FixtureLoaders is Script {
         return _loadBlackjackShowdownFixture("blackjack_showdown");
     }
 
+    function _loadBlackjackShowdownForSubmission() internal view returns (BlackjackShowdownFixture memory fixture) {
+        string memory payloadPath = vm.envOr("PROOF_PAYLOAD_PATH", string(""));
+        if (bytes(payloadPath).length == 0) {
+            return _loadBlackjackShowdownFixture();
+        }
+        return _loadBlackjackShowdownPayload(payloadPath);
+    }
+
     function _loadBlackjackShowdownFixture(string memory name)
         internal
         view
@@ -225,12 +249,108 @@ abstract contract FixtureLoaders is Script {
         fixture.dealerRevealMask = uint8(vm.parseUint(publicSignals[40]));
     }
 
+    function _loadBlackjackInitialDealPayload(string memory payloadPath)
+        internal
+        view
+        returns (BlackjackInitialDealFixture memory fixture)
+    {
+        string memory json = vm.readFile(payloadPath);
+        fixture.proof = _bytesFromJson(json, ".proof");
+        fixture.handNonce = _bytes32FromJson(json, ".handNonce");
+        fixture.deckCommitment = _bytes32FromJson(json, ".deckCommitment");
+        fixture.playerStateCommitment = _bytes32FromJson(json, ".playerStateCommitment");
+        fixture.dealerStateCommitment = _bytes32FromJson(json, ".dealerStateCommitment");
+        fixture.playerCiphertextRef = _bytes32FromJson(json, ".playerCiphertextRef");
+        fixture.dealerCiphertextRef = _bytes32FromJson(json, ".dealerCiphertextRef");
+        fixture.dealerVisibleValue = _uintFromJson(json, ".dealerVisibleValue");
+        fixture.handCount = _uint8FromJson(json, ".handCount");
+        fixture.activeHandIndex = _uint8FromJson(json, ".activeHandIndex");
+        fixture.payout = _uintFromJson(json, ".payout");
+        fixture.immediateResultCode = _uint8FromJson(json, ".immediateResultCode");
+        fixture.handValues = _toUint256x4FromJson(json, ".handValues");
+        fixture.softMask = _uintFromJson(json, ".softMask");
+        fixture.handStatuses = _toUint8x4FromJson(json, ".handStatuses");
+        fixture.allowedActionMasks = _toUint8x4FromJson(json, ".allowedActionMasks");
+        fixture.handCardCounts = _toUint8x4FromJson(json, ".handCardCounts");
+        fixture.handPayoutKinds = _toUint8x4FromJson(json, ".handPayoutKinds");
+        fixture.playerCards = _toUint8x8FromJson(json, ".playerCards");
+        fixture.dealerCards = _toUint8x4FromJson(json, ".dealerCards");
+        fixture.dealerRevealMask = _uint8FromJson(json, ".dealerRevealMask");
+    }
+
+    function _loadBlackjackActionPayload(string memory payloadPath)
+        internal
+        view
+        returns (BlackjackActionFixture memory fixture)
+    {
+        string memory json = vm.readFile(payloadPath);
+        fixture.proof = _bytesFromJson(json, ".args.proof");
+        fixture.newPlayerStateCommitment = _bytes32FromJson(json, ".args.newPlayerStateCommitment");
+        fixture.dealerStateCommitment = _bytes32FromJson(json, ".args.dealerStateCommitment");
+        fixture.playerCiphertextRef = _bytes32FromJson(json, ".args.playerCiphertextRef");
+        fixture.dealerCiphertextRef = _bytes32FromJson(json, ".args.dealerCiphertextRef");
+        fixture.dealerVisibleValue = _uintFromJson(json, ".args.dealerVisibleValue");
+        fixture.handCount = _uint8FromJson(json, ".args.handCount");
+        fixture.activeHandIndex = _uint8FromJson(json, ".args.activeHandIndex");
+        fixture.nextPhase = _uint8FromJson(json, ".args.nextPhase");
+        fixture.handValues = _toUint256x4FromJson(json, ".args.handValues");
+        fixture.softMask = _uintFromJson(json, ".args.softMask");
+        fixture.handStatuses = _toUint8x4FromJson(json, ".args.handStatuses");
+        fixture.allowedActionMasks = _toUint8x4FromJson(json, ".args.allowedActionMasks");
+        fixture.handCardCounts = _toUint8x4FromJson(json, ".args.handCardCounts");
+        fixture.handPayoutKinds = _toUint8x4FromJson(json, ".args.handPayoutKinds");
+        fixture.playerCards = _toUint8x8FromJson(json, ".args.playerCards");
+        fixture.dealerCards = _toUint8x4FromJson(json, ".args.dealerCards");
+        fixture.dealerRevealMask = _uint8FromJson(json, ".args.dealerRevealMask");
+    }
+
+    function _loadBlackjackShowdownPayload(string memory payloadPath)
+        internal
+        view
+        returns (BlackjackShowdownFixture memory fixture)
+    {
+        string memory json = vm.readFile(payloadPath);
+        fixture.proof = _bytesFromJson(json, ".args.proof");
+        fixture.playerStateCommitment = _bytes32FromJson(json, ".args.playerStateCommitment");
+        fixture.dealerStateCommitment = _bytes32FromJson(json, ".args.dealerStateCommitment");
+        fixture.payout = _uintFromJson(json, ".args.payout");
+        fixture.dealerFinalValue = _uintFromJson(json, ".args.dealerFinalValue");
+        fixture.handCount = _uint8FromJson(json, ".args.handCount");
+        fixture.activeHandIndex = _uint8FromJson(json, ".args.activeHandIndex");
+        fixture.handStatuses = _toUint8x4FromJson(json, ".args.handStatuses");
+        fixture.handValues = _toUint256x4FromJson(json, ".args.handValues");
+        fixture.handCardCounts = _toUint8x4FromJson(json, ".args.handCardCounts");
+        fixture.handPayoutKinds = _toUint8x4FromJson(json, ".args.handPayoutKinds");
+        fixture.playerCards = _toUint8x8FromJson(json, ".args.playerCards");
+        fixture.dealerCards = _toUint8x4FromJson(json, ".args.dealerCards");
+        fixture.dealerRevealMask = _uint8FromJson(json, ".args.dealerRevealMask");
+    }
+
     function _fixturePath(string memory name) internal view returns (string memory) {
         return string.concat(vm.projectRoot(), "/zk/fixtures/generated/", name, ".json");
     }
 
     function _bytes32FromString(string memory value) internal pure returns (bytes32) {
+        if (_isHexString(value)) {
+            return vm.parseBytes32(value);
+        }
         return bytes32(vm.parseUint(value));
+    }
+
+    function _bytes32FromJson(string memory json, string memory path) internal pure returns (bytes32) {
+        return _bytes32FromString(json.readString(path));
+    }
+
+    function _bytesFromJson(string memory json, string memory path) internal pure returns (bytes memory) {
+        return vm.parseBytes(json.readString(path));
+    }
+
+    function _uintFromJson(string memory json, string memory path) internal pure returns (uint256) {
+        return vm.parseUint(json.readString(path));
+    }
+
+    function _uint8FromJson(string memory json, string memory path) internal pure returns (uint8) {
+        return uint8(_uintFromJson(json, path));
     }
 
     function _toUint256x4(string[] memory values, uint256 offset) internal pure returns (uint256[4] memory out) {
@@ -249,5 +369,31 @@ abstract contract FixtureLoaders is Script {
         for (uint256 i = 0; i < 8; i++) {
             out[i] = uint8(vm.parseUint(values[offset + i]));
         }
+    }
+
+    function _toUint256x4FromJson(string memory json, string memory path) internal pure returns (uint256[4] memory out) {
+        string[] memory values = json.readStringArray(path);
+        for (uint256 i = 0; i < 4; i++) {
+            out[i] = vm.parseUint(values[i]);
+        }
+    }
+
+    function _toUint8x4FromJson(string memory json, string memory path) internal pure returns (uint8[4] memory out) {
+        string[] memory values = json.readStringArray(path);
+        for (uint256 i = 0; i < 4; i++) {
+            out[i] = uint8(vm.parseUint(values[i]));
+        }
+    }
+
+    function _toUint8x8FromJson(string memory json, string memory path) internal pure returns (uint8[8] memory out) {
+        string[] memory values = json.readStringArray(path);
+        for (uint256 i = 0; i < 8; i++) {
+            out[i] = uint8(vm.parseUint(values[i]));
+        }
+    }
+
+    function _isHexString(string memory value) private pure returns (bool) {
+        bytes memory raw = bytes(value);
+        return raw.length >= 2 && raw[0] == "0" && (raw[1] == "x" || raw[1] == "X");
     }
 }

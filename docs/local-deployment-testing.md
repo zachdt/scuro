@@ -53,8 +53,14 @@ forge build
 # Verify checked-in ZK artifacts and fixtures
 bun run --cwd zk check
 
+# Verify the checked-in blackjack fixtures against the current verifier contracts
+bun run --cwd zk check:blackjack
+
 # Rebuild ZK artifacts (only needed when circuit sources change)
 bun run --cwd zk build
+
+# Rebuild zk artifacts, regenerate fixtures, and rerun parity checks
+bun run --cwd zk resync
 ```
 
 ### Protocol Verification

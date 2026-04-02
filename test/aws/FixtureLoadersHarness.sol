@@ -16,11 +16,23 @@ contract FixtureLoadersHarness is FixtureLoaders {
         return _loadBlackjackInitialDealFixture();
     }
 
+    function loadBlackjackInitialDealForSubmission() external view returns (BlackjackInitialDealFixture memory) {
+        return _loadBlackjackInitialDealForSubmission();
+    }
+
     function loadBlackjackAction() external view returns (BlackjackActionFixture memory) {
         return _loadBlackjackActionFixture();
     }
 
+    function loadBlackjackActionForSubmission() external view returns (BlackjackActionFixture memory) {
+        return _loadBlackjackActionForSubmission();
+    }
+
     function loadBlackjackShowdown() external view returns (BlackjackShowdownFixture memory) {
         return _loadBlackjackShowdownFixture();
+    }
+
+    function loadBlackjackShowdownForSubmission() external view returns (BlackjackShowdownFixture memory) {
+        return _loadBlackjackShowdownForSubmission();
     }
 }
