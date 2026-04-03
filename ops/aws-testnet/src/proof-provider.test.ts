@@ -102,8 +102,8 @@ describe("proof providers", () => {
 
     const resolved = await provider.execute(job);
     expect(calls[0]).toEqual({
-      cmd: "bun",
-      args: ["run", "--cwd", "zk", "prove:blackjack", "--phase", "showdown", "--witness", path.join(config.jobsDir, "job-1-showdown-witness.json")]
+      cmd: "node",
+      args: ["zk/scripts/prove-blackjack.mjs", "--phase", "showdown", "--witness", path.join(config.jobsDir, "job-1-showdown-witness.json")]
     });
     expect((resolved as { payloadPath: string }).payloadPath).toBe(path.join(config.jobsDir, "job-1-showdown-payload.json"));
     expect(await Bun.file((resolved as { payloadPath: string }).payloadPath).json()).toMatchObject({

@@ -53,8 +53,8 @@ export class LiveProofProvider implements ProofProvider {
     if (phase) {
       const witnessPath = await this.resolveWitnessPath(job, phase);
       const result = await this.commandRunner(
-        "bun",
-        ["run", "--cwd", "zk", "prove:blackjack", "--phase", phase, "--witness", witnessPath],
+        "node",
+        ["zk/scripts/prove-blackjack.mjs", "--phase", phase, "--witness", witnessPath],
         { cwd: this.config.repoRoot }
       );
       const payload = JSON.parse(result.stdout) as Record<string, unknown>;

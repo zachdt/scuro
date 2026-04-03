@@ -1,8 +1,9 @@
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { generateBlackjackPayload } from "./lib/blackjack-proof.mjs";
 
-const ROOT = path.resolve(import.meta.dirname, "..");
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const { phase, witnessPath } = parseArgs(process.argv.slice(2));
 const witness = JSON.parse(await readWitness(witnessPath));
 const payload = await generateBlackjackPayload({
@@ -45,7 +46,7 @@ function parseArgs(argv) {
 
 async function readWitness(witnessPath) {
   if (!witnessPath || witnessPath === "-") {
-    return await Bun.stdin.text();
+    return await readStdin();
   }
 
   const candidates = [
@@ -62,4 +63,12 @@ async function readWitness(witnessPath) {
   }
 
   throw new Error(`witness file not found: ${witnessPath}`);
+}
+
+async function readStdin() {
+  const chunks = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks).toString("utf8");
 }
