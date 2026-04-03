@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {GameCatalog} from "../GameCatalog.sol";
+import {console} from "forge-std/console.sol";
 import {IBlackjackVerifierBundle} from "../interfaces/IBlackjackVerifierBundle.sol";
 import {ISoloLifecycleEngine} from "../interfaces/ISoloLifecycleEngine.sol";
 
@@ -266,7 +267,17 @@ contract BlackjackEngine is ISoloLifecycleEngine {
 
         IBlackjackVerifierBundle.InitialDealPublicInputs memory inputs =
             _buildInitialDealInputs(sessionId, session, deckCommitment, handNonce, playerStateCommitment, dealerStateCommitment, playerCiphertextRef, dealerCiphertextRef, publicState);
-        require(VERIFIER_BUNDLE.verifyInitialDeal(proof, inputs), "Blackjack: invalid init proof");
+        
+        if (!VERIFIER_BUNDLE.verifyInitialDeal(proof, inputs)) {
+            console.log("Initial Deal Proof Verification Failed!");
+            console.log("sessionId:", inputs.sessionId);
+            console.log("handNonce:", inputs.handNonce);
+            console.log("deckCommitment:");
+            console.logBytes32(bytes32(inputs.deckCommitment));
+            console.log("encoded inputs:");
+            console.logBytes(abi.encode(inputs));
+            revert("Blackjack: invalid init proof");
+        }
 
         session.proofSequence = 1;
         session.deckCommitment = deckCommitment;
