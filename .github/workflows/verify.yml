@@ -71,7 +71,9 @@ jobs:
             script/aws/SubmitBlackjackShowdown.s.sol
 
       - name: Focused Forge tests
-        run: forge test --match-path 'test/aws/*.t.sol' --offline
+        run: |
+          forge clean
+          forge test --match-path 'test/aws/*.t.sol' --offline
 
       - name: Terraform fmt
         run: terraform -chdir=infra/aws/testnet fmt -check -diff
