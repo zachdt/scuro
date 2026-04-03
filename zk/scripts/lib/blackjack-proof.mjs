@@ -1,11 +1,10 @@
 import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { AbiCoder } from "ethers";
 import { buildPoseidon } from "circomlibjs";
 import { execa } from "./execa.mjs";
+import { encodeGroth16Proof } from "./groth16-proof-encoder.mjs";
 
-const abiCoder = AbiCoder.defaultAbiCoder();
 const poseidon = await buildPoseidon();
 const FIELD = poseidon.F;
 
@@ -792,13 +791,7 @@ function flattenPublicStateInputs(publicState) {
 }
 
 function encodeProof(proof) {
-  const a = [BigInt(proof.pi_a[0]), BigInt(proof.pi_a[1])];
-  const b = [
-    [BigInt(proof.pi_b[0][1]), BigInt(proof.pi_b[0][0])],
-    [BigInt(proof.pi_b[1][1]), BigInt(proof.pi_b[1][0])]
-  ];
-  const c = [BigInt(proof.pi_c[0]), BigInt(proof.pi_c[1])];
-  return abiCoder.encode(["tuple(uint256[2] a, uint256[2][2] b, uint256[2] c)"], [{ a, b, c }]);
+  return encodeGroth16Proof(proof);
 }
 
 function normalizePlayerKey(values) {
