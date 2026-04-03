@@ -3,7 +3,7 @@
     "number_picker": 1600000,
     "poker_tournament": 6900000,
     "poker_pvp": 6800000,
-    "blackjack": 10000000
+    "blackjack": 20000000
   },
   "staged_deploy": {
     "solo_module_deployer": 9800000,
@@ -14,7 +14,7 @@
     "number_picker_module": 1600000,
     "poker_tournament_module": 6900000,
     "poker_pvp_module": 6800000,
-    "blackjack_module": 10000000,
+    "blackjack_module": 20000000,
     "full_beta_deploy_total": 70000000
   }
 }

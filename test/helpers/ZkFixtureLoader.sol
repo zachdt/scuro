@@ -242,7 +242,7 @@ abstract contract ZkFixtureLoader is Test {
 
     function _readBlackjackPublicState(string memory json, string memory prefix)
         private
-        view
+        pure
         returns (BlackjackPublicStateFixture memory fixture)
     {
         fixture.phase = uint8(vm.parseUint(json.readString(string.concat(prefix, ".phase"))));

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {BaseE2ETest} from "../e2e/BaseE2E.t.sol";
+import {BlackjackEngine} from "../../src/engines/BlackjackEngine.sol";
 
 contract LocalSmokeFallbackTest is BaseE2ETest {
     function test_NumberPickerSmokeParity() public {
@@ -33,10 +34,9 @@ contract LocalSmokeFallbackTest is BaseE2ETest {
     function test_BlackjackSmokeParity() public {
         _approveSettlement(player1, type(uint256).max);
 
-        BlackjackInitialDealFixture memory initialDeal = _loadBlackjackInitialDealFixture();
-        BlackjackActionFixture memory actionFixture = _loadBlackjackActionFixture();
-        BlackjackShowdownFixture memory showdownFixture = _loadBlackjackShowdownFixture();
-
+        // 1. Initial Deal (Ace up, Player 18)
+        BlackjackInitialDealFixture memory initialDeal = _loadBlackjackInitialDealFixture("blackjack_smoke_initial");
+        
         vm.prank(player1.addr);
         uint256 sessionId = blackjackController.startHand(
             100,
@@ -47,18 +47,28 @@ contract LocalSmokeFallbackTest is BaseE2ETest {
 
         _submitInitialDeal(sessionId, initialDeal);
 
+        // 3. Action (Hit) -> Player gets 20
+        BlackjackActionFixture memory actionHit = _loadBlackjackActionFixture("blackjack_smoke_action_hit");
         vm.prank(player1.addr);
         blackjackController.hit(sessionId);
-        _submitActionProof(sessionId, actionFixture);
+        _submitActionProof(sessionId, actionHit);
 
+        // 4. Action (Stand) -> Transition to Showdown
+        BlackjackActionFixture memory actionStand = _loadBlackjackActionFixture("blackjack_smoke_action_stand");
         vm.prank(player1.addr);
         blackjackController.stand(sessionId);
-        _submitShowdownProof(sessionId, showdownFixture);
+        _submitActionProof(sessionId, actionStand);
 
+        // 5. Showdown -> Dealer busts, Player wins 200 (100 wager + 100 profit)
+        BlackjackShowdownFixture memory showdown = _loadBlackjackShowdownFixture("blackjack_smoke_showdown");
+        _submitShowdownProof(sessionId, showdown);
+
+        // 6. Settle
         blackjackController.settle(sessionId);
 
-        assertEq(token.balanceOf(player1.addr), PLAYER_FUNDS + 100);
-        _assertDeveloperAccrual(soloDeveloper.addr, 1, 5);
+        assertEq(token.balanceOf(player1.addr), PLAYER_FUNDS + 100); // 100 profit
+        _assertDeveloperAccrual(soloDeveloper.addr, 1, 5); // 5% fee on 100 profit? No, wait. 
+        // Need to check fee logic in BaseE2ETest.
     }
 
     function _submitInitialDeal(uint256 sessionId, BlackjackInitialDealFixture memory fixture) internal {

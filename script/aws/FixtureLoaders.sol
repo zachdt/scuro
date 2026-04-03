@@ -50,7 +50,6 @@ abstract contract FixtureLoaders is Script {
         uint8 activeHandIndex;
         uint256 payout;
         uint8 immediateResultCode;
-        uint256 softMask;
         uint256[4] handValues;
         uint8[4] handStatuses;
         uint8[4] allowedActionMasks;
@@ -75,7 +74,6 @@ abstract contract FixtureLoaders is Script {
         uint8 handCount;
         uint8 activeHandIndex;
         uint8 nextPhase;
-        uint256 softMask;
         uint256[4] handValues;
         uint8[4] handStatuses;
         uint8[4] allowedActionMasks;
@@ -205,29 +203,27 @@ abstract contract FixtureLoaders is Script {
         returns (BlackjackInitialDealFixture memory fixture)
     {
         string memory json = vm.readFile(_fixturePath(name));
-        string[] memory publicSignals = json.readStringArray(".publicSignals");
         fixture.proof = json.readBytes(".proof");
-        fixture.handNonce = _bytes32FromString(publicSignals[1]);
-        fixture.deckCommitment = _bytes32FromString(publicSignals[2]);
-        fixture.playerStateCommitment = _bytes32FromString(publicSignals[3]);
-        fixture.dealerStateCommitment = _bytes32FromString(publicSignals[4]);
-        fixture.playerKeyCommitment = _bytes32FromString(publicSignals[5]);
-        fixture.playerCiphertextRef = _bytes32FromString(publicSignals[6]);
-        fixture.dealerCiphertextRef = _bytes32FromString(publicSignals[7]);
-        fixture.dealerVisibleValue = vm.parseUint(publicSignals[8]);
-        fixture.handCount = uint8(vm.parseUint(publicSignals[10]));
-        fixture.activeHandIndex = uint8(vm.parseUint(publicSignals[11]));
-        fixture.payout = vm.parseUint(publicSignals[12]);
-        fixture.immediateResultCode = uint8(vm.parseUint(publicSignals[13]));
-        fixture.handValues = _toUint256x4(publicSignals, 14);
-        fixture.softMask = vm.parseUint(publicSignals[18]);
-        fixture.handStatuses = _toUint8x4(publicSignals, 19);
-        fixture.allowedActionMasks = _toUint8x4(publicSignals, 23);
-        fixture.handCardCounts = _toUint8x4(publicSignals, 27);
-        fixture.handPayoutKinds = _toUint8x4(publicSignals, 31);
-        fixture.playerCards = _toUint8x8(publicSignals, 35);
-        fixture.dealerCards = _toUint8x4(publicSignals, 43);
-        fixture.dealerRevealMask = uint8(vm.parseUint(publicSignals[47]));
+        fixture.handNonce = _bytes32FromJson(json, ".input.handNonce");
+        fixture.deckCommitment = _bytes32FromJson(json, ".input.deckCommitment");
+        fixture.playerStateCommitment = _bytes32FromJson(json, ".input.playerStateCommitment");
+        fixture.dealerStateCommitment = _bytes32FromJson(json, ".input.dealerStateCommitment");
+        fixture.playerKeyCommitment = _bytes32FromJson(json, ".input.playerKeyCommitment");
+        fixture.playerCiphertextRef = _bytes32FromJson(json, ".input.playerCiphertextRef");
+        fixture.dealerCiphertextRef = _bytes32FromJson(json, ".input.dealerCiphertextRef");
+        fixture.dealerVisibleValue = _uintFromJson(json, ".input.dealerUpValue");
+        fixture.handCount = _uint8FromJson(json, ".input.handCount");
+        fixture.activeHandIndex = _uint8FromJson(json, ".input.activeHandIndex");
+        fixture.payout = _uintFromJson(json, ".input.payout");
+        fixture.immediateResultCode = 0; // Not used in new engine
+        fixture.handValues = _toUint256x4FromJson(json, ".input.handValues");
+        fixture.handStatuses = _toUint8x4FromJson(json, ".input.handStatuses");
+        fixture.allowedActionMasks = _toUint8x4FromJson(json, ".input.allowedActionMasks");
+        fixture.handCardCounts = _toUint8x4FromJson(json, ".input.handCardCounts");
+        fixture.handPayoutKinds = _toUint8x4FromJson(json, ".input.handPayoutKinds");
+        fixture.playerCards = _toUint8x8FromJson(json, ".input.playerCards");
+        fixture.dealerCards = _toUint8x4FromJson(json, ".input.dealerCards");
+        fixture.dealerRevealMask = _uint8FromJson(json, ".input.dealerRevealMask");
     }
 
     function _loadBlackjackActionFixture() internal view returns (BlackjackActionFixture memory fixture) {
@@ -267,29 +263,27 @@ abstract contract FixtureLoaders is Script {
 
     function _loadBlackjackActionFixture(string memory name) internal view returns (BlackjackActionFixture memory fixture) {
         string memory json = vm.readFile(_fixturePath(name));
-        string[] memory publicSignals = json.readStringArray(".publicSignals");
         fixture.proof = json.readBytes(".proof");
-        fixture.proofSequence = vm.parseUint(publicSignals[1]);
-        fixture.pendingAction = uint8(vm.parseUint(publicSignals[2]));
-        fixture.oldPlayerStateCommitment = _bytes32FromString(publicSignals[3]);
-        fixture.newPlayerStateCommitment = _bytes32FromString(publicSignals[4]);
-        fixture.dealerStateCommitment = _bytes32FromString(publicSignals[5]);
-        fixture.playerKeyCommitment = _bytes32FromString(publicSignals[6]);
-        fixture.playerCiphertextRef = _bytes32FromString(publicSignals[7]);
-        fixture.dealerCiphertextRef = _bytes32FromString(publicSignals[8]);
-        fixture.dealerVisibleValue = vm.parseUint(publicSignals[9]);
-        fixture.handCount = uint8(vm.parseUint(publicSignals[10]));
-        fixture.activeHandIndex = uint8(vm.parseUint(publicSignals[11]));
-        fixture.nextPhase = uint8(vm.parseUint(publicSignals[12]));
-        fixture.handValues = _toUint256x4(publicSignals, 13);
-        fixture.softMask = vm.parseUint(publicSignals[17]);
-        fixture.handStatuses = _toUint8x4(publicSignals, 18);
-        fixture.allowedActionMasks = _toUint8x4(publicSignals, 22);
-        fixture.handCardCounts = _toUint8x4(publicSignals, 26);
-        fixture.handPayoutKinds = _toUint8x4(publicSignals, 30);
-        fixture.playerCards = _toUint8x8(publicSignals, 34);
-        fixture.dealerCards = _toUint8x4(publicSignals, 42);
-        fixture.dealerRevealMask = uint8(vm.parseUint(publicSignals[46]));
+        fixture.proofSequence = _uintFromJson(json, ".input.proofSequence");
+        fixture.pendingAction = _uint8FromJson(json, ".input.pendingAction");
+        fixture.oldPlayerStateCommitment = _bytes32FromJson(json, ".input.oldPlayerStateCommitment");
+        fixture.newPlayerStateCommitment = _bytes32FromJson(json, ".input.newPlayerStateCommitment");
+        fixture.dealerStateCommitment = _bytes32FromJson(json, ".input.dealerStateCommitment");
+        fixture.playerKeyCommitment = _bytes32FromJson(json, ".input.playerKeyCommitment");
+        fixture.playerCiphertextRef = _bytes32FromJson(json, ".input.playerCiphertextRef");
+        fixture.dealerCiphertextRef = _bytes32FromJson(json, ".input.dealerCiphertextRef");
+        fixture.dealerVisibleValue = _uintFromJson(json, ".input.dealerUpValue");
+        fixture.handCount = _uint8FromJson(json, ".input.handCount");
+        fixture.activeHandIndex = _uint8FromJson(json, ".input.activeHandIndex");
+        fixture.nextPhase = _uint8FromJson(json, ".input.phase");
+        fixture.handValues = _toUint256x4FromJson(json, ".input.handValues");
+        fixture.handStatuses = _toUint8x4FromJson(json, ".input.handStatuses");
+        fixture.allowedActionMasks = _toUint8x4FromJson(json, ".input.allowedActionMasks");
+        fixture.handCardCounts = _toUint8x4FromJson(json, ".input.handCardCounts");
+        fixture.handPayoutKinds = _toUint8x4FromJson(json, ".input.handPayoutKinds");
+        fixture.playerCards = _toUint8x8FromJson(json, ".input.playerCards");
+        fixture.dealerCards = _toUint8x4FromJson(json, ".input.dealerCards");
+        fixture.dealerRevealMask = _uint8FromJson(json, ".input.dealerRevealMask");
     }
 
     function _loadBlackjackShowdownFixture() internal view returns (BlackjackShowdownFixture memory fixture) {
@@ -323,22 +317,21 @@ abstract contract FixtureLoaders is Script {
         returns (BlackjackShowdownFixture memory fixture)
     {
         string memory json = vm.readFile(_fixturePath(name));
-        string[] memory publicSignals = json.readStringArray(".publicSignals");
         fixture.proof = json.readBytes(".proof");
-        fixture.proofSequence = vm.parseUint(publicSignals[1]);
-        fixture.playerStateCommitment = _bytes32FromString(publicSignals[2]);
-        fixture.dealerStateCommitment = _bytes32FromString(publicSignals[3]);
-        fixture.payout = vm.parseUint(publicSignals[4]);
-        fixture.dealerFinalValue = vm.parseUint(publicSignals[5]);
-        fixture.handCount = uint8(vm.parseUint(publicSignals[6]));
-        fixture.activeHandIndex = uint8(vm.parseUint(publicSignals[7]));
-        fixture.handStatuses = _toUint8x4(publicSignals, 8);
-        fixture.handValues = _toUint256x4(publicSignals, 12);
-        fixture.handCardCounts = _toUint8x4(publicSignals, 20);
-        fixture.handPayoutKinds = _toUint8x4(publicSignals, 24);
-        fixture.playerCards = _toUint8x8(publicSignals, 28);
-        fixture.dealerCards = _toUint8x4(publicSignals, 36);
-        fixture.dealerRevealMask = uint8(vm.parseUint(publicSignals[40]));
+        fixture.proofSequence = _uintFromJson(json, ".input.proofSequence");
+        fixture.playerStateCommitment = _bytes32FromJson(json, ".input.playerStateCommitment");
+        fixture.dealerStateCommitment = _bytes32FromJson(json, ".input.dealerStateCommitment");
+        fixture.payout = _uintFromJson(json, ".input.payout");
+        fixture.dealerFinalValue = _uintFromJson(json, ".input.dealerFinalValue");
+        fixture.handCount = _uint8FromJson(json, ".input.handCount");
+        fixture.activeHandIndex = _uint8FromJson(json, ".input.activeHandIndex");
+        fixture.handStatuses = _toUint8x4FromJson(json, ".input.handStatuses");
+        fixture.handValues = _toUint256x4FromJson(json, ".input.handValues");
+        fixture.handCardCounts = _toUint8x4FromJson(json, ".input.handCardCounts");
+        fixture.handPayoutKinds = _toUint8x4FromJson(json, ".input.handPayoutKinds");
+        fixture.playerCards = _toUint8x8FromJson(json, ".input.playerCards");
+        fixture.dealerCards = _toUint8x4FromJson(json, ".input.dealerCards");
+        fixture.dealerRevealMask = _uint8FromJson(json, ".input.dealerRevealMask");
     }
 
     function _loadBlackjackInitialDealPayload(string memory payloadPath)
@@ -360,7 +353,6 @@ abstract contract FixtureLoaders is Script {
         fixture.payout = _uintFromJson(json, ".payout");
         fixture.immediateResultCode = _uint8FromJson(json, ".immediateResultCode");
         fixture.handValues = _toUint256x4FromJson(json, ".handValues");
-        fixture.softMask = _uintFromJson(json, ".softMask");
         fixture.handStatuses = _toUint8x4FromJson(json, ".handStatuses");
         fixture.allowedActionMasks = _toUint8x4FromJson(json, ".allowedActionMasks");
         fixture.handCardCounts = _toUint8x4FromJson(json, ".handCardCounts");
@@ -386,7 +378,6 @@ abstract contract FixtureLoaders is Script {
         fixture.activeHandIndex = _uint8FromJson(json, ".args.activeHandIndex");
         fixture.nextPhase = _uint8FromJson(json, ".args.nextPhase");
         fixture.handValues = _toUint256x4FromJson(json, ".args.handValues");
-        fixture.softMask = _uintFromJson(json, ".args.softMask");
         fixture.handStatuses = _toUint8x4FromJson(json, ".args.handStatuses");
         fixture.allowedActionMasks = _toUint8x4FromJson(json, ".args.allowedActionMasks");
         fixture.handCardCounts = _toUint8x4FromJson(json, ".args.handCardCounts");
@@ -542,7 +533,7 @@ abstract contract FixtureLoaders is Script {
 
     function _readBlackjackPublicState(string memory json, string memory prefix)
         internal
-        view
+        pure
         returns (BlackjackEngine.PublicSessionState memory state)
     {
         state.phase = _uint8FromJson(json, string.concat(prefix, ".phase"));
