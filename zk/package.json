@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "bun run scripts/build-all.mjs",
+    "build:blackjack-initial": "bun run scripts/build-all.mjs blackjack_initial_deal",
     "prove": "bun run scripts/prove-fixtures.mjs",
     "check": "bun run scripts/check-artifacts.mjs",
     "check:blackjack": "bun run scripts/check-blackjack-artifacts.mjs",

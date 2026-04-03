@@ -17,6 +17,9 @@ const CIRCUITS = [
   { circuit: "blackjack_showdown", contract: "BlackjackShowdownVerifier" }
 ];
 
+const requestedCircuits = process.argv.slice(2);
+const selectedCircuits = selectCircuits(requestedCircuits);
+
 const PTAU = path.join(CACHE_DIR, "pot15_final.ptau");
 
 await mkdir(CACHE_DIR, { recursive: true });
@@ -25,11 +28,25 @@ await mkdir(SRC_VERIFIER_DIR, { recursive: true });
 
 await ensurePtau();
 
-for (const item of CIRCUITS) {
+for (const item of selectedCircuits) {
   console.log(`building ${item.circuit}`);
   await compileCircuit(item);
   await setupGroth16(item);
   await exportVerifier(item);
+}
+
+function selectCircuits(requested) {
+  if (requested.length === 0) {
+    return CIRCUITS;
+  }
+
+  const selected = CIRCUITS.filter((item) => requested.includes(item.circuit));
+  if (selected.length !== requested.length) {
+    const known = new Set(selected.map((item) => item.circuit));
+    const unknown = requested.filter((name) => !known.has(name));
+    throw new Error(`unknown circuits requested: ${unknown.join(", ")}`);
+  }
+  return selected;
 }
 
 async function ensurePtau() {

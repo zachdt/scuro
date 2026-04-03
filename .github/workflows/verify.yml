@@ -40,6 +40,9 @@ jobs:
       - name: Install zk dependencies
         run: bun install --cwd zk --frozen-lockfile
 
+      - name: Build blackjack proof artifacts
+        run: bun run --cwd zk build:blackjack-initial
+
       - name: Bun checks
         run: bun run --cwd ops/aws-testnet check
 
