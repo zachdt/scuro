@@ -4,6 +4,8 @@
 
 This playbook is the minimum solo-game flow a Node or Rust API should support.
 
+Product rules and economics live in the [NumberPicker session spec](../session-specs/number-picker.md).
+
 ## Transaction Sequence
 
 1. Ensure the player has approved `ProtocolSettlement` for the wager amount.
@@ -27,5 +29,6 @@ This playbook is the minimum solo-game flow a Node or Rust API should support.
 
 ## Relevant References
 
+- [NumberPicker Session Spec](../session-specs/number-picker.md)
 - [NumberPickerAdapter](../reference/number-picker-adapter.md)
 - [NumberPickerEngine](../reference/number-picker-engine.md)

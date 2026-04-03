@@ -9,6 +9,8 @@ The current implementation showcases this versatility through a variety of modul
 - **ZK-Proven Poker & Blackjack**: Advanced examples leveraging Groth16 proof verification for secure, private gameplay.
 - **Developer Attribution**: A robust system using transferable "Expression NFTs" and a centralized Catalog/Factory pair to manage module registration and reward distribution.
 
+Canonical game rules and economics live in the [session specs lane](./session-specs/README.md).
+
 ---
 
 ## High-Level Architecture
@@ -56,7 +58,7 @@ graph TB
         BaccaratSolo[SuperBaccaratEngine]
         BaccaratPvP[CheminDeFerEngine]
         Poker[SingleDraw2To7Engine]
-        Blackjack[SingleDeckBlackjackEngine]
+        Blackjack[BlackjackEngine]
     end
 
     subgraph ExternalLayer [External Integrations]

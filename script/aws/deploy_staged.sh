@@ -131,7 +131,7 @@ extract_module_value() {
 
 NumberPickerEngine="$(extract_module_value "${MODULE_NUMBER_PICKER_OUTPUT}" NumberPickerEngine)"
 TournamentPokerEngine="$(extract_module_value "${MODULE_TOURNAMENT_OUTPUT}" TournamentPokerEngine)"
-SingleDeckBlackjackEngine="$(extract_module_value "${MODULE_BLACKJACK_OUTPUT}" SingleDeckBlackjackEngine)"
+BlackjackEngine="$(extract_module_value "${MODULE_BLACKJACK_OUTPUT}" BlackjackEngine)"
 run_stage \
   "finalize" \
   "script/aws/DeployFinalize.s.sol:DeployFinalize" \
@@ -143,4 +143,4 @@ run_stage \
   "DeveloperExpressionRegistry=${DeveloperExpressionRegistry}" \
   "NumberPickerEngine=${NumberPickerEngine}" \
   "TournamentPokerEngine=${TournamentPokerEngine}" \
-  "SingleDeckBlackjackEngine=${SingleDeckBlackjackEngine}"
+  "BlackjackEngine=${BlackjackEngine}"

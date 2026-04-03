@@ -4,6 +4,8 @@
 
 `SlotMachineEngine` resolves one atomic slot spin per request from a governed on-chain preset. It owns slot preset registration, seed-based outcome resolution, bonus-family execution, and the solo settlement tuple consumed by the controller.
 
+For the canonical product rules and economics, see the [Slot Machine session spec](../session-specs/slot-machine.md).
+
 ## Caller Model
 
 - An authorized controller calls `requestSpin`

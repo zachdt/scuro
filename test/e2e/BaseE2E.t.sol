@@ -17,7 +17,7 @@ import { PvPController } from "../../src/controllers/PvPController.sol";
 import { SlotMachineController } from "../../src/controllers/SlotMachineController.sol";
 import { TournamentController } from "../../src/controllers/TournamentController.sol";
 import { NumberPickerEngine } from "../../src/engines/NumberPickerEngine.sol";
-import { SingleDeckBlackjackEngine } from "../../src/engines/SingleDeckBlackjackEngine.sol";
+import { BlackjackEngine } from "../../src/engines/BlackjackEngine.sol";
 import { SingleDraw2To7Engine } from "../../src/engines/SingleDraw2To7Engine.sol";
 import { SlotMachineEngine } from "../../src/engines/SlotMachineEngine.sol";
 import { BlackjackModuleDeployer } from "../../src/factory/BlackjackModuleDeployer.sol";
@@ -71,7 +71,7 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
     SlotMachineControllerHarness internal delayedSlotMachineController;
     SingleDraw2To7Engine internal tournamentPokerEngine;
     SingleDraw2To7Engine internal pvpPokerEngine;
-    SingleDeckBlackjackEngine internal blackjackEngine;
+    BlackjackEngine internal blackjackEngine;
     BlackjackController internal blackjackController;
 
     uint256 internal numberPickerModuleId;
@@ -254,7 +254,7 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         GameDeploymentFactory.BlackjackDeployment memory blackjackParams = GameDeploymentFactory.BlackjackDeployment({
             coordinator: address(this),
             defaultActionWindow: 60,
-            configHash: keccak256("single-deck-blackjack-zk-v2"),
+            configHash: keccak256("double-deck-blackjack-zk-v1"),
             developerRewardBps: SOLO_DEVELOPER_BPS
         });
         address blackjackControllerAddress;
@@ -262,7 +262,7 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         (blackjackModuleId, blackjackControllerAddress, blackjackEngineAddress,) =
             factory.deploySoloModule(uint8(GameDeploymentFactory.SoloFamily.Blackjack), abi.encode(blackjackParams));
         blackjackController = BlackjackController(blackjackControllerAddress);
-        blackjackEngine = SingleDeckBlackjackEngine(blackjackEngineAddress);
+        blackjackEngine = BlackjackEngine(blackjackEngineAddress);
     }
 
     function _mintExpressions() internal {
@@ -301,8 +301,8 @@ abstract contract BaseE2ETest is ZkFixtureLoader {
         vm.prank(soloDeveloper.addr);
         blackjackExpressionTokenId = expressionRegistry.mintExpression(
             blackjackEngineType,
-            keccak256("single-deck-blackjack-zk-v2"),
-            "ipfs://scuro/single-deck-blackjack-zk-v2"
+            keccak256("double-deck-blackjack-zk-v1"),
+            "ipfs://scuro/double-deck-blackjack-zk-v1"
         );
     }
 

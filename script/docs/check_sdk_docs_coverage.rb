@@ -44,11 +44,11 @@ assert!(proof_inputs == SdkDocsInventory.proof_inputs, "generated proof inputs d
 
 expected_blackjack_payout_labels = SdkDocsInventory.blackjack_payout_kind_labels
 assert!(
-  enum_labels["SingleDeckBlackjackEngine.HandPayoutKind"] == expected_blackjack_payout_labels,
+  enum_labels["BlackjackEngine.HandPayoutKind"] == expected_blackjack_payout_labels,
   "generated enum labels do not match blackjack payout constants"
 )
 assert!(
-  manifest["enum_labels"]["SingleDeckBlackjackEngine.HandPayoutKind"] == expected_blackjack_payout_labels,
+  manifest["enum_labels"]["BlackjackEngine.HandPayoutKind"] == expected_blackjack_payout_labels,
   "manifest enum labels do not match blackjack payout constants"
 )
 

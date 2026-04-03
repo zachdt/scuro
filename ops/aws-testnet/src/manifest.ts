@@ -22,7 +22,7 @@ const LABELS = [
   "NumberPickerEngine",
   "NumberPickerAdapter",
   "BlackjackVerifierBundle",
-  "SingleDeckBlackjackEngine",
+  "BlackjackEngine",
   "BlackjackController",
   "NumberPickerModuleId",
   "TournamentPokerModuleId",

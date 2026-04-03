@@ -4,6 +4,8 @@
 
 This playbook covers the one-off heads-up poker flow.
 
+Product rules and economics live in the [PvP Poker session spec](../session-specs/pvp-poker.md).
+
 ## Transaction Sequence
 
 1. Operator calls `createSession(p1, p2, stake, rewardPool, startingStack, expressionTokenId)`.
@@ -23,5 +25,6 @@ This playbook covers the one-off heads-up poker flow.
 
 ## Relevant References
 
+- [PvP Poker Session Spec](../session-specs/pvp-poker.md)
 - [PvPController](../reference/pvp-controller.md)
 - [SingleDraw2To7Engine](../reference/single-draw-2-7-engine.md)

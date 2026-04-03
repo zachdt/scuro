@@ -11,7 +11,7 @@ export interface ResolvedFixture {
 }
 
 export interface ResolvedGeneratedBlackjackPayload {
-  phase: "initial-deal" | "action" | "showdown";
+  phase: "initial-deal" | "peek" | "action" | "showdown";
   payloadPath: string;
   payload: Record<string, unknown>;
 }
@@ -85,7 +85,7 @@ export class LiveProofProvider implements ProofProvider {
 
   private async resolveWitnessPath(
     job: ProofJobRecord,
-    phase: "initial-deal" | "action" | "showdown"
+    phase: "initial-deal" | "peek" | "action" | "showdown"
   ): Promise<string> {
     const payload = job.payload ?? {};
     if (typeof payload.witnessPath === "string" && payload.witnessPath.length > 0) {
@@ -113,6 +113,8 @@ function defaultFixtureName(jobType: string): string | undefined {
       return "poker_showdown";
     case "blackjack-initial-deal":
       return "blackjack_initial_deal";
+    case "blackjack-peek":
+      return "blackjack_peek";
     case "blackjack-action":
       return "blackjack_action_resolve";
     case "blackjack-showdown":
@@ -122,10 +124,12 @@ function defaultFixtureName(jobType: string): string | undefined {
   }
 }
 
-function blackjackPhase(jobType: string): "initial-deal" | "action" | "showdown" | undefined {
+function blackjackPhase(jobType: string): "initial-deal" | "peek" | "action" | "showdown" | undefined {
   switch (jobType) {
     case "blackjack-initial-deal":
       return "initial-deal";
+    case "blackjack-peek":
+      return "peek";
     case "blackjack-action":
       return "action";
     case "blackjack-showdown":

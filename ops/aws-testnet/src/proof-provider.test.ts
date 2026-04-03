@@ -36,6 +36,15 @@ function makeConfig(stateDir: string): AppConfig {
   };
 }
 
+function makeRepoBackedConfig(stateDir: string): AppConfig {
+  const repoRoot = path.resolve(import.meta.dir, "../../..");
+  return {
+    ...makeConfig(stateDir),
+    repoRoot,
+    serviceRoot: path.join(repoRoot, "ops/aws-testnet")
+  };
+}
+
 describe("proof providers", () => {
   test("live provider shells to blackjack CLI and writes payload file", async () => {
     const tempDir = mkdtempSync(path.join(os.tmpdir(), "scuro-live-proof-"));
@@ -122,4 +131,34 @@ describe("proof providers", () => {
     expect((resolved as { fixtureName: string }).fixtureName).toBe("blackjack_initial_deal");
     rmSync(tempDir, { recursive: true, force: true });
   });
+
+  test("live provider can invoke the real blackjack proving CLI", async () => {
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), "scuro-real-live-proof-"));
+    const config = makeRepoBackedConfig(tempDir);
+    const provider = new LiveProofProvider(config);
+
+    const resolved = await provider.execute({
+      id: "job-real",
+      jobType: "blackjack-initial-deal",
+      mode: "live",
+      status: "queued",
+      createdAt: "now",
+      updatedAt: "now",
+      payload: {
+        witnessPath: "zk/fixtures/witness/blackjack_initial_deal.json",
+        sessionId: 1
+      }
+    });
+
+    expect((resolved as { phase: string }).phase).toBe("initial-deal");
+    expect((resolved as { payload: { proof: string } }).payload.proof.startsWith("0x")).toBe(true);
+    expect((resolved as { payload: { publicState: { handCount: string } } }).payload.publicState.handCount).toBe("1");
+    expect(await Bun.file((resolved as { payloadPath: string }).payloadPath).json()).toMatchObject({
+      publicState: {
+        handCount: "1"
+      }
+    });
+
+    rmSync(tempDir, { recursive: true, force: true });
+  }, 20000);
 });

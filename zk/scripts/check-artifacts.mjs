@@ -9,12 +9,14 @@ const expected = [
   path.join(ROOT, "fixtures", "generated", "poker_showdown.json"),
   path.join(ROOT, "fixtures", "generated", "poker_showdown_tie.json"),
   path.join(ROOT, "fixtures", "generated", "blackjack_initial_deal.json"),
+  path.join(ROOT, "fixtures", "generated", "blackjack_peek.json"),
   path.join(ROOT, "fixtures", "generated", "blackjack_action_resolve.json"),
   path.join(ROOT, "fixtures", "generated", "blackjack_showdown.json"),
   path.resolve(ROOT, "..", "src", "verifiers", "generated", "PokerInitialDealVerifier.sol"),
   path.resolve(ROOT, "..", "src", "verifiers", "generated", "PokerDrawResolveVerifier.sol"),
   path.resolve(ROOT, "..", "src", "verifiers", "generated", "PokerShowdownVerifier.sol"),
   path.resolve(ROOT, "..", "src", "verifiers", "generated", "BlackjackInitialDealVerifier.sol"),
+  path.resolve(ROOT, "..", "src", "verifiers", "generated", "BlackjackPeekVerifier.sol"),
   path.resolve(ROOT, "..", "src", "verifiers", "generated", "BlackjackActionResolveVerifier.sol"),
   path.resolve(ROOT, "..", "src", "verifiers", "generated", "BlackjackShowdownVerifier.sol")
 ];

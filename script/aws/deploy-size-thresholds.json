@@ -51,12 +51,16 @@
     "constructor_bytes_max": 2937,
     "runtime_bytes_max": 2910
   },
+  "BlackjackPeekVerifier": {
+    "constructor_bytes_max": 3500,
+    "runtime_bytes_max": 3200
+  },
   "SingleDraw2To7Engine": {
     "constructor_bytes_max": 12264,
     "runtime_bytes_max": 11915
   },
-  "SingleDeckBlackjackEngine": {
-    "constructor_bytes_max": 9029,
-    "runtime_bytes_max": 8738
+  "BlackjackEngine": {
+    "constructor_bytes_max": 12000,
+    "runtime_bytes_max": 11000
   }
 }

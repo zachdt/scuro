@@ -53,6 +53,7 @@ forge build \
   script/aws/SubmitPokerDraw.s.sol \
   script/aws/SubmitPokerShowdown.s.sol \
   script/aws/SubmitBlackjackInitialDeal.s.sol \
+  script/aws/SubmitBlackjackPeek.s.sol \
   script/aws/SubmitBlackjackAction.s.sol \
   script/aws/SubmitBlackjackShowdown.s.sol
 
@@ -110,7 +111,7 @@ deploy_stack() {
   TOURNAMENT_POKER_ENGINE="$(extract_value TournamentPokerEngine)"
   TOURNAMENT_POKER_VERIFIER_BUNDLE="$(extract_value TournamentPokerVerifierBundle)"
   BLACKJACK_CONTROLLER="$(extract_value BlackjackController)"
-  BLACKJACK_ENGINE="$(extract_value SingleDeckBlackjackEngine)"
+  BLACKJACK_ENGINE="$(extract_value BlackjackEngine)"
   BLACKJACK_VERIFIER_BUNDLE="$(extract_value BlackjackVerifierBundle)"
   SOLO_DEVELOPER="$(extract_value SoloDeveloper)"
   POKER_DEVELOPER="$(extract_value PokerDeveloper)"

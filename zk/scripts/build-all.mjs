@@ -12,6 +12,7 @@ const CIRCUITS = [
   { circuit: "poker_draw_resolve", contract: "PokerDrawResolveVerifier" },
   { circuit: "poker_showdown", contract: "PokerShowdownVerifier" },
   { circuit: "blackjack_initial_deal", contract: "BlackjackInitialDealVerifier" },
+  { circuit: "blackjack_peek_resolve", contract: "BlackjackPeekVerifier" },
   { circuit: "blackjack_action_resolve", contract: "BlackjackActionResolveVerifier" },
   { circuit: "blackjack_showdown", contract: "BlackjackShowdownVerifier" }
 ];

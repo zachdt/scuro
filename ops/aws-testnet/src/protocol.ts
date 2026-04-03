@@ -149,7 +149,7 @@ function smokeEnv(config: AppConfig, manifest: DeploymentManifest): Record<strin
     TOURNAMENT_POKER_ENGINE: manifest.contracts.TournamentPokerEngine,
     TOURNAMENT_POKER_VERIFIER_BUNDLE: manifest.contracts.TournamentPokerVerifierBundle,
     BLACKJACK_CONTROLLER: manifest.contracts.BlackjackController,
-    BLACKJACK_ENGINE: manifest.contracts.SingleDeckBlackjackEngine,
+    BLACKJACK_ENGINE: manifest.contracts.BlackjackEngine,
     BLACKJACK_VERIFIER_BUNDLE: manifest.contracts.BlackjackVerifierBundle,
     SOLO_DEVELOPER: manifest.contracts.SoloDeveloper,
     POKER_DEVELOPER: manifest.contracts.PokerDeveloper,

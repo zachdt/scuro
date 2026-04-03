@@ -14,7 +14,7 @@ Clients consuming local deployment output should expect these labels:
 
 - Core: `ScuroToken`, `ScuroStakingToken`, `TimelockController`, `ScuroGovernor`, `GameCatalog`, `GameDeploymentFactory`, `DeveloperExpressionRegistry`, `DeveloperRewards`, `ProtocolSettlement`
 - Controllers: `NumberPickerAdapter`, `TournamentController`, `PvPController`, `BlackjackController`
-- Engines: `NumberPickerEngine`, `TournamentPokerEngine`, `PvPPokerEngine`, `SingleDeckBlackjackEngine`
+- Engines: `NumberPickerEngine`, `TournamentPokerEngine`, `PvPPokerEngine`, `BlackjackEngine`
 - Verifiers: `TournamentPokerVerifierBundle`, `PvPPokerVerifierBundle`, `BlackjackVerifierBundle`
 - Module ids: `NumberPickerModuleId`, `TournamentPokerModuleId`, `PvPPokerModuleId`, `BlackjackModuleId`
 - Seed actors and expressions: `Admin`, `Player1`, `Player2`, `SoloDeveloper`, `PokerDeveloper`, `NumberPickerExpressionTokenId`, `PokerExpressionTokenId`, `BlackjackExpressionTokenId`
@@ -30,7 +30,7 @@ Current local-script note:
 | Slot machine | factory-supported with `SlotDeployment(vrfCoordinator, configHash, developerRewardBps)`; canonical local deploy script still pending |
 | Tournament poker | `smallBlind = 10`, `bigBlind = 20`, `blindEscalationInterval = 180`, `actionWindow = 60`, `developerRewardBps = 1000` |
 | PvP poker | same defaults as tournament poker, with `configHash = keccak256("single-draw-2-7-pvp")` |
-| Blackjack | `defaultActionWindow = 60`, `developerRewardBps = 500`, `configHash = keccak256("single-deck-blackjack-zk-v2")` |
+| Blackjack | `defaultActionWindow = 60`, `developerRewardBps = 500`, `configHash` must identify the canonical double-deck blackjack ruleset |
 
 ## SDK Guidance
 

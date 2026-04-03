@@ -22,7 +22,7 @@
 | BlackjackActionResolveVerifier | 5204 | 5177 |
 | BlackjackShowdownVerifier | 2937 | 2910 |
 | SingleDraw2To7Engine | 12264 | 11915 |
-| SingleDeckBlackjackEngine | 9029 | 8738 |
+| BlackjackEngine | 9029 | 8738 |
 
 The current regression thresholds for these deployment artifacts live in [`deploy-size-thresholds.json`](/Users/zachdt/work/scuro/script/aws/deploy-size-thresholds.json). The staged deploy gas thresholds live in [`deploy-gas-thresholds.json`](/Users/zachdt/work/scuro/script/aws/deploy-gas-thresholds.json). The deploy gas report workflow fails on gas regressions first and bytecode growth second.
 

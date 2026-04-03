@@ -37,7 +37,7 @@ function parseArgs(argv) {
   }
 
   if (!phase) {
-    throw new Error("missing required --phase initial-deal|action|showdown");
+    throw new Error("missing required --phase initial-deal|peek|action|showdown");
   }
 
   return { phase, witnessPath };

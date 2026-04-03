@@ -7,7 +7,7 @@ import {GameCatalog} from "../../src/GameCatalog.sol";
 import {GameDeploymentFactory} from "../../src/GameDeploymentFactory.sol";
 import {ScuroToken} from "../../src/ScuroToken.sol";
 import {NumberPickerEngine} from "../../src/engines/NumberPickerEngine.sol";
-import {SingleDeckBlackjackEngine} from "../../src/engines/SingleDeckBlackjackEngine.sol";
+import {BlackjackEngine} from "../../src/engines/BlackjackEngine.sol";
 import {SingleDraw2To7Engine} from "../../src/engines/SingleDraw2To7Engine.sol";
 import {BetaDeployCommon} from "./BetaDeployCommon.s.sol";
 
@@ -27,7 +27,7 @@ contract DeployFinalize is BetaDeployCommon {
         DeveloperExpressionRegistry expressionRegistry = DeveloperExpressionRegistry(envAddress("DeveloperExpressionRegistry"));
         NumberPickerEngine numberPickerEngine = NumberPickerEngine(envAddress("NumberPickerEngine"));
         SingleDraw2To7Engine tournamentPokerEngine = SingleDraw2To7Engine(envAddress("TournamentPokerEngine"));
-        SingleDeckBlackjackEngine blackjackEngine = SingleDeckBlackjackEngine(envAddress("SingleDeckBlackjackEngine"));
+        BlackjackEngine blackjackEngine = BlackjackEngine(envAddress("BlackjackEngine"));
 
         logStageAction("Finalize:NumberPickerExpression");
         uint256 numberPickerExpressionTokenId = expressionRegistry.mintExpression(
@@ -36,8 +36,8 @@ contract DeployFinalize is BetaDeployCommon {
         logStageAction("Finalize:BlackjackExpression");
         uint256 blackjackExpressionTokenId = expressionRegistry.mintExpression(
             blackjackEngine.engineType(),
-            keccak256("single-deck-blackjack-zk-v2"),
-            "ipfs://scuro/single-deck-blackjack-zk-v2"
+            keccak256("double-deck-blackjack-zk-v1"),
+            "ipfs://scuro/double-deck-blackjack-zk-v1"
         );
         logStageAction("Finalize:PokerExpression");
         uint256 pokerExpressionTokenId = expressionRegistry.mintExpression(

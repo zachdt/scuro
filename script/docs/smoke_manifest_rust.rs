@@ -10,7 +10,7 @@ fn main() {
         "\"proof_inputs\"",
         "\"ProtocolSettlement\"",
         "\"SingleDraw2To7Engine\"",
-        "\"SingleDeckBlackjackEngine\"",
+        "\"BlackjackEngine\"",
     ] {
         assert!(raw.contains(needle), "manifest missing {}", needle);
     }

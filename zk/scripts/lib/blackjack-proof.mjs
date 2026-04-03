@@ -9,8 +9,83 @@ const abiCoder = AbiCoder.defaultAbiCoder();
 const poseidon = await buildPoseidon();
 const FIELD = poseidon.F;
 
+const MAX_PLAYER_CARDS = 32;
+const MAX_DEALER_CARDS = 12;
+const CARD_EMPTY = 104;
+
+const PHASE = {
+  INACTIVE: 0,
+  AWAITING_INITIAL_DEAL: 1,
+  AWAITING_PREPLAY_DECISION: 2,
+  AWAITING_PEEK_RESOLUTION: 3,
+  AWAITING_POSTPEEK_DECISION: 4,
+  AWAITING_PLAYER_ACTION: 5,
+  AWAITING_COORDINATOR_ACTION: 6,
+  COMPLETED: 7
+};
+
+const ACTION = {
+  HIT: 1,
+  STAND: 2,
+  DOUBLE: 3,
+  SPLIT: 4
+};
+
+const ALLOW = {
+  HIT: 1,
+  STAND: 2,
+  DOUBLE: 4,
+  SPLIT: 8
+};
+
+const HAND_STATUS = {
+  NONE: 0,
+  ACTIVE: 1,
+  STAND: 2,
+  BUST: 3,
+  PUSH: 4,
+  WIN: 5,
+  LOSS: 6,
+  BLACKJACK: 7,
+  SURRENDERED: 8
+};
+
+const HAND_PAYOUT = {
+  NONE: 0,
+  LOSS: 1,
+  PUSH: 2,
+  EVEN_MONEY: 3,
+  BLACKJACK_3_TO_2: 4,
+  SURRENDER: 5
+};
+
+const DECISION = {
+  NONE: 0,
+  INSURANCE: 1,
+  EARLY_SURRENDER: 2,
+  LATE_SURRENDER: 3
+};
+
+const INSURANCE = {
+  NONE: 0,
+  AVAILABLE: 1,
+  DECLINED: 2,
+  TAKEN: 3,
+  LOST: 4,
+  WON: 5
+};
+
+const SURRENDER = {
+  NONE: 0,
+  AVAILABLE: 1,
+  DECLINED: 2,
+  TAKEN: 3,
+  VOID: 4
+};
+
 const CIRCUIT_BY_PHASE = {
   "initial-deal": "blackjack_initial_deal",
+  peek: "blackjack_peek_resolve",
   action: "blackjack_action_resolve",
   showdown: "blackjack_showdown"
 };
@@ -34,7 +109,7 @@ export async function generateBlackjackArtifact({
   const { proof, publicSignals } = await fullProveBlackjack({
     root,
     circuit,
-    input,
+    input: circuitInputForProver(input),
     name
   });
 
@@ -66,7 +141,7 @@ async function fullProveBlackjack({ root, circuit, input, name }) {
     await writeFile(inputFile, JSON.stringify(input, null, 2));
     await execa("bunx", ["snarkjs", "groth16", "fullprove", inputFile, wasm, zkey, proofFile, publicFile], {
       cwd: root,
-      stdio: "ignore"
+      stdio: "inherit"
     });
 
     return {
@@ -78,73 +153,64 @@ async function fullProveBlackjack({ root, circuit, input, name }) {
   }
 }
 
+function circuitInputForProver(input) {
+  const { publicState, ...circuitInput } = input;
+  return circuitInput;
+}
+
 function formatBlackjackPayload(phase, artifact) {
+  const common = {
+    publicSignals: artifact.publicSignals,
+    proof: artifact.proof
+  };
+
   switch (phase) {
     case "initial-deal":
       return {
-        proof: artifact.proof,
+        ...common,
         deckCommitment: formatBytes32(artifact.input.deckCommitment),
         handNonce: formatBytes32(artifact.input.handNonce),
         playerStateCommitment: formatBytes32(artifact.input.playerStateCommitment),
         dealerStateCommitment: formatBytes32(artifact.input.dealerStateCommitment),
+        playerKeyCommitment: formatBytes32(artifact.input.playerKeyCommitment),
         playerCiphertextRef: formatBytes32(artifact.input.playerCiphertextRef),
         dealerCiphertextRef: formatBytes32(artifact.input.dealerCiphertextRef),
-        dealerVisibleValue: String(artifact.input.dealerUpValue),
-        playerCards: formatStringArray(artifact.input.playerCards),
-        dealerCards: formatStringArray(artifact.input.dealerCards),
-        handCount: String(artifact.input.handCount),
-        activeHandIndex: String(artifact.input.activeHandIndex),
-        payout: String(artifact.input.payout),
-        immediateResultCode: String(artifact.input.immediateResultCode),
-        handValues: formatStringArray(artifact.input.handValues),
-        handStatuses: formatStringArray(artifact.input.handStatuses),
-        allowedActionMasks: formatStringArray(artifact.input.allowedActionMasks),
-        handCardCounts: formatStringArray(artifact.input.handCardCounts),
-        handPayoutKinds: formatStringArray(artifact.input.handPayoutKinds),
-        dealerRevealMask: String(artifact.input.dealerRevealMask),
-        softMask: String(artifact.input.softMask)
+        publicState: formatPublicState(artifact.input.publicState)
+      };
+    case "peek":
+      return {
+        ...common,
+        kind: "peek",
+        args: {
+          playerStateCommitment: formatBytes32(artifact.input.playerStateCommitment),
+          dealerStateCommitment: formatBytes32(artifact.input.dealerStateCommitment),
+          playerCiphertextRef: formatBytes32(artifact.input.playerCiphertextRef),
+          dealerCiphertextRef: formatBytes32(artifact.input.dealerCiphertextRef),
+          publicState: formatPublicState(artifact.input.publicState),
+          proof: artifact.proof
+        }
       };
     case "action":
       return {
+        ...common,
         kind: "action",
         args: {
           newPlayerStateCommitment: formatBytes32(artifact.input.newPlayerStateCommitment),
           dealerStateCommitment: formatBytes32(artifact.input.dealerStateCommitment),
           playerCiphertextRef: formatBytes32(artifact.input.playerCiphertextRef),
           dealerCiphertextRef: formatBytes32(artifact.input.dealerCiphertextRef),
-          dealerVisibleValue: String(artifact.input.dealerUpValue),
-          playerCards: formatStringArray(artifact.input.playerCards),
-          dealerCards: formatStringArray(artifact.input.dealerCards),
-          handCount: String(artifact.input.handCount),
-          activeHandIndex: String(artifact.input.activeHandIndex),
-          nextPhase: String(artifact.input.nextPhase),
-          handValues: formatStringArray(artifact.input.handValues),
-          handStatuses: formatStringArray(artifact.input.handStatuses),
-          allowedActionMasks: formatStringArray(artifact.input.allowedActionMasks),
-          handCardCounts: formatStringArray(artifact.input.handCardCounts),
-          handPayoutKinds: formatStringArray(artifact.input.handPayoutKinds),
-          dealerRevealMask: String(artifact.input.dealerRevealMask),
-          softMask: String(artifact.input.softMask),
+          publicState: formatPublicState(artifact.input.publicState),
           proof: artifact.proof
         }
       };
     case "showdown":
       return {
+        ...common,
         kind: "showdown",
         args: {
           playerStateCommitment: formatBytes32(artifact.input.playerStateCommitment),
           dealerStateCommitment: formatBytes32(artifact.input.dealerStateCommitment),
-          payout: String(artifact.input.payout),
-          dealerFinalValue: String(artifact.input.dealerFinalValue),
-          playerCards: formatStringArray(artifact.input.playerCards),
-          dealerCards: formatStringArray(artifact.input.dealerCards),
-          handCount: String(artifact.input.handCount),
-          activeHandIndex: String(artifact.input.activeHandIndex),
-          handStatuses: formatStringArray(artifact.input.handStatuses),
-          handValues: formatStringArray(artifact.input.handValues),
-          handCardCounts: formatStringArray(artifact.input.handCardCounts),
-          handPayoutKinds: formatStringArray(artifact.input.handPayoutKinds),
-          dealerRevealMask: String(artifact.input.dealerRevealMask),
+          publicState: formatPublicState(artifact.input.publicState),
           proof: artifact.proof
         }
       };
@@ -153,21 +219,45 @@ function formatBlackjackPayload(phase, artifact) {
   }
 }
 
-function formatStringArray(values) {
-  return values.map((value) => String(value));
-}
-
-function formatBytes32(value) {
-  if (typeof value === "string" && value.startsWith("0x")) {
-    return value;
-  }
-  return `0x${BigInt(value).toString(16).padStart(64, "0")}`;
+function formatPublicState(publicState) {
+  return {
+    phase: String(publicState.phase),
+    decisionType: String(publicState.decisionType),
+    dealerRevealMask: String(publicState.dealerRevealMask),
+    handCount: String(publicState.handCount),
+    activeHandIndex: String(publicState.activeHandIndex),
+    peekAvailable: String(publicState.peekAvailable),
+    peekResolved: String(publicState.peekResolved),
+    dealerHasBlackjack: String(publicState.dealerHasBlackjack),
+    insuranceAvailable: String(publicState.insuranceAvailable),
+    insuranceStatus: String(publicState.insuranceStatus),
+    surrenderAvailable: String(publicState.surrenderAvailable),
+    surrenderStatus: String(publicState.surrenderStatus),
+    dealerUpValue: String(publicState.dealerUpValue),
+    dealerFinalValue: String(publicState.dealerFinalValue),
+    payout: String(publicState.payout),
+    insuranceStake: String(publicState.insuranceStake),
+    insurancePayout: String(publicState.insurancePayout),
+    hands: publicState.hands.map((hand) => ({
+      wager: String(hand.wager),
+      value: String(hand.value),
+      status: String(hand.status),
+      allowedActionMask: String(hand.allowedActionMask),
+      cardCount: String(hand.cardCount),
+      cardStartIndex: String(hand.cardStartIndex),
+      payoutKind: String(hand.payoutKind)
+    })),
+    playerCards: publicState.playerCards.map((value) => String(value)),
+    dealerCards: publicState.dealerCards.map((value) => String(value))
+  };
 }
 
 function deriveBlackjackInput(phase, witness) {
   switch (phase) {
     case "initial-deal":
       return deriveBlackjackInitialDeal(witness);
+    case "peek":
+      return deriveBlackjackPeek(witness);
     case "action":
       return deriveBlackjackActionResolve(witness);
     case "showdown":
@@ -177,276 +267,528 @@ function deriveBlackjackInput(phase, witness) {
   }
 }
 
-function deriveBlackjackInitialDeal(w) {
-  const handCardCounts = [2, 0, 0, 0];
-  const [playerHand] = partitionHands(w.playerCards, handCardCounts);
-  const playerScore = scoreHand(playerHand);
-  const dealerScore = scoreHand(w.dealerPrivateCards.slice(0, 2));
-  const playerNatural = isNaturalBlackjack(playerHand);
-  const dealerNatural = isNaturalBlackjack(w.dealerPrivateCards.slice(0, 2));
-  const suitedNatural = playerNatural && sameSuit(playerHand[0], playerHand[1]);
-  const splitEligible = sameRank(playerHand[0], playerHand[1]) && !playerNatural && !dealerNatural;
-
-  let payout = 0n;
-  let immediateResultCode = 0;
-  let handStatus = 0;
-  let handPayoutKind = 0;
-  let revealMask = 1;
-  let dealerCards = [w.dealerPrivateCards[0], 52, 52, 52];
-
-  if (playerNatural && dealerNatural) {
-    payout = BigInt(w.baseWager);
-    immediateResultCode = 3;
-    handStatus = 3;
-    handPayoutKind = 2;
-    revealMask = 3;
-    dealerCards = [w.dealerPrivateCards[0], w.dealerPrivateCards[1], 52, 52];
-  } else if (playerNatural) {
-    payout = suitedNatural ? BigInt(w.baseWager) * 3n : (BigInt(w.baseWager) * 5n) / 2n;
-    immediateResultCode = 2;
-    handStatus = 4;
-    handPayoutKind = suitedNatural ? 5 : 4;
-    revealMask = 3;
-    dealerCards = [w.dealerPrivateCards[0], w.dealerPrivateCards[1], 52, 52];
-  } else if (dealerNatural) {
-    payout = 0n;
-    immediateResultCode = 1;
-    handStatus = 5;
-    handPayoutKind = 1;
-    revealMask = 3;
-    dealerCards = [w.dealerPrivateCards[0], w.dealerPrivateCards[1], 52, 52];
-  }
-
-  const handValues = [playerScore.total, 0, 0, 0];
-  const softMask = playerScore.soft ? 1 : 0;
-  const handStatuses = [handStatus, 0, 0, 0];
-  const allowedActionMasks = immediateResultCode === 0 ? [7 + (splitEligible ? 8 : 0), 0, 0, 0] : [0, 0, 0, 0];
-  const handPayoutKinds = [handPayoutKind, 0, 0, 0];
-  const dealerUpValue = cardValue(w.dealerPrivateCards[0]);
-
-  const playerStateCommitment = hash([w.sessionId, ...w.playerCards, ...handCardCounts, w.playerSalt]);
-  const dealerStateCommitment = hash([w.sessionId, ...w.dealerPrivateCards, w.dealerSalt]);
+function deriveBlackjackInitialDeal(witness) {
+  const w = normalizeInitialWitness(witness);
+  const playerStateCommitment = hash([w.sessionId, ...padArray(w.playerCards, MAX_PLAYER_CARDS, CARD_EMPTY), ...w.handCardCounts, w.playerSalt]);
+  const dealerStateCommitment = hash([w.sessionId, ...padArray(w.dealerCardsFull, MAX_DEALER_CARDS, CARD_EMPTY), w.dealerSalt]);
   const playerKeyCommitment = hash([w.sessionId, ...w.playerKey]);
-  const playerSummaryHash = hashCompact([
-    ...handValues,
-    softMask,
-    ...handStatuses,
-    ...allowedActionMasks,
-    ...handCardCounts,
-    ...handPayoutKinds,
-    ...w.playerCards
+  const deckCommitment = hash([
+    w.sessionId,
+    w.handNonce,
+    ...padArray(w.playerCards, MAX_PLAYER_CARDS, CARD_EMPTY),
+    ...padArray(w.dealerCardsFull, MAX_DEALER_CARDS, CARD_EMPTY),
+    w.deckSalt
+  ]);
+  const playerCiphertextRef = hash([
+    w.sessionId,
+    w.handNonce,
+    ...padArray(w.playerCards, MAX_PLAYER_CARDS, CARD_EMPTY).slice(0, 12),
+    w.playerCipherSalt
   ]);
   const dealerCiphertextRef = hash([
     w.sessionId,
     w.handNonce,
-    ...w.dealerPrivateCards,
-    dealerUpValue,
-    1,
-    payout.toString(),
-    immediateResultCode,
-    revealMask,
+    ...padArray(w.dealerCardsFull, MAX_DEALER_CARDS, CARD_EMPTY).slice(0, 12),
     w.dealerCipherSalt
   ]);
-  const deckCommitment = hash([w.sessionId, w.handNonce, ...w.playerCards, ...w.dealerPrivateCards, w.deckSalt]);
 
   return {
-    ...w,
-    handCount: "1",
-    activeHandIndex: "0",
-    payout: payout.toString(),
-    immediateResultCode: immediateResultCode.toString(),
-    handValues: handValues.map(String),
-    softMask: String(softMask),
-    handStatuses: handStatuses.map(String),
-    allowedActionMasks: allowedActionMasks.map(String),
-    handCardCounts: handCardCounts.map(String),
-    handPayoutKinds: handPayoutKinds.map(String),
-    dealerCards: dealerCards.map(String),
-    dealerRevealMask: String(revealMask),
-    dealerUpValue: String(dealerUpValue),
+    sessionId: String(w.sessionId),
+    handNonce: normalizeHexish(w.handNonce).toString(),
+    deckCommitment,
     playerStateCommitment,
     dealerStateCommitment,
     playerKeyCommitment,
-    playerCiphertextRef: hashCompact([
-      w.sessionId,
-      w.handNonce,
-      ...w.playerCards,
-      ...handCardCounts,
-      playerSummaryHash,
-      ...w.playerKey,
-      w.playerCipherSalt
-    ]),
+    playerCiphertextRef,
     dealerCiphertextRef,
-    deckCommitment
+    ...flattenPublicStateInputs(w.publicState),
+    publicState: serializePublicState(w.publicState),
+    privatePlayerCards: padArray(w.playerCards, MAX_PLAYER_CARDS, CARD_EMPTY).map(String),
+    privateDealerCards: padArray(w.dealerCardsFull, MAX_DEALER_CARDS, CARD_EMPTY).map(String),
+    handCardCounts: w.handCardCounts.map(String),
+    playerSalt: String(w.playerSalt),
+    dealerSalt: String(w.dealerSalt),
+    deckSalt: String(w.deckSalt),
+    playerCipherSalt: String(w.playerCipherSalt),
+    dealerCipherSalt: String(w.dealerCipherSalt),
+    playerKey: w.playerKey.map(String)
   };
 }
 
-function deriveBlackjackActionResolve(w) {
-  const hands = partitionHands(w.playerCards, w.handCardCounts);
-  const handScores = hands.map(scoreHand);
-  const handValues = handScores.map((score) => score.total);
-  while (handValues.length < 4) handValues.push(0);
-  const softMask = handScores.reduce((mask, score, index) => mask + (score.soft ? 1 << index : 0), 0);
-  const handStatuses = handScores.map((score) => (score.total > 21 ? 2 : 0));
-  while (handStatuses.length < 4) handStatuses.push(0);
-  const handPayoutKinds = handStatuses.map((status) => (status === 2 ? 1 : 0));
-  while (handPayoutKinds.length < 4) handPayoutKinds.push(0);
-
-  const activeScore = handScores[Number(w.activeHandIndex)] ?? { total: 0 };
-  const activeCards = hands[Number(w.activeHandIndex)] ?? [];
-  const splitEligible =
-    String(w.nextPhase) === "2" &&
-    Number(w.handCardCounts[Number(w.activeHandIndex)] ?? 0) === 2 &&
-    activeCards.length === 2 &&
-    sameRank(activeCards[0], activeCards[1]);
-
-  const allowedActionMasks = [0, 0, 0, 0];
-  if (String(w.nextPhase) === "2") {
-    const activeIndex = Number(w.activeHandIndex);
-    if (activeScore.total <= 21 && activeIndex < 4) {
-      allowedActionMasks[activeIndex] = 3 + (Number(w.handCardCounts[activeIndex]) === 2 ? 4 : 0) + (splitEligible ? 8 : 0);
-    }
-  }
-
-  const dealerCards = [w.dealerPrivateCards[0], 52, 52, 52];
-  const dealerRevealMask = 1;
-  const dealerUpValue = cardValue(w.dealerPrivateCards[0]);
-
-  const oldPlayerStateCommitment = hash([w.sessionId, ...w.oldPlayerCards, ...w.oldHandCardCounts, w.oldPlayerSalt]);
-  const newPlayerStateCommitment = hash([w.sessionId, ...w.playerCards, ...w.handCardCounts, w.newPlayerSalt]);
-  const dealerStateCommitment = hash([w.sessionId, ...w.dealerPrivateCards, w.dealerSalt]);
+function deriveBlackjackPeek(witness) {
+  const w = normalizePeekWitness(witness);
+  const playerStateCommitment = hash([w.sessionId, ...padArray(w.playerCards, MAX_PLAYER_CARDS, CARD_EMPTY), ...w.handCardCounts, w.playerSalt]);
+  const dealerStateCommitment = hash([w.sessionId, ...padArray(w.dealerCardsFull, MAX_DEALER_CARDS, CARD_EMPTY), w.dealerSalt]);
   const playerKeyCommitment = hash([w.sessionId, ...w.playerKey]);
-  const playerSummaryHash = hashCompact([
-    ...handValues,
-    softMask,
-    ...handStatuses,
-    ...allowedActionMasks,
-    ...w.handCardCounts,
-    ...handPayoutKinds,
-    ...w.playerCards
-  ]);
-  const playerCiphertextRef = hashCompact([
+  const playerCiphertextRef = hash([
     w.sessionId,
     w.proofSequence,
-    w.pendingAction,
-    ...w.playerCards,
-    ...w.handCardCounts,
-    playerSummaryHash,
-    ...w.playerKey,
-    w.playerCipherSalt,
-    w.handCount
+    ...padArray(w.playerCards, MAX_PLAYER_CARDS, CARD_EMPTY).slice(0, 12),
+    w.playerCipherSalt
   ]);
   const dealerCiphertextRef = hash([
     w.sessionId,
     w.proofSequence,
-    w.nextPhase,
-    ...w.dealerPrivateCards,
-    dealerUpValue,
-    w.handCount,
-    w.activeHandIndex,
-    dealerRevealMask,
+    ...padArray(w.dealerCardsFull, MAX_DEALER_CARDS, CARD_EMPTY).slice(0, 12),
     w.dealerCipherSalt
   ]);
 
   return {
-    ...w,
-    dealerCards: dealerCards.map(String),
-    dealerRevealMask: String(dealerRevealMask),
-    dealerUpValue: String(dealerUpValue),
-    handValues: handValues.map(String),
-    softMask: String(softMask),
-    handStatuses: handStatuses.map(String),
-    allowedActionMasks: allowedActionMasks.map(String),
-    handPayoutKinds: handPayoutKinds.map(String),
+    sessionId: String(w.sessionId),
+    proofSequence: String(w.proofSequence),
+    deckCommitment: normalizeHexish(w.deckCommitment).toString(),
+    playerStateCommitment,
+    dealerStateCommitment,
+    playerKeyCommitment,
+    playerCiphertextRef,
+    dealerCiphertextRef,
+    ...flattenPublicStateInputs(w.publicState),
+    publicState: serializePublicState(w.publicState),
+    privatePlayerCards: padArray(w.playerCards, MAX_PLAYER_CARDS, CARD_EMPTY).map(String),
+    privateDealerCards: padArray(w.dealerCardsFull, MAX_DEALER_CARDS, CARD_EMPTY).map(String),
+    handCardCounts: w.handCardCounts.map(String),
+    playerSalt: String(w.playerSalt),
+    dealerSalt: String(w.dealerSalt),
+    playerCipherSalt: String(w.playerCipherSalt),
+    dealerCipherSalt: String(w.dealerCipherSalt),
+    playerKey: w.playerKey.map(String)
+  };
+}
+
+function deriveBlackjackActionResolve(witness) {
+  const w = normalizeActionWitness(witness);
+  const oldPlayerStateCommitment = hash([
+    w.sessionId,
+    ...padArray(w.oldPlayerCards, MAX_PLAYER_CARDS, CARD_EMPTY),
+    ...w.oldHandCardCounts,
+    w.oldPlayerSalt
+  ]);
+  const newPlayerStateCommitment = hash([
+    w.sessionId,
+    ...padArray(w.playerCards, MAX_PLAYER_CARDS, CARD_EMPTY),
+    ...w.handCardCounts,
+    w.newPlayerSalt
+  ]);
+  const dealerStateCommitment = hash([w.sessionId, ...padArray(w.dealerCardsFull, MAX_DEALER_CARDS, CARD_EMPTY), w.dealerSalt]);
+  const playerKeyCommitment = hash([w.sessionId, ...w.playerKey]);
+  const playerCiphertextRef = hash([
+    w.sessionId,
+    w.proofSequence,
+    w.pendingAction,
+    ...padArray(w.playerCards, MAX_PLAYER_CARDS, CARD_EMPTY).slice(0, 10),
+    w.playerCipherSalt
+  ]);
+  const dealerCiphertextRef = hash([
+    w.sessionId,
+    w.proofSequence,
+    ...padArray(w.dealerCardsFull, MAX_DEALER_CARDS, CARD_EMPTY).slice(0, 12),
+    w.dealerCipherSalt
+  ]);
+
+  return {
+    sessionId: String(w.sessionId),
+    proofSequence: String(w.proofSequence),
+    pendingAction: String(w.pendingAction),
+    deckCommitment: normalizeHexish(w.deckCommitment).toString(),
     oldPlayerStateCommitment,
     newPlayerStateCommitment,
     dealerStateCommitment,
     playerKeyCommitment,
     playerCiphertextRef,
-    dealerCiphertextRef
+    dealerCiphertextRef,
+    ...flattenPublicStateInputs(w.publicState),
+    publicState: serializePublicState(w.publicState),
+    privateOldPlayerCards: padArray(w.oldPlayerCards, MAX_PLAYER_CARDS, CARD_EMPTY).map(String),
+    privatePlayerCards: padArray(w.playerCards, MAX_PLAYER_CARDS, CARD_EMPTY).map(String),
+    privateDealerCards: padArray(w.dealerCardsFull, MAX_DEALER_CARDS, CARD_EMPTY).map(String),
+    oldHandCardCounts: w.oldHandCardCounts.map(String),
+    handCardCounts: w.handCardCounts.map(String),
+    oldPlayerSalt: String(w.oldPlayerSalt),
+    newPlayerSalt: String(w.newPlayerSalt),
+    dealerSalt: String(w.dealerSalt),
+    playerCipherSalt: String(w.playerCipherSalt),
+    dealerCipherSalt: String(w.dealerCipherSalt),
+    playerKey: w.playerKey.map(String)
   };
 }
 
-function deriveBlackjackShowdown(w) {
-  const hands = partitionHands(w.playerCards, w.handCardCounts);
-  const handScores = hands.map(scoreHand);
-  const dealerScore = scoreHand(w.dealerPrivateCards.filter((card) => Number(card) !== 52));
-  const dealerCards = w.dealerPrivateCards.slice();
-  const dealerRevealMask = dealerCards.reduce((mask, card, index) => mask + (Number(card) !== 52 ? 1 << index : 0), 0);
-
-  const handValues = handScores.map((score) => score.total);
-  while (handValues.length < 4) handValues.push(0);
-
-  const handStatuses = [];
-  const handPayoutKinds = [];
-  let payout = 0n;
-  for (let index = 0; index < 4; index += 1) {
-    const cards = hands[index] ?? [];
-    const wager = BigInt(w.handWagers[index] ?? 0);
-    const value = handValues[index];
-    if (cards.length === 0) {
-      handStatuses.push(0);
-      handPayoutKinds.push(0);
-      continue;
-    }
-    if (value > 21) {
-      handStatuses.push(2);
-      handPayoutKinds.push(1);
-      continue;
-    }
-    if (dealerScore.total > 21 || value > dealerScore.total) {
-      handStatuses.push(4);
-      handPayoutKinds.push(3);
-      payout += wager * 2n;
-      continue;
-    }
-    if (value === dealerScore.total) {
-      handStatuses.push(3);
-      handPayoutKinds.push(2);
-      payout += wager;
-      continue;
-    }
-    handStatuses.push(5);
-    handPayoutKinds.push(1);
-  }
-  while (handStatuses.length < 4) handStatuses.push(0);
-  while (handPayoutKinds.length < 4) handPayoutKinds.push(0);
-
-  const playerStateCommitment = hash([w.sessionId, ...w.playerCards, ...w.handCardCounts, w.playerSalt]);
-  const dealerStateCommitment = hash([w.sessionId, ...w.dealerPrivateCards, w.dealerSalt]);
+function deriveBlackjackShowdown(witness) {
+  const w = normalizeShowdownWitness(witness);
+  const playerStateCommitment = hash([w.sessionId, ...padArray(w.playerCards, MAX_PLAYER_CARDS, CARD_EMPTY), ...w.handCardCounts, w.playerSalt]);
+  const dealerStateCommitment = hash([w.sessionId, ...padArray(w.dealerCardsFull, MAX_DEALER_CARDS, CARD_EMPTY), w.dealerSalt]);
+  const playerKeyCommitment = hash([w.sessionId, ...w.playerKey]);
 
   return {
-    ...w,
-    dealerCards: dealerCards.map(String),
-    dealerRevealMask: String(dealerRevealMask),
-    handValues: handValues.map(String),
-    handStatuses: handStatuses.map(String),
-    handPayoutKinds: handPayoutKinds.map(String),
-    payout: payout.toString(),
-    dealerFinalValue: String(dealerScore.total),
+    sessionId: String(w.sessionId),
+    proofSequence: String(w.proofSequence),
+    deckCommitment: normalizeHexish(w.deckCommitment).toString(),
     playerStateCommitment,
-    dealerStateCommitment
+    dealerStateCommitment,
+    playerKeyCommitment,
+    ...flattenPublicStateInputs(w.publicState),
+    publicState: serializePublicState(w.publicState),
+    privatePlayerCards: padArray(w.playerCards, MAX_PLAYER_CARDS, CARD_EMPTY).map(String),
+    privateDealerCards: padArray(w.dealerCardsFull, MAX_DEALER_CARDS, CARD_EMPTY).map(String),
+    handCardCounts: w.handCardCounts.map(String),
+    playerSalt: String(w.playerSalt),
+    dealerSalt: String(w.dealerSalt),
+    playerKey: w.playerKey.map(String)
   };
 }
 
-function hash(values) {
-  return normalize(FIELD.toObject(poseidon(values.map((value) => BigInt(value)))));
+function normalizeInitialWitness(witness) {
+  const sessionId = Number(witness.sessionId ?? 1);
+  const baseWager = Number(witness.baseWager ?? 100);
+  const playerCards = normalizeCards(witness.playerCards);
+  const dealerCardsFull = normalizeCards(witness.dealerCards ?? witness.dealerPrivateCards);
+  const handCardCounts = normalizeFour(witness.handCardCounts ?? [playerCards.length, 0, 0, 0]);
+  const publicState = normalizePublicState({
+    phase: witness.phase,
+    decisionType: witness.decisionType,
+    dealerRevealMask: witness.dealerRevealMask,
+    handCount: witness.handCount,
+    activeHandIndex: witness.activeHandIndex,
+    peekAvailable: witness.peekAvailable,
+    peekResolved: witness.peekResolved,
+    dealerHasBlackjack: witness.dealerHasBlackjack,
+    insuranceAvailable: witness.insuranceAvailable,
+    insuranceStatus: witness.insuranceStatus,
+    surrenderAvailable: witness.surrenderAvailable,
+    surrenderStatus: witness.surrenderStatus,
+    dealerUpValue: witness.dealerUpValue,
+    dealerFinalValue: witness.dealerFinalValue,
+    payout: witness.payout,
+    insuranceStake: witness.insuranceStake,
+    insurancePayout: witness.insurancePayout,
+    handWagers: witness.handWagers ?? [baseWager, 0, 0, 0],
+    handValues: witness.handValues,
+    handStatuses: witness.handStatuses,
+    allowedActionMasks: witness.allowedActionMasks,
+    handCardCounts,
+    handCardStartIndices: witness.handCardStartIndices,
+    handPayoutKinds: witness.handPayoutKinds,
+    playerCardsVisible: witness.playerCardsVisible ?? playerCards,
+    dealerCardsVisible: witness.dealerCardsVisible
+  }, {
+    baseWager,
+    playerCards,
+    dealerCardsFull,
+    handCardCounts,
+    phaseHint: "initial-deal"
+  });
+
+  return {
+    sessionId,
+    handNonce: witness.handNonce ?? "0x01",
+    playerKey: normalizePlayerKey(witness.playerKey ?? [11, 29]),
+    playerCards,
+    dealerCardsFull,
+    handCardCounts,
+    publicState,
+    playerSalt: Number(witness.playerSalt ?? 101),
+    dealerSalt: Number(witness.dealerSalt ?? 102),
+    deckSalt: Number(witness.deckSalt ?? 103),
+    playerCipherSalt: Number(witness.playerCipherSalt ?? 104),
+    dealerCipherSalt: Number(witness.dealerCipherSalt ?? 105)
+  };
 }
 
-function hashCompact(values) {
-  if (values.length <= 16) {
-    return hash(values);
-  }
+function normalizePeekWitness(witness) {
+  const sessionId = Number(witness.sessionId ?? 1);
+  const playerCards = normalizeCards(witness.playerCards);
+  const dealerCardsFull = normalizeCards(witness.dealerCards ?? witness.dealerPrivateCards);
+  const handCardCounts = normalizeFour(witness.handCardCounts ?? [playerCards.length, 0, 0, 0]);
+  const publicState = normalizePublicState({
+    phase: witness.phase,
+    decisionType: witness.decisionType,
+    dealerRevealMask: witness.dealerRevealMask,
+    handCount: witness.handCount,
+    activeHandIndex: witness.activeHandIndex,
+    peekAvailable: witness.peekAvailable,
+    peekResolved: witness.peekResolved,
+    dealerHasBlackjack: witness.dealerHasBlackjack,
+    insuranceAvailable: witness.insuranceAvailable,
+    insuranceStatus: witness.insuranceStatus,
+    surrenderAvailable: witness.surrenderAvailable,
+    surrenderStatus: witness.surrenderStatus,
+    dealerUpValue: witness.dealerUpValue,
+    dealerFinalValue: witness.dealerFinalValue,
+    payout: witness.payout,
+    insuranceStake: witness.insuranceStake,
+    insurancePayout: witness.insurancePayout,
+    handWagers: witness.handWagers ?? [Number(witness.baseWager ?? 100), 0, 0, 0],
+    handValues: witness.handValues,
+    handStatuses: witness.handStatuses,
+    allowedActionMasks: witness.allowedActionMasks,
+    handCardCounts,
+    handCardStartIndices: witness.handCardStartIndices,
+    handPayoutKinds: witness.handPayoutKinds,
+    playerCardsVisible: witness.playerCardsVisible ?? playerCards,
+    dealerCardsVisible: witness.dealerCardsVisible
+  }, {
+    baseWager: Number(witness.baseWager ?? 100),
+    playerCards,
+    dealerCardsFull,
+    handCardCounts,
+    phaseHint: "peek"
+  });
 
-  let acc = hash(values.slice(0, 16));
-  for (let index = 16; index < values.length; index += 15) {
-    acc = hash([acc, ...values.slice(index, index + 15)]);
-  }
-  return acc;
+  return {
+    sessionId,
+    proofSequence: Number(witness.proofSequence ?? 2),
+    deckCommitment: witness.deckCommitment ?? "0x02",
+    playerKey: normalizePlayerKey(witness.playerKey ?? [11, 29]),
+    playerCards,
+    dealerCardsFull,
+    handCardCounts,
+    publicState,
+    playerSalt: Number(witness.playerSalt ?? 101),
+    dealerSalt: Number(witness.dealerSalt ?? 102),
+    playerCipherSalt: Number(witness.playerCipherSalt ?? 104),
+    dealerCipherSalt: Number(witness.dealerCipherSalt ?? 105)
+  };
 }
 
-function normalize(value) {
-  return BigInt(value).toString();
+function normalizeActionWitness(witness) {
+  const sessionId = Number(witness.sessionId ?? 1);
+  const oldPlayerCards = normalizeCards(witness.oldPlayerCards);
+  const playerCards = normalizeCards(witness.playerCards);
+  const dealerCardsFull = normalizeCards(witness.dealerCards ?? witness.dealerPrivateCards);
+  const oldHandCardCounts = normalizeFour(witness.oldHandCardCounts);
+  const handCardCounts = normalizeFour(witness.handCardCounts);
+  const publicState = normalizePublicState({
+    phase: witness.phase,
+    decisionType: witness.decisionType,
+    dealerRevealMask: witness.dealerRevealMask,
+    handCount: witness.handCount,
+    activeHandIndex: witness.activeHandIndex,
+    peekAvailable: witness.peekAvailable,
+    peekResolved: witness.peekResolved,
+    dealerHasBlackjack: witness.dealerHasBlackjack,
+    insuranceAvailable: witness.insuranceAvailable,
+    insuranceStatus: witness.insuranceStatus,
+    surrenderAvailable: witness.surrenderAvailable,
+    surrenderStatus: witness.surrenderStatus,
+    dealerUpValue: witness.dealerUpValue,
+    dealerFinalValue: witness.dealerFinalValue,
+    payout: witness.payout,
+    insuranceStake: witness.insuranceStake,
+    insurancePayout: witness.insurancePayout,
+    handWagers: witness.handWagers,
+    handValues: witness.handValues,
+    handStatuses: witness.handStatuses,
+    allowedActionMasks: witness.allowedActionMasks,
+    handCardCounts,
+    handCardStartIndices: witness.handCardStartIndices,
+    handPayoutKinds: witness.handPayoutKinds,
+    playerCardsVisible: witness.playerCardsVisible ?? playerCards,
+    dealerCardsVisible: witness.dealerCardsVisible
+  }, {
+    baseWager: Number(witness.baseWager ?? 100),
+    playerCards,
+    dealerCardsFull,
+    handCardCounts,
+    phaseHint: "action"
+  });
+
+  return {
+    sessionId,
+    proofSequence: Number(witness.proofSequence ?? 3),
+    pendingAction: Number(witness.pendingAction ?? ACTION.HIT),
+    deckCommitment: witness.deckCommitment ?? "0x03",
+    playerKey: normalizePlayerKey(witness.playerKey ?? [11, 29]),
+    oldPlayerCards,
+    playerCards,
+    dealerCardsFull,
+    oldHandCardCounts,
+    handCardCounts,
+    publicState,
+    oldPlayerSalt: Number(witness.oldPlayerSalt ?? 201),
+    newPlayerSalt: Number(witness.newPlayerSalt ?? 202),
+    dealerSalt: Number(witness.dealerSalt ?? 102),
+    playerCipherSalt: Number(witness.playerCipherSalt ?? 104),
+    dealerCipherSalt: Number(witness.dealerCipherSalt ?? 105)
+  };
+}
+
+function normalizeShowdownWitness(witness) {
+  const sessionId = Number(witness.sessionId ?? 1);
+  const playerCards = normalizeCards(witness.playerCards);
+  const dealerCardsFull = normalizeCards(witness.dealerCards ?? witness.dealerPrivateCards);
+  const handCardCounts = normalizeFour(witness.handCardCounts);
+  const publicState = normalizePublicState({
+    phase: witness.phase ?? PHASE.COMPLETED,
+    decisionType: witness.decisionType,
+    dealerRevealMask: witness.dealerRevealMask,
+    handCount: witness.handCount,
+    activeHandIndex: witness.activeHandIndex,
+    peekAvailable: witness.peekAvailable,
+    peekResolved: witness.peekResolved,
+    dealerHasBlackjack: witness.dealerHasBlackjack,
+    insuranceAvailable: witness.insuranceAvailable,
+    insuranceStatus: witness.insuranceStatus,
+    surrenderAvailable: witness.surrenderAvailable,
+    surrenderStatus: witness.surrenderStatus,
+    dealerUpValue: witness.dealerUpValue,
+    dealerFinalValue: witness.dealerFinalValue,
+    payout: witness.payout,
+    insuranceStake: witness.insuranceStake,
+    insurancePayout: witness.insurancePayout,
+    handWagers: witness.handWagers,
+    handValues: witness.handValues,
+    handStatuses: witness.handStatuses,
+    allowedActionMasks: witness.allowedActionMasks,
+    handCardCounts,
+    handCardStartIndices: witness.handCardStartIndices,
+    handPayoutKinds: witness.handPayoutKinds,
+    playerCardsVisible: witness.playerCardsVisible ?? playerCards,
+    dealerCardsVisible: witness.dealerCardsVisible ?? dealerCardsFull
+  }, {
+    baseWager: Number(witness.baseWager ?? 100),
+    playerCards,
+    dealerCardsFull,
+    handCardCounts,
+    phaseHint: "showdown"
+  });
+
+  return {
+    sessionId,
+    proofSequence: Number(witness.proofSequence ?? 4),
+    deckCommitment: witness.deckCommitment ?? "0x04",
+    playerKey: normalizePlayerKey(witness.playerKey ?? [11, 29]),
+    playerCards,
+    dealerCardsFull,
+    handCardCounts,
+    publicState,
+    playerSalt: Number(witness.playerSalt ?? 202),
+    dealerSalt: Number(witness.dealerSalt ?? 102)
+  };
+}
+
+function normalizePublicState(source, context) {
+  const playerHands = partitionHands(context.playerCards, source.handCardCounts ?? context.handCardCounts);
+  const dealerVisibleDefault = defaultVisibleDealerCards(context.dealerCardsFull, context.phaseHint, source.dealerRevealMask);
+  const handValues = normalizeFour(source.handValues ?? playerHands.map((cards) => scoreHand(cards).total));
+  const handWagers = normalizeFour(source.handWagers ?? [context.baseWager, 0, 0, 0]);
+  const handCardCounts = normalizeFour(source.handCardCounts ?? context.handCardCounts);
+  const handCardStartIndices = normalizeFour(source.handCardStartIndices ?? deriveCardStarts(handCardCounts));
+  const handStatuses = normalizeFour(source.handStatuses ?? deriveDefaultHandStatuses(playerHands, source.phase ?? defaultPhaseForContext(context)));
+  const handPayoutKinds = normalizeFour(source.handPayoutKinds ?? deriveDefaultPayoutKinds(handStatuses));
+  const allowedActionMasks = normalizeFour(source.allowedActionMasks ?? deriveDefaultAllowedActionMasks({
+    phase: source.phase ?? defaultPhaseForContext(context),
+    handCount: source.handCount ?? inferredHandCount(handCardCounts),
+    activeHandIndex: source.activeHandIndex ?? 0,
+    playerHands,
+    handCardCounts
+  }));
+
+  const dealerUpValue = Number(source.dealerUpValue ?? cardValue(context.dealerCardsFull[0] ?? CARD_EMPTY));
+  const dealerFinalValue = Number(
+    source.dealerFinalValue ?? scoreHand(context.dealerCardsFull.filter((card) => card !== CARD_EMPTY)).total
+  );
+  const phase = Number(source.phase ?? defaultPhaseForContext(context));
+  const decisionType = Number(source.decisionType ?? defaultDecisionType(context.dealerCardsFull[0] ?? CARD_EMPTY, phase));
+  const peekAvailable = Number(source.peekAvailable ?? (peekEligible(context.dealerCardsFull[0] ?? CARD_EMPTY) ? 1 : 0));
+  const dealerHasBlackjack = Number(source.dealerHasBlackjack ?? (isNaturalBlackjack(context.dealerCardsFull.slice(0, 2)) ? 1 : 0));
+  const dealerRevealMask = Number(source.dealerRevealMask ?? deriveRevealMask(source.dealerCardsVisible ?? dealerVisibleDefault));
+  const handCount = Number(source.handCount ?? inferredHandCount(handCardCounts));
+  const playerCardsVisible = normalizeCards(source.playerCardsVisible ?? context.playerCards);
+  const dealerCardsVisible = normalizeCards(source.dealerCardsVisible ?? dealerVisibleDefault);
+
+  return {
+    phase,
+    decisionType,
+    dealerRevealMask,
+    handCount,
+    activeHandIndex: Number(source.activeHandIndex ?? 0),
+    peekAvailable,
+    peekResolved: Number(source.peekResolved ?? (phase >= PHASE.AWAITING_POSTPEEK_DECISION ? 1 : 0)),
+    dealerHasBlackjack,
+    insuranceAvailable: Number(source.insuranceAvailable ?? (decisionType === DECISION.INSURANCE && phase === PHASE.AWAITING_PREPLAY_DECISION ? 1 : 0)),
+    insuranceStatus: Number(source.insuranceStatus ?? INSURANCE.NONE),
+    surrenderAvailable: Number(source.surrenderAvailable ?? (decisionType === DECISION.EARLY_SURRENDER || decisionType === DECISION.LATE_SURRENDER ? 1 : 0)),
+    surrenderStatus: Number(source.surrenderStatus ?? SURRENDER.NONE),
+    dealerUpValue,
+    dealerFinalValue,
+    payout: Number(source.payout ?? 0),
+    insuranceStake: Number(source.insuranceStake ?? 0),
+    insurancePayout: Number(source.insurancePayout ?? 0),
+    hands: [0, 1, 2, 3].map((index) => ({
+      wager: Number(handWagers[index]),
+      value: Number(handValues[index]),
+      status: Number(handStatuses[index]),
+      allowedActionMask: Number(allowedActionMasks[index]),
+      cardCount: Number(handCardCounts[index]),
+      cardStartIndex: Number(handCardStartIndices[index]),
+      payoutKind: Number(handPayoutKinds[index])
+    })),
+    playerCards: playerCardsVisible,
+    dealerCards: dealerCardsVisible
+  };
+}
+
+function serializePublicState(publicState) {
+  return {
+    phase: String(publicState.phase),
+    decisionType: String(publicState.decisionType),
+    dealerRevealMask: String(publicState.dealerRevealMask),
+    handCount: String(publicState.handCount),
+    activeHandIndex: String(publicState.activeHandIndex),
+    peekAvailable: String(publicState.peekAvailable),
+    peekResolved: String(publicState.peekResolved),
+    dealerHasBlackjack: String(publicState.dealerHasBlackjack),
+    insuranceAvailable: String(publicState.insuranceAvailable),
+    insuranceStatus: String(publicState.insuranceStatus),
+    surrenderAvailable: String(publicState.surrenderAvailable),
+    surrenderStatus: String(publicState.surrenderStatus),
+    dealerUpValue: String(publicState.dealerUpValue),
+    dealerFinalValue: String(publicState.dealerFinalValue),
+    payout: String(publicState.payout),
+    insuranceStake: String(publicState.insuranceStake),
+    insurancePayout: String(publicState.insurancePayout),
+    hands: publicState.hands.map((hand) => ({
+      wager: String(hand.wager),
+      value: String(hand.value),
+      status: String(hand.status),
+      allowedActionMask: String(hand.allowedActionMask),
+      cardCount: String(hand.cardCount),
+      cardStartIndex: String(hand.cardStartIndex),
+      payoutKind: String(hand.payoutKind)
+    })),
+    playerCards: publicState.playerCards.map(String),
+    dealerCards: publicState.dealerCards.map(String)
+  };
+}
+
+function flattenPublicStateInputs(publicState) {
+  return {
+    phase: String(publicState.phase),
+    decisionType: String(publicState.decisionType),
+    dealerRevealMask: String(publicState.dealerRevealMask),
+    handCount: String(publicState.handCount),
+    activeHandIndex: String(publicState.activeHandIndex),
+    peekAvailable: String(publicState.peekAvailable),
+    peekResolved: String(publicState.peekResolved),
+    dealerHasBlackjack: String(publicState.dealerHasBlackjack),
+    insuranceAvailable: String(publicState.insuranceAvailable),
+    insuranceStatus: String(publicState.insuranceStatus),
+    surrenderAvailable: String(publicState.surrenderAvailable),
+    surrenderStatus: String(publicState.surrenderStatus),
+    dealerUpValue: String(publicState.dealerUpValue),
+    dealerFinalValue: String(publicState.dealerFinalValue),
+    payout: String(publicState.payout),
+    insuranceStake: String(publicState.insuranceStake),
+    insurancePayout: String(publicState.insurancePayout),
+    handWagers: publicState.hands.map((hand) => String(hand.wager)),
+    handValues: publicState.hands.map((hand) => String(hand.value)),
+    handStatuses: publicState.hands.map((hand) => String(hand.status)),
+    allowedActionMasks: publicState.hands.map((hand) => String(hand.allowedActionMask)),
+    handCardCounts: publicState.hands.map((hand) => String(hand.cardCount)),
+    handCardStartIndices: publicState.hands.map((hand) => String(hand.cardStartIndex)),
+    handPayoutKinds: publicState.hands.map((hand) => String(hand.payoutKind)),
+    playerCards: padArray(publicState.playerCards, MAX_PLAYER_CARDS, CARD_EMPTY).map(String),
+    dealerCards: padArray(publicState.dealerCards, MAX_DEALER_CARDS, CARD_EMPTY).map(String)
+  };
 }
 
 function encodeProof(proof) {
@@ -459,14 +801,211 @@ function encodeProof(proof) {
   return abiCoder.encode(["tuple(uint256[2] a, uint256[2][2] b, uint256[2] c)"], [{ a, b, c }]);
 }
 
+function normalizePlayerKey(values) {
+  return values.map((value) => Number(value));
+}
+
+function normalizeCards(values) {
+  const numeric = (values ?? []).map((value) => Number(value));
+  const legacyEmptySentinel = numeric.every((value) => value <= 52);
+  return numeric.map((value) => (legacyEmptySentinel && value === 52 ? CARD_EMPTY : value));
+}
+
+function normalizeFour(values) {
+  const out = [0, 0, 0, 0];
+  for (let index = 0; index < Math.min(values?.length ?? 0, 4); index += 1) {
+    out[index] = Number(values[index] ?? 0);
+  }
+  return out;
+}
+
+function padArray(values, length, fillValue) {
+  const out = values.slice(0, length);
+  while (out.length < length) {
+    out.push(fillValue);
+  }
+  return out;
+}
+
+function defaultPhaseForContext(context) {
+  if (context.phaseHint === "showdown") return PHASE.COMPLETED;
+  if (context.phaseHint === "peek") return PHASE.AWAITING_PLAYER_ACTION;
+  if (context.phaseHint === "action") return PHASE.AWAITING_PLAYER_ACTION;
+  return peekEligible(context.dealerCardsFull[0] ?? CARD_EMPTY) ? PHASE.AWAITING_PREPLAY_DECISION : PHASE.AWAITING_PLAYER_ACTION;
+}
+
+function defaultDecisionType(dealerUpCard, phase) {
+  if (phase === PHASE.AWAITING_POSTPEEK_DECISION) return DECISION.LATE_SURRENDER;
+  if (phase !== PHASE.AWAITING_PREPLAY_DECISION) return DECISION.NONE;
+  if (cardMeta(dealerUpCard).isAce) return DECISION.INSURANCE;
+  if (cardMeta(dealerUpCard).isTenValue) return DECISION.EARLY_SURRENDER;
+  return DECISION.NONE;
+}
+
+function inferredHandCount(handCardCounts) {
+  return handCardCounts.filter((count) => Number(count) > 0).length || 1;
+}
+
+function deriveCardStarts(handCardCounts) {
+  const starts = [0, 0, 0, 0];
+  let offset = 0;
+  for (let index = 0; index < 4; index += 1) {
+    starts[index] = offset;
+    offset += Number(handCardCounts[index] ?? 0);
+  }
+  return starts;
+}
+
+function deriveDefaultHandStatuses(playerHands, phase) {
+  return normalizeFour(playerHands.map((cards, index) => {
+    if (cards.length === 0) return HAND_STATUS.NONE;
+    const score = scoreHand(cards).total;
+    if (phase === PHASE.COMPLETED && isNaturalBlackjack(cards)) return HAND_STATUS.BLACKJACK;
+    if (score > 21) return HAND_STATUS.BUST;
+    if (phase === PHASE.AWAITING_PLAYER_ACTION && index === 0) return HAND_STATUS.ACTIVE;
+    return HAND_STATUS.NONE;
+  }));
+}
+
+function deriveDefaultPayoutKinds(handStatuses) {
+  return normalizeFour(handStatuses.map((status) => {
+    if (status === HAND_STATUS.BUST || status === HAND_STATUS.LOSS) return HAND_PAYOUT.LOSS;
+    if (status === HAND_STATUS.PUSH) return HAND_PAYOUT.PUSH;
+    if (status === HAND_STATUS.WIN) return HAND_PAYOUT.EVEN_MONEY;
+    if (status === HAND_STATUS.BLACKJACK) return HAND_PAYOUT.BLACKJACK_3_TO_2;
+    if (status === HAND_STATUS.SURRENDERED) return HAND_PAYOUT.SURRENDER;
+    return HAND_PAYOUT.NONE;
+  }));
+}
+
+function deriveDefaultAllowedActionMasks({ phase, handCount, activeHandIndex, playerHands, handCardCounts }) {
+  const out = [0, 0, 0, 0];
+  if (phase !== PHASE.AWAITING_PLAYER_ACTION) {
+    return out;
+  }
+  const cards = playerHands[Number(activeHandIndex)] ?? [];
+  if (!cards.length) {
+    return out;
+  }
+  let mask = ALLOW.HIT + ALLOW.STAND;
+  if (Number(handCardCounts[activeHandIndex]) === 2) {
+    mask += ALLOW.DOUBLE;
+    if (cards.length === 2 && sameRank(cards[0], cards[1]) && handCount < 4) {
+      mask += ALLOW.SPLIT;
+    }
+  }
+  out[Number(activeHandIndex)] = mask;
+  return out;
+}
+
+function defaultVisibleDealerCards(dealerCardsFull, phaseHint, explicitMask) {
+  const revealMask = explicitMask !== undefined ? Number(explicitMask) : phaseHint === "showdown" ? deriveRevealMask(dealerCardsFull) : 1;
+  return dealerCardsFull.map((card, index) => ((revealMask >> index) & 1 ? card : CARD_EMPTY));
+}
+
+function deriveRevealMask(cards) {
+  return cards.reduce((mask, card, index) => mask + (Number(card) !== CARD_EMPTY ? 1 << index : 0), 0);
+}
+
+function peekEligible(card) {
+  const meta = cardMeta(card);
+  return meta.isAce || meta.isTenValue;
+}
+
+function hash(values) {
+  const inputs = values.map((value) => BigInt(normalizeHexish(value)));
+
+  switch (inputs.length) {
+    case 13:
+      return normalize(poseidonChain13(inputs));
+    case 14:
+      return normalize(poseidonChain14(inputs));
+    case 15:
+      return normalize(poseidonChain15(inputs));
+    case 38:
+      return normalize(poseidonChain38(inputs));
+    case 47:
+      return normalize(poseidonChain47(inputs));
+    default:
+      if (inputs.length < 1 || inputs.length > 16) {
+        throw new Error(`unsupported poseidon arity: ${inputs.length}`);
+      }
+      return normalize(poseidonRaw(inputs));
+  }
+}
+
+function poseidonRaw(values) {
+  return FIELD.toObject(poseidon(values));
+}
+
+function poseidonChain13(inputs) {
+  const first = poseidonRaw(inputs.slice(0, 6));
+  const second = poseidonRaw([first, ...inputs.slice(6, 11)]);
+  return poseidonRaw([second, inputs[11], inputs[12]]);
+}
+
+function poseidonChain14(inputs) {
+  const first = poseidonRaw(inputs.slice(0, 6));
+  const second = poseidonRaw([first, ...inputs.slice(6, 11)]);
+  return poseidonRaw([second, inputs[11], inputs[12], inputs[13]]);
+}
+
+function poseidonChain15(inputs) {
+  const first = poseidonRaw(inputs.slice(0, 6));
+  const second = poseidonRaw([first, ...inputs.slice(6, 11)]);
+  return poseidonRaw([second, inputs[11], inputs[12], inputs[13], inputs[14]]);
+}
+
+function poseidonChain38(inputs) {
+  const h0 = poseidonRaw(inputs.slice(0, 6));
+  const h1 = poseidonRaw([h0, ...inputs.slice(6, 11)]);
+  const h2 = poseidonRaw([h1, ...inputs.slice(11, 16)]);
+  const h3 = poseidonRaw([h2, ...inputs.slice(16, 21)]);
+  const h4 = poseidonRaw([h3, ...inputs.slice(21, 26)]);
+  const h5 = poseidonRaw([h4, ...inputs.slice(26, 31)]);
+  const h6 = poseidonRaw([h5, inputs[31], inputs[32]]);
+  return poseidonRaw([h6, ...inputs.slice(33, 38)]);
+}
+
+function poseidonChain47(inputs) {
+  const h0 = poseidonRaw(inputs.slice(0, 6));
+  const h1 = poseidonRaw([h0, ...inputs.slice(6, 11)]);
+  const h2 = poseidonRaw([h1, ...inputs.slice(11, 16)]);
+  const h3 = poseidonRaw([h2, ...inputs.slice(16, 21)]);
+  const h4 = poseidonRaw([h3, ...inputs.slice(21, 26)]);
+  const h5 = poseidonRaw([h4, ...inputs.slice(26, 31)]);
+  const h6 = poseidonRaw([h5, ...inputs.slice(31, 36)]);
+  const h7 = poseidonRaw([h6, ...inputs.slice(36, 41)]);
+  const h8 = poseidonRaw([h7, ...inputs.slice(41, 46)]);
+  return poseidonRaw([h8, inputs[46]]);
+}
+
+function normalize(value) {
+  return BigInt(value).toString();
+}
+
+function normalizeHexish(value) {
+  if (typeof value === "string" && value.startsWith("0x")) {
+    return BigInt(value);
+  }
+  return BigInt(value);
+}
+
+function formatBytes32(value) {
+  if (typeof value === "string" && value.startsWith("0x")) {
+    return value;
+  }
+  return `0x${BigInt(value).toString(16).padStart(64, "0")}`;
+}
+
 function cardMeta(card) {
   const numeric = Number(card);
-  if (numeric === 52) {
-    return { real: false, rank: 52, suit: -1, value: 0, isAce: false, isTenValue: false };
+  if (numeric === CARD_EMPTY) {
+    return { real: false, rank: CARD_EMPTY, suit: -1, value: 0, isAce: false, isTenValue: false };
   }
 
   const rank = numeric % 13;
-  const suit = Math.floor(numeric / 13);
+  const suit = Math.floor((numeric % 52) / 13);
   const isAce = rank === 0;
   const isTenValue = rank >= 9;
   const value = isAce ? 11 : isTenValue ? 10 : rank + 1;
@@ -475,10 +1014,6 @@ function cardMeta(card) {
 
 function cardValue(card) {
   return cardMeta(card).value;
-}
-
-function sameSuit(cardA, cardB) {
-  return cardMeta(cardA).suit === cardMeta(cardB).suit;
 }
 
 function sameRank(cardA, cardB) {
@@ -518,7 +1053,7 @@ function partitionHands(playerCards, handCardCounts) {
       hands.push([]);
       continue;
     }
-    hands.push(cards.slice(offset, offset + count).filter((card) => card !== 52));
+    hands.push(cards.slice(offset, offset + count).filter((card) => card !== CARD_EMPTY));
     offset += count;
   }
   return hands;

@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/Test.sol";
 import { stdJson } from "forge-std/StdJson.sol";
+import {BlackjackEngine} from "../../src/engines/BlackjackEngine.sol";
 
 abstract contract ZkFixtureLoader is Test {
     using stdJson for string;
@@ -33,6 +34,39 @@ abstract contract ZkFixtureLoader is Test {
         bool isTie;
     }
 
+    struct BlackjackHandFixture {
+        uint256 wager;
+        uint256 value;
+        uint8 status;
+        uint8 allowedActionMask;
+        uint8 cardCount;
+        uint8 cardStartIndex;
+        uint8 payoutKind;
+    }
+
+    struct BlackjackPublicStateFixture {
+        uint8 phase;
+        uint8 decisionType;
+        uint8 dealerRevealMask;
+        uint8 handCount;
+        uint8 activeHandIndex;
+        uint8 peekAvailable;
+        uint8 peekResolved;
+        uint8 dealerHasBlackjack;
+        uint8 insuranceAvailable;
+        uint8 insuranceStatus;
+        uint8 surrenderAvailable;
+        uint8 surrenderStatus;
+        uint256 dealerUpValue;
+        uint256 dealerFinalValue;
+        uint256 payout;
+        uint256 insuranceStake;
+        uint256 insurancePayout;
+        BlackjackHandFixture[4] hands;
+        uint8[] playerCards;
+        uint8[] dealerCards;
+    }
+
     struct BlackjackInitialDealFixture {
         bytes proof;
         bytes32 handNonce;
@@ -42,20 +76,18 @@ abstract contract ZkFixtureLoader is Test {
         bytes32 playerKeyCommitment;
         bytes32 playerCiphertextRef;
         bytes32 dealerCiphertextRef;
-        uint256 dealerVisibleValue;
-        uint8 handCount;
-        uint8 activeHandIndex;
-        uint256 payout;
-        uint8 immediateResultCode;
-        uint256 softMask;
-        uint256[4] handValues;
-        uint8[4] handStatuses;
-        uint8[4] allowedActionMasks;
-        uint8[4] handCardCounts;
-        uint8[4] handPayoutKinds;
-        uint8[8] playerCards;
-        uint8[4] dealerCards;
-        uint8 dealerRevealMask;
+        BlackjackPublicStateFixture publicState;
+    }
+
+    struct BlackjackPeekFixture {
+        bytes proof;
+        uint256 proofSequence;
+        bytes32 playerStateCommitment;
+        bytes32 dealerStateCommitment;
+        bytes32 playerKeyCommitment;
+        bytes32 playerCiphertextRef;
+        bytes32 dealerCiphertextRef;
+        BlackjackPublicStateFixture publicState;
     }
 
     struct BlackjackActionFixture {
@@ -68,19 +100,7 @@ abstract contract ZkFixtureLoader is Test {
         bytes32 playerKeyCommitment;
         bytes32 playerCiphertextRef;
         bytes32 dealerCiphertextRef;
-        uint256 dealerVisibleValue;
-        uint8 handCount;
-        uint8 activeHandIndex;
-        uint8 nextPhase;
-        uint256 softMask;
-        uint256[4] handValues;
-        uint8[4] handStatuses;
-        uint8[4] allowedActionMasks;
-        uint8[4] handCardCounts;
-        uint8[4] handPayoutKinds;
-        uint8[8] playerCards;
-        uint8[4] dealerCards;
-        uint8 dealerRevealMask;
+        BlackjackPublicStateFixture publicState;
     }
 
     struct BlackjackShowdownFixture {
@@ -88,17 +108,8 @@ abstract contract ZkFixtureLoader is Test {
         uint256 proofSequence;
         bytes32 playerStateCommitment;
         bytes32 dealerStateCommitment;
-        uint256 payout;
-        uint256 dealerFinalValue;
-        uint8 handCount;
-        uint8 activeHandIndex;
-        uint8[4] handStatuses;
-        uint256[4] handValues;
-        uint8[4] handCardCounts;
-        uint8[4] handPayoutKinds;
-        uint8[8] playerCards;
-        uint8[4] dealerCards;
-        uint8 dealerRevealMask;
+        bytes32 playerKeyCommitment;
+        BlackjackPublicStateFixture publicState;
     }
 
     function _loadPokerInitialDealFixture() internal view returns (PokerInitialDealFixture memory fixture) {
@@ -149,30 +160,32 @@ abstract contract ZkFixtureLoader is Test {
         returns (BlackjackInitialDealFixture memory fixture)
     {
         string memory json = vm.readFile(_fixturePath(name));
-        string[] memory publicSignals = json.readStringArray(".publicSignals");
+        fixture.proof = json.readBytes(".proof");
+        fixture.handNonce = bytes32(vm.parseUint(json.readString(".input.handNonce")));
+        fixture.deckCommitment = bytes32(vm.parseUint(json.readString(".input.deckCommitment")));
+        fixture.playerStateCommitment = bytes32(vm.parseUint(json.readString(".input.playerStateCommitment")));
+        fixture.dealerStateCommitment = bytes32(vm.parseUint(json.readString(".input.dealerStateCommitment")));
+        fixture.playerKeyCommitment = bytes32(vm.parseUint(json.readString(".input.playerKeyCommitment")));
+        fixture.playerCiphertextRef = bytes32(vm.parseUint(json.readString(".input.playerCiphertextRef")));
+        fixture.dealerCiphertextRef = bytes32(vm.parseUint(json.readString(".input.dealerCiphertextRef")));
+        fixture.publicState = _readBlackjackPublicState(json, ".input.publicState");
+    }
+
+    function _loadBlackjackPeekFixture() internal view returns (BlackjackPeekFixture memory fixture) {
+        return _loadBlackjackPeekFixture("blackjack_peek");
+    }
+
+    function _loadBlackjackPeekFixture(string memory name) internal view returns (BlackjackPeekFixture memory fixture) {
+        string memory json = vm.readFile(_fixturePath(name));
 
         fixture.proof = json.readBytes(".proof");
-        fixture.handNonce = _bytes32FromString(publicSignals[1]);
-        fixture.deckCommitment = _bytes32FromString(publicSignals[2]);
-        fixture.playerStateCommitment = _bytes32FromString(publicSignals[3]);
-        fixture.dealerStateCommitment = _bytes32FromString(publicSignals[4]);
-        fixture.playerKeyCommitment = _bytes32FromString(publicSignals[5]);
-        fixture.playerCiphertextRef = _bytes32FromString(publicSignals[6]);
-        fixture.dealerCiphertextRef = _bytes32FromString(publicSignals[7]);
-        fixture.dealerVisibleValue = vm.parseUint(publicSignals[8]);
-        fixture.handCount = uint8(vm.parseUint(publicSignals[10]));
-        fixture.activeHandIndex = uint8(vm.parseUint(publicSignals[11]));
-        fixture.payout = vm.parseUint(publicSignals[12]);
-        fixture.immediateResultCode = uint8(vm.parseUint(publicSignals[13]));
-        fixture.handValues = _toUint256x4(publicSignals, 14);
-        fixture.softMask = vm.parseUint(publicSignals[18]);
-        fixture.handStatuses = _toUint8x4(publicSignals, 19);
-        fixture.allowedActionMasks = _toUint8x4(publicSignals, 23);
-        fixture.handCardCounts = _toUint8x4(publicSignals, 27);
-        fixture.handPayoutKinds = _toUint8x4(publicSignals, 31);
-        fixture.playerCards = _toUint8x8(publicSignals, 35);
-        fixture.dealerCards = _toUint8x4(publicSignals, 43);
-        fixture.dealerRevealMask = uint8(vm.parseUint(publicSignals[47]));
+        fixture.proofSequence = vm.parseUint(json.readString(".input.proofSequence"));
+        fixture.playerStateCommitment = bytes32(vm.parseUint(json.readString(".input.playerStateCommitment")));
+        fixture.dealerStateCommitment = bytes32(vm.parseUint(json.readString(".input.dealerStateCommitment")));
+        fixture.playerKeyCommitment = bytes32(vm.parseUint(json.readString(".input.playerKeyCommitment")));
+        fixture.playerCiphertextRef = bytes32(vm.parseUint(json.readString(".input.playerCiphertextRef")));
+        fixture.dealerCiphertextRef = bytes32(vm.parseUint(json.readString(".input.dealerCiphertextRef")));
+        fixture.publicState = _readBlackjackPublicState(json, ".input.publicState");
     }
 
     function _loadBlackjackActionFixture() internal view returns (BlackjackActionFixture memory fixture) {
@@ -181,30 +194,17 @@ abstract contract ZkFixtureLoader is Test {
 
     function _loadBlackjackActionFixture(string memory name) internal view returns (BlackjackActionFixture memory fixture) {
         string memory json = vm.readFile(_fixturePath(name));
-        string[] memory publicSignals = json.readStringArray(".publicSignals");
 
         fixture.proof = json.readBytes(".proof");
-        fixture.proofSequence = vm.parseUint(publicSignals[1]);
-        fixture.pendingAction = uint8(vm.parseUint(publicSignals[2]));
-        fixture.oldPlayerStateCommitment = _bytes32FromString(publicSignals[3]);
-        fixture.newPlayerStateCommitment = _bytes32FromString(publicSignals[4]);
-        fixture.dealerStateCommitment = _bytes32FromString(publicSignals[5]);
-        fixture.playerKeyCommitment = _bytes32FromString(publicSignals[6]);
-        fixture.playerCiphertextRef = _bytes32FromString(publicSignals[7]);
-        fixture.dealerCiphertextRef = _bytes32FromString(publicSignals[8]);
-        fixture.dealerVisibleValue = vm.parseUint(publicSignals[9]);
-        fixture.handCount = uint8(vm.parseUint(publicSignals[10]));
-        fixture.activeHandIndex = uint8(vm.parseUint(publicSignals[11]));
-        fixture.nextPhase = uint8(vm.parseUint(publicSignals[12]));
-        fixture.handValues = _toUint256x4(publicSignals, 13);
-        fixture.softMask = vm.parseUint(publicSignals[17]);
-        fixture.handStatuses = _toUint8x4(publicSignals, 18);
-        fixture.allowedActionMasks = _toUint8x4(publicSignals, 22);
-        fixture.handCardCounts = _toUint8x4(publicSignals, 26);
-        fixture.handPayoutKinds = _toUint8x4(publicSignals, 30);
-        fixture.playerCards = _toUint8x8(publicSignals, 34);
-        fixture.dealerCards = _toUint8x4(publicSignals, 42);
-        fixture.dealerRevealMask = uint8(vm.parseUint(publicSignals[46]));
+        fixture.proofSequence = vm.parseUint(json.readString(".input.proofSequence"));
+        fixture.pendingAction = uint8(vm.parseUint(json.readString(".input.pendingAction")));
+        fixture.oldPlayerStateCommitment = bytes32(vm.parseUint(json.readString(".input.oldPlayerStateCommitment")));
+        fixture.newPlayerStateCommitment = bytes32(vm.parseUint(json.readString(".input.newPlayerStateCommitment")));
+        fixture.dealerStateCommitment = bytes32(vm.parseUint(json.readString(".input.dealerStateCommitment")));
+        fixture.playerKeyCommitment = bytes32(vm.parseUint(json.readString(".input.playerKeyCommitment")));
+        fixture.playerCiphertextRef = bytes32(vm.parseUint(json.readString(".input.playerCiphertextRef")));
+        fixture.dealerCiphertextRef = bytes32(vm.parseUint(json.readString(".input.dealerCiphertextRef")));
+        fixture.publicState = _readBlackjackPublicState(json, ".input.publicState");
     }
 
     function _loadBlackjackShowdownFixture() internal view returns (BlackjackShowdownFixture memory fixture) {
@@ -217,23 +217,13 @@ abstract contract ZkFixtureLoader is Test {
         returns (BlackjackShowdownFixture memory fixture)
     {
         string memory json = vm.readFile(_fixturePath(name));
-        string[] memory publicSignals = json.readStringArray(".publicSignals");
 
         fixture.proof = json.readBytes(".proof");
-        fixture.proofSequence = vm.parseUint(publicSignals[1]);
-        fixture.playerStateCommitment = _bytes32FromString(publicSignals[2]);
-        fixture.dealerStateCommitment = _bytes32FromString(publicSignals[3]);
-        fixture.payout = vm.parseUint(publicSignals[4]);
-        fixture.dealerFinalValue = vm.parseUint(publicSignals[5]);
-        fixture.handCount = uint8(vm.parseUint(publicSignals[6]));
-        fixture.activeHandIndex = uint8(vm.parseUint(publicSignals[7]));
-        fixture.handStatuses = _toUint8x4(publicSignals, 8);
-        fixture.handValues = _toUint256x4(publicSignals, 12);
-        fixture.handCardCounts = _toUint8x4(publicSignals, 20);
-        fixture.handPayoutKinds = _toUint8x4(publicSignals, 24);
-        fixture.playerCards = _toUint8x8(publicSignals, 28);
-        fixture.dealerCards = _toUint8x4(publicSignals, 36);
-        fixture.dealerRevealMask = uint8(vm.parseUint(publicSignals[40]));
+        fixture.proofSequence = vm.parseUint(json.readString(".input.proofSequence"));
+        fixture.playerStateCommitment = bytes32(vm.parseUint(json.readString(".input.playerStateCommitment")));
+        fixture.dealerStateCommitment = bytes32(vm.parseUint(json.readString(".input.dealerStateCommitment")));
+        fixture.playerKeyCommitment = bytes32(vm.parseUint(json.readString(".input.playerKeyCommitment")));
+        fixture.publicState = _readBlackjackPublicState(json, ".input.publicState");
     }
 
     function _corruptProof(bytes memory proof) internal pure returns (bytes memory) {
@@ -248,6 +238,84 @@ abstract contract ZkFixtureLoader is Test {
 
     function _bytes32FromString(string memory value) private pure returns (bytes32) {
         return bytes32(vm.parseUint(value));
+    }
+
+    function _readBlackjackPublicState(string memory json, string memory prefix)
+        private
+        view
+        returns (BlackjackPublicStateFixture memory fixture)
+    {
+        fixture.phase = uint8(vm.parseUint(json.readString(string.concat(prefix, ".phase"))));
+        fixture.decisionType = uint8(vm.parseUint(json.readString(string.concat(prefix, ".decisionType"))));
+        fixture.dealerRevealMask = uint8(vm.parseUint(json.readString(string.concat(prefix, ".dealerRevealMask"))));
+        fixture.handCount = uint8(vm.parseUint(json.readString(string.concat(prefix, ".handCount"))));
+        fixture.activeHandIndex = uint8(vm.parseUint(json.readString(string.concat(prefix, ".activeHandIndex"))));
+        fixture.peekAvailable = uint8(vm.parseUint(json.readString(string.concat(prefix, ".peekAvailable"))));
+        fixture.peekResolved = uint8(vm.parseUint(json.readString(string.concat(prefix, ".peekResolved"))));
+        fixture.dealerHasBlackjack = uint8(vm.parseUint(json.readString(string.concat(prefix, ".dealerHasBlackjack"))));
+        fixture.insuranceAvailable = uint8(vm.parseUint(json.readString(string.concat(prefix, ".insuranceAvailable"))));
+        fixture.insuranceStatus = uint8(vm.parseUint(json.readString(string.concat(prefix, ".insuranceStatus"))));
+        fixture.surrenderAvailable = uint8(vm.parseUint(json.readString(string.concat(prefix, ".surrenderAvailable"))));
+        fixture.surrenderStatus = uint8(vm.parseUint(json.readString(string.concat(prefix, ".surrenderStatus"))));
+        fixture.dealerUpValue = vm.parseUint(json.readString(string.concat(prefix, ".dealerUpValue")));
+        fixture.dealerFinalValue = vm.parseUint(json.readString(string.concat(prefix, ".dealerFinalValue")));
+        fixture.payout = vm.parseUint(json.readString(string.concat(prefix, ".payout")));
+        fixture.insuranceStake = vm.parseUint(json.readString(string.concat(prefix, ".insuranceStake")));
+        fixture.insurancePayout = vm.parseUint(json.readString(string.concat(prefix, ".insurancePayout")));
+        for (uint256 i = 0; i < 4; i++) {
+            string memory handPrefix = string.concat(prefix, ".hands[", vm.toString(i), "]");
+            fixture.hands[i].wager = vm.parseUint(json.readString(string.concat(handPrefix, ".wager")));
+            fixture.hands[i].value = vm.parseUint(json.readString(string.concat(handPrefix, ".value")));
+            fixture.hands[i].status = uint8(vm.parseUint(json.readString(string.concat(handPrefix, ".status"))));
+            fixture.hands[i].allowedActionMask =
+                uint8(vm.parseUint(json.readString(string.concat(handPrefix, ".allowedActionMask"))));
+            fixture.hands[i].cardCount = uint8(vm.parseUint(json.readString(string.concat(handPrefix, ".cardCount"))));
+            fixture.hands[i].cardStartIndex =
+                uint8(vm.parseUint(json.readString(string.concat(handPrefix, ".cardStartIndex"))));
+            fixture.hands[i].payoutKind = uint8(vm.parseUint(json.readString(string.concat(handPrefix, ".payoutKind"))));
+        }
+
+        string[] memory playerCards = json.readStringArray(string.concat(prefix, ".playerCards"));
+        string[] memory dealerCards = json.readStringArray(string.concat(prefix, ".dealerCards"));
+        fixture.playerCards = _toDynamicUint8(playerCards);
+        fixture.dealerCards = _toDynamicUint8(dealerCards);
+    }
+
+    function _toBlackjackPublicState(BlackjackPublicStateFixture memory fixture)
+        internal
+        pure
+        returns (BlackjackEngine.PublicSessionState memory state)
+    {
+        state.phase = fixture.phase;
+        state.decisionType = fixture.decisionType;
+        state.dealerRevealMask = fixture.dealerRevealMask;
+        state.handCount = fixture.handCount;
+        state.activeHandIndex = fixture.activeHandIndex;
+        state.peekAvailable = fixture.peekAvailable;
+        state.peekResolved = fixture.peekResolved;
+        state.dealerHasBlackjack = fixture.dealerHasBlackjack;
+        state.insuranceAvailable = fixture.insuranceAvailable;
+        state.insuranceStatus = fixture.insuranceStatus;
+        state.surrenderAvailable = fixture.surrenderAvailable;
+        state.surrenderStatus = fixture.surrenderStatus;
+        state.dealerUpValue = fixture.dealerUpValue;
+        state.dealerFinalValue = fixture.dealerFinalValue;
+        state.payout = fixture.payout;
+        state.insuranceStake = fixture.insuranceStake;
+        state.insurancePayout = fixture.insurancePayout;
+        for (uint256 i = 0; i < 4; i++) {
+            state.hands[i] = BlackjackEngine.HandView({
+                wager: fixture.hands[i].wager,
+                value: fixture.hands[i].value,
+                status: fixture.hands[i].status,
+                allowedActionMask: fixture.hands[i].allowedActionMask,
+                cardCount: fixture.hands[i].cardCount,
+                cardStartIndex: fixture.hands[i].cardStartIndex,
+                payoutKind: fixture.hands[i].payoutKind
+            });
+        }
+        state.playerCards = fixture.playerCards;
+        state.dealerCards = fixture.dealerCards;
     }
 
     function _toUint256x4(string[] memory values, uint256 offset) private pure returns (uint256[4] memory out) {
@@ -265,6 +333,13 @@ abstract contract ZkFixtureLoader is Test {
     function _toUint8x8(string[] memory values, uint256 offset) private pure returns (uint8[8] memory out) {
         for (uint256 i = 0; i < 8; i++) {
             out[i] = uint8(vm.parseUint(values[offset + i]));
+        }
+    }
+
+    function _toDynamicUint8(string[] memory values) private pure returns (uint8[] memory out) {
+        out = new uint8[](values.length);
+        for (uint256 i = 0; i < values.length; i++) {
+            out[i] = uint8(vm.parseUint(values[i]));
         }
     }
 }

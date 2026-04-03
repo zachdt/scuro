@@ -17,7 +17,7 @@ import {NumberPickerAdapter} from "../../src/controllers/NumberPickerAdapter.sol
 import {PvPController} from "../../src/controllers/PvPController.sol";
 import {TournamentController} from "../../src/controllers/TournamentController.sol";
 import {NumberPickerEngine} from "../../src/engines/NumberPickerEngine.sol";
-import {SingleDeckBlackjackEngine} from "../../src/engines/SingleDeckBlackjackEngine.sol";
+import {BlackjackEngine} from "../../src/engines/BlackjackEngine.sol";
 import {SingleDraw2To7Engine} from "../../src/engines/SingleDraw2To7Engine.sol";
 import {BlackjackModuleDeployer} from "../../src/factory/BlackjackModuleDeployer.sol";
 import {CheminDeFerModuleDeployer} from "../../src/factory/CheminDeFerModuleDeployer.sol";
@@ -66,7 +66,7 @@ contract BetaDeployFactoryParityTest is Test {
             SingleDraw2To7Engine _pvpPokerEngine,
             uint256 blackjackModuleId,
             BlackjackController blackjackController,
-            SingleDeckBlackjackEngine blackjackEngine
+            BlackjackEngine blackjackEngine
         ) = _deployModules();
 
         assertTrue(address(factory) != address(0));
@@ -141,7 +141,7 @@ contract BetaDeployFactoryParityTest is Test {
                 GameDeploymentFactory.BlackjackDeployment({
                     coordinator: address(this),
                     defaultActionWindow: 60,
-                    configHash: keccak256("single-deck-blackjack-zk-v2"),
+                    configHash: keccak256("double-deck-blackjack-zk-v1"),
                     developerRewardBps: 500
                 })
             )
@@ -200,7 +200,7 @@ contract BetaDeployFactoryParityTest is Test {
             SingleDraw2To7Engine pvpPokerEngine,
             uint256 blackjackModuleId,
             BlackjackController blackjackController,
-            SingleDeckBlackjackEngine blackjackEngine
+            BlackjackEngine blackjackEngine
         )
     {
         address controllerAddress;
@@ -238,19 +238,19 @@ contract BetaDeployFactoryParityTest is Test {
                 GameDeploymentFactory.BlackjackDeployment({
                     coordinator: address(this),
                     defaultActionWindow: 60,
-                    configHash: keccak256("single-deck-blackjack-zk-v2"),
+                    configHash: keccak256("double-deck-blackjack-zk-v1"),
                     developerRewardBps: 500
                 })
             )
         );
         blackjackController = BlackjackController(controllerAddress);
-        blackjackEngine = SingleDeckBlackjackEngine(engineAddress);
+        blackjackEngine = BlackjackEngine(engineAddress);
     }
 
     function _finalize(
         NumberPickerEngine numberPickerEngine,
         SingleDraw2To7Engine tournamentPokerEngine,
-        SingleDeckBlackjackEngine blackjackEngine
+        BlackjackEngine blackjackEngine
     ) internal {
         vm.startPrank(EXPRESSION_ADMIN);
         uint256 numberPickerExpressionTokenId = expressionRegistry.mintExpression(
@@ -258,8 +258,8 @@ contract BetaDeployFactoryParityTest is Test {
         );
         uint256 blackjackExpressionTokenId = expressionRegistry.mintExpression(
             blackjackEngine.engineType(),
-            keccak256("single-deck-blackjack-zk-v2"),
-            "ipfs://scuro/single-deck-blackjack-zk-v2"
+            keccak256("double-deck-blackjack-zk-v1"),
+            "ipfs://scuro/double-deck-blackjack-zk-v1"
         );
         uint256 pokerExpressionTokenId = expressionRegistry.mintExpression(
             tournamentPokerEngine.engineType(), keccak256("single-draw-2-7"), "ipfs://scuro/single-draw-2-7"

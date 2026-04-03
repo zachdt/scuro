@@ -4,6 +4,8 @@
 
 `SlotMachineController` is the user-facing controller for the governed slot module. It burns the player stake, launches a preset-driven spin on the engine, and settles the resolved payout through `ProtocolSettlement`.
 
+For the canonical product rules and economics, see the [Slot Machine session spec](../session-specs/slot-machine.md).
+
 ## Caller Model
 
 - Players call `spin`

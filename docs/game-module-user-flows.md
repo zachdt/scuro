@@ -12,7 +12,7 @@ This guide captures the current controller and engine flows for each shipped gam
 | Tournament Poker | Tournament | `TournamentController` | `SingleDraw2To7Engine` | coordinator + Groth16 proofs | SB `10`, BB `20`, blind interval `180s`, action window `60s` |
 | PvP Poker | PvP | `PvPController` | `SingleDraw2To7Engine` | coordinator + Groth16 proofs | SB `10`, BB `20`, blind interval `180s`, action window `60s` |
 | Chemin de Fer | PvP | `CheminDeFerController` | `CheminDeFerEngine` | VRF coordinator | join window `60s` |
-| Blackjack | Solo | `BlackjackController` | `SingleDeckBlackjackEngine` | coordinator + Groth16 proofs | action window `60s` |
+| Blackjack | Solo | `BlackjackController` | `BlackjackEngine` | coordinator + Groth16 proofs | action window `60s` |
 
 ## NumberPicker
 
@@ -243,6 +243,7 @@ Key runtime notes:
 - The player burns the initial wager up front. `doubleDown` and `split` can require an additional burn equal to the active hand wager.
 - The coordinator is responsible for initial deal proofs, post-action proofs, and showdown proofs.
 - If the player misses the action window, `claimPlayerTimeout()` converts the pending move into a forced stand.
+- Canonical blackjack rules and economics live in the [Blackjack session spec](./session-specs/blackjack.md).
 
 ```mermaid
 sequenceDiagram
@@ -253,7 +254,7 @@ sequenceDiagram
     participant Controller as BlackjackController
     participant Catalog as GameCatalog
     participant Settlement as ProtocolSettlement
-    participant Engine as SingleDeckBlackjackEngine
+    participant Engine as BlackjackEngine
     participant Verifier as BlackjackVerifierBundle
 
     Player->>Controller: startHand(wager, playRef, playerKeyCommitment, expressionTokenId)
@@ -366,4 +367,4 @@ sequenceDiagram
 - [PvPController](../src/controllers/PvPController.sol)
 - [SingleDraw2To7Engine](../src/engines/SingleDraw2To7Engine.sol)
 - [BlackjackController](../src/controllers/BlackjackController.sol)
-- [SingleDeckBlackjackEngine](../src/engines/SingleDeckBlackjackEngine.sol)
+- [Blackjack Engine Source](../src/engines/SingleDeckBlackjackEngine.sol)

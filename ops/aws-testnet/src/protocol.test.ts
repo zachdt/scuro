@@ -68,7 +68,7 @@ function makeManifest(): DeploymentManifest {
       TournamentPokerEngine: "0x7",
       TournamentPokerVerifierBundle: "0x8",
       BlackjackController: "0x9",
-      SingleDeckBlackjackEngine: "0x10",
+      BlackjackEngine: "0x10",
       BlackjackVerifierBundle: "0x11",
       DeveloperRewards: "0x12",
       GameCatalog: "0x13",
@@ -154,7 +154,7 @@ describe("protocol and worker-job verification", () => {
             return "PvPController 0x15\nPvPPokerEngine 0x16\nPvPPokerVerifierBundle 0x17\nPvPPokerModuleId 3\n";
           }
           if (target === "script/aws/DeployBlackjackModule.s.sol:DeployBlackjackModule") {
-            return "BlackjackVerifierBundle 0x18\nSingleDeckBlackjackEngine 0x19\nBlackjackController 0x20\nBlackjackModuleId 4\n";
+            return "BlackjackVerifierBundle 0x18\nBlackjackEngine 0x19\nBlackjackController 0x20\nBlackjackModuleId 4\n";
           }
           if (target === "script/aws/DeployFinalize.s.sol:DeployFinalize") {
             return [
@@ -495,6 +495,54 @@ describe("protocol and worker-job verification", () => {
 
     const liveBlackjackCall = calls.find((call) => call.args.includes("script/aws/SubmitBlackjackShowdown.s.sol:SubmitBlackjackShowdown"));
     expect(liveBlackjackCall?.env?.PROOF_PAYLOAD_PATH).toBe("/tmp/generated-blackjack-showdown.json");
+
+    await processJob(config, {
+      ...job,
+      id: "job-3",
+      mode: "live",
+      jobType: "blackjack-peek",
+      payload: {
+        sessionId: 11,
+        witnessPath: "zk/fixtures/witness/blackjack_peek.json"
+      }
+    }, {
+      fixture: {
+        mode: "fixture",
+        async execute() {
+          return {};
+        }
+      },
+      live: {
+        mode: "live",
+        async execute() {
+          return {
+            payloadPath: "/tmp/generated-blackjack-peek.json",
+            payload: {},
+            phase: "peek"
+          };
+        }
+      }
+    }, {
+      async loadManifest() {
+        return makeManifest();
+      },
+      async commandRunner(cmd, args, options) {
+        calls.push({ cmd, args, env: options?.env });
+        return { stdout: "", stderr: "", exitCode: 0 };
+      },
+      async runNumberPickerSmoke() {
+        return { status: "ok" };
+      },
+      async runPokerSmoke() {
+        return { status: "ok" };
+      },
+      async runBlackjackSmoke() {
+        return { status: "ok" };
+      }
+    });
+
+    const livePeekCall = calls.find((call) => call.args.includes("script/aws/SubmitBlackjackPeek.s.sol:SubmitBlackjackPeek"));
+    expect(livePeekCall?.env?.PROOF_PAYLOAD_PATH).toBe("/tmp/generated-blackjack-peek.json");
 
     rmSync(tempDir, { recursive: true, force: true });
   });

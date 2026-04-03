@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {DeveloperRewards} from "../../src/DeveloperRewards.sol";
 import {ScuroToken} from "../../src/ScuroToken.sol";
 import {BlackjackController} from "../../src/controllers/BlackjackController.sol";
-import {SingleDeckBlackjackEngine} from "../../src/engines/SingleDeckBlackjackEngine.sol";
+import {BlackjackEngine} from "../../src/engines/BlackjackEngine.sol";
 import {FixtureLoaders} from "./FixtureLoaders.sol";
 
 contract SmokeBlackjackFixture is FixtureLoaders {
@@ -18,7 +18,7 @@ contract SmokeBlackjackFixture is FixtureLoaders {
         ScuroToken token;
         DeveloperRewards developerRewards;
         BlackjackController controller;
-        SingleDeckBlackjackEngine engine;
+        BlackjackEngine engine;
     }
 
     function run() external {
@@ -31,7 +31,7 @@ contract SmokeBlackjackFixture is FixtureLoaders {
             token: ScuroToken(vm.envAddress("SCURO_TOKEN")),
             developerRewards: DeveloperRewards(vm.envAddress("DEVELOPER_REWARDS")),
             controller: BlackjackController(vm.envAddress("BLACKJACK_CONTROLLER")),
-            engine: SingleDeckBlackjackEngine(vm.envAddress("BLACKJACK_ENGINE"))
+            engine: BlackjackEngine(vm.envAddress("BLACKJACK_ENGINE"))
         });
 
         _runScenario(adminKey, player1Key, runtime);
@@ -83,7 +83,7 @@ contract SmokeBlackjackFixture is FixtureLoaders {
 
     function _submitInitialDeal(
         uint256 adminKey,
-        SingleDeckBlackjackEngine engine,
+        BlackjackEngine engine,
         uint256 sessionId,
         BlackjackInitialDealFixture memory initialDeal
     ) internal {
@@ -96,20 +96,7 @@ contract SmokeBlackjackFixture is FixtureLoaders {
             initialDeal.dealerStateCommitment,
             initialDeal.playerCiphertextRef,
             initialDeal.dealerCiphertextRef,
-            initialDeal.dealerVisibleValue,
-            initialDeal.playerCards,
-            initialDeal.dealerCards,
-            initialDeal.handCount,
-            initialDeal.activeHandIndex,
-            initialDeal.payout,
-            initialDeal.immediateResultCode,
-            initialDeal.handValues,
-            initialDeal.handStatuses,
-            initialDeal.allowedActionMasks,
-            initialDeal.handCardCounts,
-            initialDeal.handPayoutKinds,
-            initialDeal.dealerRevealMask,
-            initialDeal.softMask,
+            _legacyInitialState(initialDeal),
             initialDeal.proof
         );
         vm.stopBroadcast();
@@ -117,7 +104,7 @@ contract SmokeBlackjackFixture is FixtureLoaders {
 
     function _submitAction(
         uint256 adminKey,
-        SingleDeckBlackjackEngine engine,
+        BlackjackEngine engine,
         uint256 sessionId,
         BlackjackActionFixture memory actionFixture
     ) internal {
@@ -128,19 +115,7 @@ contract SmokeBlackjackFixture is FixtureLoaders {
             actionFixture.dealerStateCommitment,
             actionFixture.playerCiphertextRef,
             actionFixture.dealerCiphertextRef,
-            actionFixture.dealerVisibleValue,
-            actionFixture.playerCards,
-            actionFixture.dealerCards,
-            actionFixture.handCount,
-            actionFixture.activeHandIndex,
-            actionFixture.nextPhase,
-            actionFixture.handValues,
-            actionFixture.handStatuses,
-            actionFixture.allowedActionMasks,
-            actionFixture.handCardCounts,
-            actionFixture.handPayoutKinds,
-            actionFixture.dealerRevealMask,
-            actionFixture.softMask,
+            _legacyActionState(actionFixture),
             actionFixture.proof
         );
         vm.stopBroadcast();
@@ -149,7 +124,7 @@ contract SmokeBlackjackFixture is FixtureLoaders {
     function _submitShowdown(
         uint256 adminKey,
         BlackjackController controller,
-        SingleDeckBlackjackEngine engine,
+        BlackjackEngine engine,
         uint256 sessionId,
         BlackjackShowdownFixture memory showdownFixture
     ) internal {
@@ -158,17 +133,7 @@ contract SmokeBlackjackFixture is FixtureLoaders {
             sessionId,
             showdownFixture.playerStateCommitment,
             showdownFixture.dealerStateCommitment,
-            showdownFixture.payout,
-            showdownFixture.dealerFinalValue,
-            showdownFixture.playerCards,
-            showdownFixture.dealerCards,
-            showdownFixture.handCount,
-            showdownFixture.activeHandIndex,
-            showdownFixture.handStatuses,
-            showdownFixture.handValues,
-            showdownFixture.handCardCounts,
-            showdownFixture.handPayoutKinds,
-            showdownFixture.dealerRevealMask,
+            _legacyShowdownState(showdownFixture),
             showdownFixture.proof
         );
         controller.settle(sessionId);

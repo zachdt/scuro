@@ -8,7 +8,7 @@ import { GameCatalog } from "../src/GameCatalog.sol";
 import { ScuroToken } from "../src/ScuroToken.sol";
 import { BlackjackController } from "../src/controllers/BlackjackController.sol";
 import { TournamentController } from "../src/controllers/TournamentController.sol";
-import { SingleDeckBlackjackEngine } from "../src/engines/SingleDeckBlackjackEngine.sol";
+import { BlackjackEngine } from "../src/engines/BlackjackEngine.sol";
 import { SingleDraw2To7Engine } from "../src/engines/SingleDraw2To7Engine.sol";
 
 contract SmokeRealProofHands is Script {
@@ -129,7 +129,7 @@ contract SmokeRealProofHands is Script {
         TournamentController tournamentController = TournamentController(vm.envAddress("TOURNAMENT_CONTROLLER"));
         SingleDraw2To7Engine pokerEngine = SingleDraw2To7Engine(vm.envAddress("TOURNAMENT_POKER_ENGINE"));
         BlackjackController blackjackController = BlackjackController(vm.envAddress("BLACKJACK_CONTROLLER"));
-        SingleDeckBlackjackEngine blackjackEngine = SingleDeckBlackjackEngine(vm.envAddress("BLACKJACK_ENGINE"));
+        BlackjackEngine blackjackEngine = BlackjackEngine(vm.envAddress("BLACKJACK_ENGINE"));
 
         address pokerVerifierBundle = vm.envAddress("TOURNAMENT_POKER_VERIFIER_BUNDLE");
         address blackjackVerifierBundle = vm.envAddress("BLACKJACK_VERIFIER_BUNDLE");
@@ -304,7 +304,7 @@ contract SmokeRealProofHands is Script {
 
     function _submitBlackjackInitialDeal(
         uint256 adminKey,
-        SingleDeckBlackjackEngine blackjackEngine,
+        BlackjackEngine blackjackEngine,
         uint256 sessionId,
         BlackjackInitialDealFixture memory fixture
     ) internal {
@@ -317,26 +317,13 @@ contract SmokeRealProofHands is Script {
             fixture.dealerStateCommitment,
             fixture.playerCiphertextRef,
             fixture.dealerCiphertextRef,
-            fixture.dealerVisibleValue,
-            fixture.playerCards,
-            fixture.dealerCards,
-            fixture.handCount,
-            fixture.activeHandIndex,
-            fixture.payout,
-            fixture.immediateResultCode,
-            fixture.handValues,
-            fixture.handStatuses,
-            fixture.allowedActionMasks,
-            fixture.handCardCounts,
-            fixture.handPayoutKinds,
-            fixture.dealerRevealMask,
-            fixture.softMask,
+            _legacyInitialState(fixture),
             fixture.proof
         );
         vm.stopBroadcast();
     }
 
-    function _submitBlackjackAction(uint256 adminKey, SingleDeckBlackjackEngine blackjackEngine, uint256 sessionId)
+    function _submitBlackjackAction(uint256 adminKey, BlackjackEngine blackjackEngine, uint256 sessionId)
         internal
     {
         BlackjackActionFixture memory fixture = _loadBlackjackActionFixture();
@@ -347,25 +334,13 @@ contract SmokeRealProofHands is Script {
             fixture.dealerStateCommitment,
             fixture.playerCiphertextRef,
             fixture.dealerCiphertextRef,
-            fixture.dealerVisibleValue,
-            fixture.playerCards,
-            fixture.dealerCards,
-            fixture.handCount,
-            fixture.activeHandIndex,
-            fixture.nextPhase,
-            fixture.handValues,
-            fixture.handStatuses,
-            fixture.allowedActionMasks,
-            fixture.handCardCounts,
-            fixture.handPayoutKinds,
-            fixture.dealerRevealMask,
-            fixture.softMask,
+            _legacyActionState(fixture),
             fixture.proof
         );
         vm.stopBroadcast();
     }
 
-    function _submitBlackjackShowdown(uint256 adminKey, SingleDeckBlackjackEngine blackjackEngine, uint256 sessionId)
+    function _submitBlackjackShowdown(uint256 adminKey, BlackjackEngine blackjackEngine, uint256 sessionId)
         internal
     {
         BlackjackShowdownFixture memory fixture = _loadBlackjackShowdownFixture();
@@ -374,17 +349,7 @@ contract SmokeRealProofHands is Script {
             sessionId,
             fixture.playerStateCommitment,
             fixture.dealerStateCommitment,
-            fixture.payout,
-            fixture.dealerFinalValue,
-            fixture.playerCards,
-            fixture.dealerCards,
-            fixture.handCount,
-            fixture.activeHandIndex,
-            fixture.handStatuses,
-            fixture.handValues,
-            fixture.handCardCounts,
-            fixture.handPayoutKinds,
-            fixture.dealerRevealMask,
+            _legacyShowdownState(fixture),
             fixture.proof
         );
         vm.stopBroadcast();
@@ -519,4 +484,94 @@ contract SmokeRealProofHands is Script {
             out[i] = uint8(vm.parseUint(values[offset + i]));
         }
     }
+
+    function _legacyInitialState(BlackjackInitialDealFixture memory fixture)
+        internal
+        pure
+        returns (BlackjackEngine.PublicSessionState memory state)
+    {
+        state.phase = fixture.payout > 0 ? uint8(BlackjackEngine.SessionPhase.Completed) : uint8(BlackjackEngine.SessionPhase.AwaitingPlayerAction);
+        state.dealerRevealMask = fixture.dealerRevealMask;
+        state.handCount = fixture.handCount;
+        state.activeHandIndex = fixture.activeHandIndex;
+        state.dealerUpValue = fixture.dealerVisibleValue;
+        state.dealerFinalValue = fixture.dealerVisibleValue;
+        state.payout = fixture.payout;
+        _copyLegacyHands(state.hands, fixture.handValues, fixture.handStatuses, fixture.allowedActionMasks, fixture.handCardCounts, fixture.handPayoutKinds, fixture.handCount);
+        state.playerCards = _legacyPlayerCards(fixture.playerCards);
+        state.dealerCards = _legacyDealerCards(fixture.dealerCards);
+    }
+
+    function _legacyActionState(BlackjackActionFixture memory fixture)
+        internal
+        pure
+        returns (BlackjackEngine.PublicSessionState memory state)
+    {
+        state.phase = fixture.nextPhase == 4 ? uint8(BlackjackEngine.SessionPhase.Completed) : fixture.nextPhase == 2 ? uint8(BlackjackEngine.SessionPhase.AwaitingPlayerAction) : uint8(BlackjackEngine.SessionPhase.AwaitingCoordinatorAction);
+        state.dealerRevealMask = fixture.dealerRevealMask;
+        state.handCount = fixture.handCount;
+        state.activeHandIndex = fixture.activeHandIndex;
+        state.dealerUpValue = fixture.dealerVisibleValue;
+        state.dealerFinalValue = fixture.dealerVisibleValue;
+        _copyLegacyHands(state.hands, fixture.handValues, fixture.handStatuses, fixture.allowedActionMasks, fixture.handCardCounts, fixture.handPayoutKinds, fixture.handCount);
+        state.playerCards = _legacyPlayerCards(fixture.playerCards);
+        state.dealerCards = _legacyDealerCards(fixture.dealerCards);
+    }
+
+    function _legacyShowdownState(BlackjackShowdownFixture memory fixture)
+        internal
+        pure
+        returns (BlackjackEngine.PublicSessionState memory state)
+    {
+        state.phase = uint8(BlackjackEngine.SessionPhase.Completed);
+        state.dealerRevealMask = fixture.dealerRevealMask;
+        state.handCount = fixture.handCount;
+        state.activeHandIndex = fixture.activeHandIndex;
+        state.dealerUpValue = fixture.dealerFinalValue;
+        state.dealerFinalValue = fixture.dealerFinalValue;
+        state.payout = fixture.payout;
+        _copyLegacyHands(state.hands, fixture.handValues, fixture.handStatuses, _zeroUint8x4(), fixture.handCardCounts, fixture.handPayoutKinds, fixture.handCount);
+        state.playerCards = _legacyPlayerCards(fixture.playerCards);
+        state.dealerCards = _legacyDealerCards(fixture.dealerCards);
+    }
+
+    function _copyLegacyHands(
+        BlackjackEngine.HandView[4] memory hands,
+        uint256[4] memory handValues,
+        uint8[4] memory handStatuses,
+        uint8[4] memory allowedActionMasks,
+        uint8[4] memory handCardCounts,
+        uint8[4] memory handPayoutKinds,
+        uint8 handCount
+    ) internal pure {
+        uint8 offset;
+        for (uint256 i = 0; i < 4; i++) {
+            hands[i] = BlackjackEngine.HandView({
+                wager: i < handCount ? BLACKJACK_WAGER : 0,
+                value: handValues[i],
+                status: handStatuses[i],
+                allowedActionMask: allowedActionMasks[i],
+                cardCount: handCardCounts[i],
+                cardStartIndex: offset,
+                payoutKind: handPayoutKinds[i]
+            });
+            offset += handCardCounts[i];
+        }
+    }
+
+    function _legacyPlayerCards(uint8[8] memory cards) internal pure returns (uint8[] memory out) {
+        out = new uint8[](8);
+        for (uint256 i = 0; i < 8; i++) {
+            out[i] = cards[i] == 52 ? 104 : cards[i];
+        }
+    }
+
+    function _legacyDealerCards(uint8[4] memory cards) internal pure returns (uint8[] memory out) {
+        out = new uint8[](4);
+        for (uint256 i = 0; i < 4; i++) {
+            out[i] = cards[i] == 52 ? 104 : cards[i];
+        }
+    }
+
+    function _zeroUint8x4() internal pure returns (uint8[4] memory out) {}
 }

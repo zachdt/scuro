@@ -17,7 +17,7 @@ module SdkDocsInventory
       ["PvPController", "src/controllers/PvPController.sol", "docs/reference/pvp-controller.md", "controller"],
       ["BlackjackController", "src/controllers/BlackjackController.sol", "docs/reference/blackjack-controller.md", "controller"],
       ["NumberPickerEngine", "src/engines/NumberPickerEngine.sol", "docs/reference/number-picker-engine.md", "engine"],
-      ["SingleDeckBlackjackEngine", "src/engines/SingleDeckBlackjackEngine.sol", "docs/reference/single-deck-blackjack-engine.md", "engine"],
+      ["BlackjackEngine", "src/engines/BlackjackEngine.sol", "docs/reference/blackjack-engine.md", "engine"],
       ["SingleDraw2To7Engine", "src/engines/SingleDraw2To7Engine.sol", "docs/reference/single-draw-2-7-engine.md", "engine"],
       ["PokerVerifierBundle", "src/verifiers/PokerVerifierBundle.sol", "docs/reference/poker-verifier-bundle.md", "verifier"],
       ["BlackjackVerifierBundle", "src/verifiers/BlackjackVerifierBundle.sol", "docs/reference/blackjack-verifier-bundle.md", "verifier"],
@@ -37,26 +37,29 @@ module SdkDocsInventory
     {
       "GameCatalog.GameMode" => { "0" => "Solo", "1" => "PvP", "2" => "Tournament" },
       "GameCatalog.ModuleStatus" => { "0" => "LIVE", "1" => "RETIRED", "2" => "DISABLED" },
-      "SingleDeckBlackjackEngine.SessionPhase" => {
+      "BlackjackEngine.SessionPhase" => {
         "0" => "Inactive",
         "1" => "AwaitingInitialDeal",
-        "2" => "AwaitingPlayerAction",
-        "3" => "AwaitingCoordinator",
-        "4" => "Completed"
+        "2" => "AwaitingPrePlayDecision",
+        "3" => "AwaitingPeekResolution",
+        "4" => "AwaitingPostPeekDecision",
+        "5" => "AwaitingPlayerAction",
+        "6" => "AwaitingCoordinatorAction",
+        "7" => "Completed"
       },
-      "SingleDeckBlackjackEngine.Action" => {
+      "BlackjackEngine.Action" => {
         "1" => "ACTION_HIT",
         "2" => "ACTION_STAND",
         "3" => "ACTION_DOUBLE",
         "4" => "ACTION_SPLIT"
       },
-      "SingleDeckBlackjackEngine.ActionMask" => {
+      "BlackjackEngine.ActionMask" => {
         "1" => "ALLOW_HIT",
         "2" => "ALLOW_STAND",
         "4" => "ALLOW_DOUBLE",
         "8" => "ALLOW_SPLIT"
       },
-      "SingleDeckBlackjackEngine.HandPayoutKind" => blackjack_payout_kind_labels,
+      "BlackjackEngine.HandPayoutKind" => blackjack_payout_kind_labels,
       "SingleDraw2To7Engine.MatchState" => { "0" => "Inactive", "1" => "Active", "2" => "Completed" },
       "SingleDraw2To7Engine.HandPhase" => {
         "0" => "None",
@@ -103,7 +106,7 @@ module SdkDocsInventory
         "developer_reward_bps" => 1000
       },
       "blackjack" => {
-        "config_hash_label" => "single-deck-blackjack-zk-v2",
+        "config_hash_label" => "double-deck-blackjack-zk-v1",
         "default_action_window" => 60,
         "developer_reward_bps" => 500
       }
@@ -117,7 +120,7 @@ module SdkDocsInventory
         DeveloperExpressionRegistry DeveloperRewards ProtocolSettlement
       ],
       "controllers" => %w[NumberPickerAdapter TournamentController PvPController BlackjackController],
-      "engines" => %w[NumberPickerEngine TournamentPokerEngine PvPPokerEngine SingleDeckBlackjackEngine],
+      "engines" => %w[NumberPickerEngine TournamentPokerEngine PvPPokerEngine BlackjackEngine],
       "verifiers" => %w[TournamentPokerVerifierBundle PvPPokerVerifierBundle BlackjackVerifierBundle],
       "module_ids" => %w[NumberPickerModuleId TournamentPokerModuleId PvPPokerModuleId BlackjackModuleId],
       "actors" => %w[Admin Player1 Player2 SoloDeveloper PokerDeveloper],
@@ -126,7 +129,7 @@ module SdkDocsInventory
   end
 
   def blackjack_payout_kind_labels
-    engine_source = File.read(File.join(ROOT, "src/engines/SingleDeckBlackjackEngine.sol"))
+    engine_source = File.read(File.join(ROOT, "src/engines/BlackjackEngine.sol"))
     engine_source.scan(/uint8\s+public\s+constant\s+(HAND_PAYOUT_[A-Z0-9_]+)\s*=\s*(\d+);/).each_with_object({}) do |(label, value), labels|
       labels[value] = label
     end

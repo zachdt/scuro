@@ -2,13 +2,13 @@
 pragma solidity ^0.8.24;
 
 import {BaseSoloController} from "./BaseSoloController.sol";
-import {SingleDeckBlackjackEngine} from "../engines/SingleDeckBlackjackEngine.sol";
+import {BlackjackEngine} from "../engines/BlackjackEngine.sol";
 import {ISoloLifecycleEngine} from "../interfaces/ISoloLifecycleEngine.sol";
 
 /// @title Blackjack controller
 /// @notice Opens blackjack sessions, forwards player actions, and settles completed sessions.
 contract BlackjackController is BaseSoloController {
-    SingleDeckBlackjackEngine internal immutable ENGINE;
+    BlackjackEngine internal immutable ENGINE;
 
     /// @notice Emitted when a new blackjack session is created.
     event HandStarted(
@@ -31,11 +31,11 @@ contract BlackjackController is BaseSoloController {
     constructor(address settlementAddress, address catalogAddress, address engineAddress)
         BaseSoloController(settlementAddress, catalogAddress, engineAddress)
     {
-        ENGINE = SingleDeckBlackjackEngine(engineAddress);
+        ENGINE = BlackjackEngine(engineAddress);
     }
 
     /// @notice Returns the concrete blackjack engine.
-    function engine() public view returns (SingleDeckBlackjackEngine) {
+    function engine() public view returns (BlackjackEngine) {
         return ENGINE;
     }
 
@@ -79,6 +79,25 @@ contract BlackjackController is BaseSoloController {
     /// @notice Declares a split action for the caller.
     function split(uint256 sessionId) external {
         _declareAction(msg.sender, sessionId, ENGINE.ACTION_SPLIT());
+    }
+
+    /// @notice Buys insurance during the Ace-upcard window.
+    function insurance(uint256 sessionId, uint256 amount) external {
+        _requireSettlable("BlackjackController: module inactive");
+        _burnPlayerWager(msg.sender, amount);
+        ENGINE.declareInsurance(sessionId, msg.sender, amount);
+    }
+
+    /// @notice Accepts surrender when the current session window allows it.
+    function surrender(uint256 sessionId) external {
+        _requireSettlable("BlackjackController: module inactive");
+        ENGINE.surrender(sessionId, msg.sender);
+    }
+
+    /// @notice Explicitly declines optional pre-play decisions and advances the session.
+    function continuePlay(uint256 sessionId) external {
+        _requireSettlable("BlackjackController: module inactive");
+        ENGINE.continuePlay(sessionId, msg.sender);
     }
 
     /// @notice Forces a stand after the player action window has expired.

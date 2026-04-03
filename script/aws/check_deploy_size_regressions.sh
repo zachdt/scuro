@@ -42,10 +42,11 @@ artifact_paths = {
     "PokerDrawResolveVerifier": "out/PokerDrawResolveVerifier.sol/PokerDrawResolveVerifier.json",
     "PokerShowdownVerifier": "out/PokerShowdownVerifier.sol/PokerShowdownVerifier.json",
     "BlackjackInitialDealVerifier": "out/BlackjackInitialDealVerifier.sol/BlackjackInitialDealVerifier.json",
+    "BlackjackPeekVerifier": "out/BlackjackPeekVerifier.sol/BlackjackPeekVerifier.json",
     "BlackjackActionResolveVerifier": "out/BlackjackActionResolveVerifier.sol/BlackjackActionResolveVerifier.json",
     "BlackjackShowdownVerifier": "out/BlackjackShowdownVerifier.sol/BlackjackShowdownVerifier.json",
     "SingleDraw2To7Engine": "out/SingleDraw2To7Engine.sol/SingleDraw2To7Engine.json",
-    "SingleDeckBlackjackEngine": "out/SingleDeckBlackjackEngine.sol/SingleDeckBlackjackEngine.json",
+    "BlackjackEngine": "out/BlackjackEngine.sol/BlackjackEngine.json",
 }
 
 thresholds = json.loads(thresholds_path.read_text())

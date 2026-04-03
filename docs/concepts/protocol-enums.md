@@ -18,7 +18,7 @@ Clients should use these mappings explicitly instead of inferring integer meanin
 | `1` | `RETIRED` | no | yes |
 | `2` | `DISABLED` | no | no |
 
-## `SingleDeckBlackjackEngine.SessionPhase`
+## Blackjack Session Phase
 
 | Value | Label | Meaning |
 | --- | --- | --- |
@@ -28,7 +28,7 @@ Clients should use these mappings explicitly instead of inferring integer meanin
 | `3` | `AwaitingCoordinator` | Waiting for action or showdown proof |
 | `4` | `Completed` | Session can be settled |
 
-## `SingleDeckBlackjackEngine` action constants
+## Blackjack Action Constants
 
 | Value | Label |
 | --- | --- |
@@ -37,7 +37,7 @@ Clients should use these mappings explicitly instead of inferring integer meanin
 | `3` | `ACTION_DOUBLE` |
 | `4` | `ACTION_SPLIT` |
 
-## `SingleDeckBlackjackEngine` action-mask flags
+## Blackjack Action-Mask Flags
 
 | Value | Label |
 | --- | --- |
@@ -46,7 +46,7 @@ Clients should use these mappings explicitly instead of inferring integer meanin
 | `4` | `ALLOW_DOUBLE` |
 | `8` | `ALLOW_SPLIT` |
 
-## `SingleDeckBlackjackEngine` hand payout kinds
+## Blackjack Hand Payout Kinds
 
 | Value | Label |
 | --- | --- |
@@ -56,6 +56,10 @@ Clients should use these mappings explicitly instead of inferring integer meanin
 | `3` | `HAND_PAYOUT_EVEN_MONEY` |
 | `4` | `HAND_PAYOUT_BLACKJACK_3_TO_2` |
 | `5` | `HAND_PAYOUT_SUITED_BLACKJACK_2_TO_1` |
+
+Blackjack migration note:
+- The canonical blackjack product is the double-deck ruleset described in the [Blackjack session spec](../session-specs/blackjack.md).
+- New integrations should treat this table as legacy engine-surface data until the double-deck migration lands with its final action and payout enum surface.
 
 ## `SingleDraw2To7Engine.MatchState`
 

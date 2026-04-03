@@ -1,8 +1,10 @@
-# SingleDeckBlackjackEngine
+# Blackjack Engine
 
 ## Purpose
 
-`SingleDeckBlackjackEngine` tracks blackjack session state, validates coordinator proofs, exposes allowed player actions, and computes the solo settlement tuple.
+The blackjack engine tracks blackjack session state, validates coordinator proofs, exposes allowed player actions, and computes the solo settlement tuple.
+
+The canonical blackjack ruleset and economics live in the [Blackjack session spec](../session-specs/blackjack.md).
 
 ## Caller Model
 
@@ -53,6 +55,9 @@
 - `requiredAdditionalBurn` is nonzero only for valid `doubleDown` or `split` states
 - `submitActionProof` updates proof sequence, commitments, hand metadata, phase, and deadline together
 - `submitShowdownProof` is the terminal engine step before controller settlement
+
+Implementation note:
+- this page describes the canonical blackjack engine surface during the migration to the double-deck ruleset
 
 ## Revert Conditions
 

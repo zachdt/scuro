@@ -2,7 +2,9 @@
 
 ## Purpose
 
-`BlackjackController` is the user-facing settlement wrapper around `SingleDeckBlackjackEngine`.
+`BlackjackController` is the user-facing settlement wrapper around the blackjack engine.
+
+The canonical blackjack ruleset and economics live in the [Blackjack session spec](../session-specs/blackjack.md).
 
 ## Caller Model
 

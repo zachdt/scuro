@@ -39,7 +39,7 @@ Use reads when events do not carry enough information:
 - `NumberPickerEngine.getOutcome`: retrieve selection, roll result, and win flag after resolution.
 - `SlotMachineEngine.getPresetSummary`, `getSpin`, and `getSpinResult`: recover preset caps, resolved feature flags, and final slot payout details.
 - `SingleDraw2To7Engine.getHandState`: reconstruct live poker phase, proof sequences, and deadlines.
-- `SingleDeckBlackjackEngine.getSession`: reconstruct the active blackjack hand tree and pending action state.
+- `Blackjack engine getSession`: reconstruct the active blackjack hand tree and pending action state.
 - `DeveloperExpressionRegistry.getExpressionMetadata`: recover engine type compatibility and original minter.
 
 ## Client Rules

@@ -4,6 +4,8 @@
 
 This playbook is the minimum governed-slot flow a Node or Rust API should support.
 
+Product rules and economics live in the [Slot Machine session spec](../session-specs/slot-machine.md).
+
 ## Transaction Sequence
 
 1. Ensure the player has approved `ProtocolSettlement` for the stake amount.
@@ -31,6 +33,7 @@ This playbook is the minimum governed-slot flow a Node or Rust API should suppor
 
 ## Relevant References
 
+- [Slot Machine Session Spec](../session-specs/slot-machine.md)
 - [SlotMachineController](../reference/slot-machine-controller.md)
 - [SlotMachineEngine](../reference/slot-machine-engine.md)
 - [GameDeploymentFactory](../reference/game-deployment-factory.md)

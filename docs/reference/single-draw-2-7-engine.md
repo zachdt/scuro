@@ -4,6 +4,8 @@
 
 `SingleDraw2To7Engine` is the shared poker engine for both tournament and PvP controllers. It manages heads-up hand state, blind posting, draw resolution, showdown verification, and final payout routing.
 
+For the canonical product rules and economics of the controller-owned session types, see the [Tournament Poker session spec](../session-specs/tournament-poker.md) and [PvP Poker session spec](../session-specs/pvp-poker.md).
+
 ## Caller Model
 
 - Authorized controllers initialize games and may call `handleTimeout`

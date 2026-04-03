@@ -4,6 +4,8 @@
 
 `BlackjackVerifierBundle` maps blackjack public-input structs into the generated verifier contracts for initial deal, action resolution, and showdown.
 
+The canonical blackjack ruleset and economics live in the [Blackjack session spec](../session-specs/blackjack.md).
+
 ## Caller Model
 
 - The blackjack engine calls the `verify*` methods

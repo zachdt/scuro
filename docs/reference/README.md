@@ -2,6 +2,8 @@
 
 These pages are the contract-by-contract source of truth for SDK authors. Each page follows the same shape so coverage can be checked mechanically.
 
+Use the [session specs lane](../session-specs/README.md) for canonical product rules, economics, and intended session lifecycle behavior.
+
 ## Core Services
 
 - [ProtocolSettlement](./protocol-settlement.md)
@@ -20,16 +22,20 @@ These pages are the contract-by-contract source of truth for SDK authors. Each p
 
 - [NumberPickerAdapter](./number-picker-adapter.md)
 - [SlotMachineController](./slot-machine-controller.md)
+- [SuperBaccaratController](./super-baccarat-controller.md)
 - [TournamentController](./tournament-controller.md)
 - [PvPController](./pvp-controller.md)
 - [BlackjackController](./blackjack-controller.md)
+- [CheminDeFerController](./chemin-de-fer-controller.md)
 
 ## Engines
 
 - [NumberPickerEngine](./number-picker-engine.md)
 - [SlotMachineEngine](./slot-machine-engine.md)
-- [SingleDeckBlackjackEngine](./single-deck-blackjack-engine.md)
+- [SuperBaccaratEngine](./super-baccarat-engine.md)
+- [Blackjack Engine](./blackjack-engine.md)
 - [SingleDraw2To7Engine](./single-draw-2-7-engine.md)
+- [CheminDeFerEngine](./chemin-de-fer-engine.md)
 
 ## Proof Surfaces
 

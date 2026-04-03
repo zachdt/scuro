@@ -4,6 +4,8 @@
 
 `NumberPickerAdapter` is the user-facing controller for the NumberPicker module. It burns the wager, asks the engine for randomness, and settles the result.
 
+For the canonical product rules and economics, see the [NumberPicker session spec](../session-specs/number-picker.md).
+
 ## Caller Model
 
 - Players call `play`

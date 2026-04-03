@@ -4,6 +4,8 @@
 
 This playbook covers the coordinator-assisted solo blackjack lifecycle.
 
+The canonical blackjack ruleset lives in the [Blackjack session spec](../session-specs/blackjack.md). This page focuses on the controller/coordinator transaction flow.
+
 ## Transaction Sequence
 
 1. Ensure the player has approved `ProtocolSettlement` for the wager and any expected follow-on burns.
@@ -29,6 +31,7 @@ This playbook covers the coordinator-assisted solo blackjack lifecycle.
 
 ## Relevant References
 
+- [Blackjack Session Spec](../session-specs/blackjack.md)
 - [BlackjackController](../reference/blackjack-controller.md)
-- [SingleDeckBlackjackEngine](../reference/single-deck-blackjack-engine.md)
+- [Blackjack Engine](../reference/blackjack-engine.md)
 - [Blackjack Verifier Bundle](../reference/blackjack-verifier-bundle.md)

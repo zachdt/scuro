@@ -18,14 +18,14 @@ contract DeployBlackjackModule is BetaDeployCommon {
                 GameDeploymentFactory.BlackjackDeployment({
                     coordinator: adminAddress(),
                     defaultActionWindow: 60,
-                    configHash: keccak256("single-deck-blackjack-zk-v2"),
+                    configHash: keccak256("double-deck-blackjack-zk-v1"),
                     developerRewardBps: 500
                 })
             )
         );
 
         logAddress("BlackjackVerifierBundle", verifierBundle);
-        logAddress("SingleDeckBlackjackEngine", engine);
+        logAddress("BlackjackEngine", engine);
         logAddress("BlackjackController", controller);
         logUint("BlackjackModuleId", moduleId);
 

@@ -25,6 +25,7 @@ const CASES = [
   { name: "blackjack_initial_deal_suited_natural", circuit: "blackjack_initial_deal" },
   { name: "blackjack_initial_deal_push_natural", circuit: "blackjack_initial_deal" },
   { name: "blackjack_initial_deal_split_pair", circuit: "blackjack_initial_deal" },
+  { name: "blackjack_peek", circuit: "blackjack_peek_resolve" },
   { name: "blackjack_action_resolve", circuit: "blackjack_action_resolve" },
   { name: "blackjack_action_resolve_twentyone", circuit: "blackjack_action_resolve" },
   { name: "blackjack_action_resolve_split", circuit: "blackjack_action_resolve" },
@@ -83,6 +84,8 @@ function blackjackPhaseForCircuit(circuit) {
   switch (circuit) {
     case "blackjack_initial_deal":
       return "initial-deal";
+    case "blackjack_peek_resolve":
+      return "peek";
     case "blackjack_action_resolve":
       return "action";
     case "blackjack_showdown":

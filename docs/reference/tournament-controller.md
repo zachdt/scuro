@@ -4,6 +4,8 @@
 
 `TournamentController` stores reusable tournament configs and starts concrete two-player poker games against the shared engine.
 
+For the canonical product rules and economics, see the [Tournament Poker session spec](../session-specs/tournament-poker.md).
+
 ## Caller Model
 
 - Operators create tournaments and start games

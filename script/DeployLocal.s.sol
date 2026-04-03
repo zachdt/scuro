@@ -16,7 +16,7 @@ import {NumberPickerAdapter} from "../src/controllers/NumberPickerAdapter.sol";
 import {PvPController} from "../src/controllers/PvPController.sol";
 import {TournamentController} from "../src/controllers/TournamentController.sol";
 import {NumberPickerEngine} from "../src/engines/NumberPickerEngine.sol";
-import {SingleDeckBlackjackEngine} from "../src/engines/SingleDeckBlackjackEngine.sol";
+import {BlackjackEngine} from "../src/engines/BlackjackEngine.sol";
 import {SingleDraw2To7Engine} from "../src/engines/SingleDraw2To7Engine.sol";
 import {BlackjackModuleDeployer} from "../src/factory/BlackjackModuleDeployer.sol";
 import {CheminDeFerModuleDeployer} from "../src/factory/CheminDeFerModuleDeployer.sol";
@@ -151,7 +151,7 @@ contract DeployLocal is Script {
         GameDeploymentFactory.BlackjackDeployment memory blackjackParams = GameDeploymentFactory.BlackjackDeployment({
             coordinator: admin,
             defaultActionWindow: 60,
-            configHash: keccak256("single-deck-blackjack-zk-v2"),
+            configHash: keccak256("double-deck-blackjack-zk-v1"),
             developerRewardBps: 500
         });
         uint256 blackjackModuleId;
@@ -169,7 +169,7 @@ contract DeployLocal is Script {
         PvPController pvpController = PvPController(pvpControllerAddress);
         SingleDraw2To7Engine pvpPokerEngine = SingleDraw2To7Engine(pvpPokerEngineAddress);
         BlackjackController blackjackController = BlackjackController(blackjackControllerAddress);
-        SingleDeckBlackjackEngine blackjackEngine = SingleDeckBlackjackEngine(blackjackEngineAddress);
+        BlackjackEngine blackjackEngine = BlackjackEngine(blackjackEngineAddress);
 
         console.log("StageAction", "Finalize:NumberPickerExpression");
         uint256 numberPickerExpressionTokenId = expressionRegistry.mintExpression(
@@ -178,8 +178,8 @@ contract DeployLocal is Script {
         console.log("StageAction", "Finalize:BlackjackExpression");
         uint256 blackjackExpressionTokenId = expressionRegistry.mintExpression(
             blackjackEngine.engineType(),
-            keccak256("single-deck-blackjack-zk-v2"),
-            "ipfs://scuro/single-deck-blackjack-zk-v2"
+            keccak256("double-deck-blackjack-zk-v1"),
+            "ipfs://scuro/double-deck-blackjack-zk-v1"
         );
         console.log("StageAction", "Finalize:PokerExpression");
         uint256 pokerExpressionTokenId = expressionRegistry.mintExpression(
@@ -239,7 +239,7 @@ contract DeployLocal is Script {
         console.log("NumberPickerEngine", address(numberPickerEngine));
         console.log("NumberPickerAdapter", address(numberPickerAdapter));
         console.log("BlackjackVerifierBundle", blackjackVerifierBundle);
-        console.log("SingleDeckBlackjackEngine", address(blackjackEngine));
+        console.log("BlackjackEngine", address(blackjackEngine));
         console.log("BlackjackController", address(blackjackController));
         console.log("NumberPickerModuleId", numberPickerModuleId);
         console.log("TournamentPokerModuleId", tournamentPokerModuleId);

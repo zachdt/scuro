@@ -58,6 +58,7 @@ function envForProofJob(config: AppConfig, job: ProofJobRecord): Record<string, 
     case "poker-showdown":
       return { ...base, GAME_ID: get("gameId"), WINNER_ADDRESS: get("winnerAddress") };
     case "blackjack-initial-deal":
+    case "blackjack-peek":
     case "blackjack-action":
     case "blackjack-showdown":
       return { ...base, SESSION_ID: get("sessionId") };
@@ -83,7 +84,7 @@ async function runFixtureScript(
     PLAYER1_PRIVATE_KEY: config.player1PrivateKey,
     PLAYER2_PRIVATE_KEY: config.player2PrivateKey,
     TOURNAMENT_POKER_ENGINE: manifest.contracts.TournamentPokerEngine,
-    BLACKJACK_ENGINE: manifest.contracts.SingleDeckBlackjackEngine,
+    BLACKJACK_ENGINE: manifest.contracts.BlackjackEngine,
     ...envForProofJob(config, job),
     ...extraEnv
   };
@@ -163,6 +164,17 @@ export async function processJob(
         ...(await runFixtureScript(
           config,
           "script/aws/SubmitBlackjackInitialDeal.s.sol:SubmitBlackjackInitialDeal",
+          job,
+          deps,
+          proofPayloadEnv
+        ))
+      };
+    case "blackjack-peek":
+      return {
+        resolved,
+        ...(await runFixtureScript(
+          config,
+          "script/aws/SubmitBlackjackPeek.s.sol:SubmitBlackjackPeek",
           job,
           deps,
           proofPayloadEnv

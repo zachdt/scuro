@@ -4,6 +4,8 @@
 
 `PvPController` launches and settles one-off heads-up poker sessions without the reusable tournament config layer.
 
+For the canonical product rules and economics, see the [PvP Poker session spec](../session-specs/pvp-poker.md).
+
 ## Caller Model
 
 - Operators create sessions

@@ -4,6 +4,8 @@
 
 This playbook covers the reusable tournament configuration plus per-game settlement flow.
 
+Product rules and economics live in the [Tournament Poker session spec](../session-specs/tournament-poker.md).
+
 ## Transaction Sequence
 
 1. Operator calls `createTournament(entryFee, rewardPool, startingStack, expressionTokenId)`.
@@ -28,6 +30,7 @@ This playbook covers the reusable tournament configuration plus per-game settlem
 
 ## Relevant References
 
+- [Tournament Poker Session Spec](../session-specs/tournament-poker.md)
 - [TournamentController](../reference/tournament-controller.md)
 - [SingleDraw2To7Engine](../reference/single-draw-2-7-engine.md)
 - [Poker Verifier Bundle](../reference/poker-verifier-bundle.md)

@@ -10,7 +10,7 @@ if (!manifest.enum_labels || !manifest.proof_inputs) {
   throw new Error("manifest must include enum_labels and proof_inputs");
 }
 
-const required = ["ProtocolSettlement", "GameCatalog", "NumberPickerAdapter", "SingleDraw2To7Engine", "SingleDeckBlackjackEngine"];
+const required = ["ProtocolSettlement", "GameCatalog", "NumberPickerAdapter", "SingleDraw2To7Engine", "BlackjackEngine"];
 for (const name of required) {
   if (!manifest.contracts.find((entry) => entry.name === name)) {
     throw new Error(`missing contract ${name}`);

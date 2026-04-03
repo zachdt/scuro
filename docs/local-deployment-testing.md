@@ -14,7 +14,7 @@ The local stack includes a comprehensive set of example engines and protocol ser
 - **`NumberPickerEngine`**: A low-latency, VRF-backed solo gaming example.
 - **`SlotMachineEngine`**: A governed ways-based slot runtime with bounded bonus families and immutable presets.
 - **`SingleDraw2To7Engine`**: A ZK-proven poker engine used across tournament and PvP controllers.
-- **`SingleDeckBlackjackEngine`**: A secure solo blackjack experience utilizing Groth16 proofs.
+- **`BlackjackEngine`**: A secure solo blackjack experience utilizing Groth16 proofs.
 
 > [!NOTE]
 > The slot engine/controller pair is live in the codebase and test harnesses, but `script/DeployLocal.s.sol` still has not been updated to print slot deployment labels in the canonical local bootstrap flow.

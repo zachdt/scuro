@@ -4,6 +4,8 @@
 
 `NumberPickerEngine` holds NumberPicker game state, statistics, and payout logic while leaving value movement to the controller and settlement layer.
 
+For the canonical product rules and economics, see the [NumberPicker session spec](../session-specs/number-picker.md).
+
 ## Caller Model
 
 - Authorized controller calls `requestPlay`
