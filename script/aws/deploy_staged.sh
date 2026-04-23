@@ -81,11 +81,9 @@ cd "${ROOT}"
 
 CORE_OUTPUT="$(mktemp)"
 MODULE_NUMBER_PICKER_OUTPUT="$(mktemp)"
-MODULE_TOURNAMENT_OUTPUT="$(mktemp)"
-MODULE_PVP_OUTPUT="$(mktemp)"
-MODULE_BLACKJACK_OUTPUT="$(mktemp)"
+MODULE_SLOT_OUTPUT="$(mktemp)"
 FINALIZE_OUTPUT="$(mktemp)"
-trap 'rm -f "${CORE_OUTPUT}" "${MODULE_NUMBER_PICKER_OUTPUT}" "${MODULE_TOURNAMENT_OUTPUT}" "${MODULE_PVP_OUTPUT}" "${MODULE_BLACKJACK_OUTPUT}" "${FINALIZE_OUTPUT}"' EXIT
+trap 'rm -f "${CORE_OUTPUT}" "${MODULE_NUMBER_PICKER_OUTPUT}" "${MODULE_SLOT_OUTPUT}" "${FINALIZE_OUTPUT}"' EXIT
 
 run_stage "core" "script/aws/DeployCore.s.sol:DeployCore" "${CORE_OUTPUT}"
 
@@ -108,20 +106,11 @@ run_stage \
   "GameDeploymentFactory=${GameDeploymentFactory}" \
   "VRFCoordinatorMock=${VRFCoordinatorMock}"
 run_stage \
-  "poker-tournament" \
-  "script/aws/DeployPokerTournamentModule.s.sol:DeployPokerTournamentModule" \
-  "${MODULE_TOURNAMENT_OUTPUT}" \
-  "GameDeploymentFactory=${GameDeploymentFactory}"
-run_stage \
-  "poker-pvp" \
-  "script/aws/DeployPokerPvPModule.s.sol:DeployPokerPvPModule" \
-  "${MODULE_PVP_OUTPUT}" \
-  "GameDeploymentFactory=${GameDeploymentFactory}"
-run_stage \
-  "blackjack" \
-  "script/aws/DeployBlackjackModule.s.sol:DeployBlackjackModule" \
-  "${MODULE_BLACKJACK_OUTPUT}" \
-  "GameDeploymentFactory=${GameDeploymentFactory}"
+  "slot" \
+  "script/aws/DeploySlotModule.s.sol:DeploySlotModule" \
+  "${MODULE_SLOT_OUTPUT}" \
+  "GameDeploymentFactory=${GameDeploymentFactory}" \
+  "VRFCoordinatorMock=${VRFCoordinatorMock}"
 
 extract_module_value() {
   local file="$1"
@@ -130,8 +119,7 @@ extract_module_value() {
 }
 
 NumberPickerEngine="$(extract_module_value "${MODULE_NUMBER_PICKER_OUTPUT}" NumberPickerEngine)"
-TournamentPokerEngine="$(extract_module_value "${MODULE_TOURNAMENT_OUTPUT}" TournamentPokerEngine)"
-BlackjackEngine="$(extract_module_value "${MODULE_BLACKJACK_OUTPUT}" BlackjackEngine)"
+SlotMachineEngine="$(extract_module_value "${MODULE_SLOT_OUTPUT}" SlotMachineEngine)"
 run_stage \
   "finalize" \
   "script/aws/DeployFinalize.s.sol:DeployFinalize" \
@@ -142,5 +130,4 @@ run_stage \
   "GameDeploymentFactory=${GameDeploymentFactory}" \
   "DeveloperExpressionRegistry=${DeveloperExpressionRegistry}" \
   "NumberPickerEngine=${NumberPickerEngine}" \
-  "TournamentPokerEngine=${TournamentPokerEngine}" \
-  "BlackjackEngine=${BlackjackEngine}"
+  "SlotMachineEngine=${SlotMachineEngine}"

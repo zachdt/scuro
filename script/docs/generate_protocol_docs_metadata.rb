@@ -71,11 +71,10 @@ schema = {
   "$schema" => "https://json-schema.org/draft/2020-12/schema",
   "title" => "Scuro protocol manifest",
   "type" => "object",
-  "required" => %w[contracts enum_labels proof_inputs local_defaults deployment_output_labels],
+  "required" => %w[contracts enum_labels local_defaults deployment_output_labels],
   "properties" => {
     "contracts" => { "type" => "array" },
     "enum_labels" => { "type" => "object" },
-    "proof_inputs" => { "type" => "object" },
     "local_defaults" => { "type" => "object" },
     "deployment_output_labels" => { "type" => "object" }
   }
@@ -84,7 +83,6 @@ schema = {
 manifest = {
   "contracts" => manifest_contracts,
   "enum_labels" => SdkDocsInventory.enum_labels,
-  "proof_inputs" => SdkDocsInventory.proof_inputs,
   "local_defaults" => SdkDocsInventory.local_defaults,
   "deployment_output_labels" => SdkDocsInventory.deployment_output_labels
 }
@@ -93,6 +91,5 @@ File.write(File.join(GENERATED_DIR, "protocol-manifest.schema.json"), JSON.prett
 File.write(File.join(GENERATED_DIR, "protocol-manifest.json"), JSON.pretty_generate(manifest))
 File.write(File.join(GENERATED_DIR, "event-signatures.json"), JSON.pretty_generate(event_signatures))
 File.write(File.join(GENERATED_DIR, "enum-labels.json"), JSON.pretty_generate(SdkDocsInventory.enum_labels))
-File.write(File.join(GENERATED_DIR, "proof-inputs.json"), JSON.pretty_generate(SdkDocsInventory.proof_inputs))
 
 puts "generated protocol metadata in docs/generated"

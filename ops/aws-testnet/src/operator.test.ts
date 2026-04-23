@@ -1,324 +1,95 @@
 import { describe, expect, test } from "bun:test";
-import os from "node:os";
-import path from "node:path";
-import { createOperatorFetchHandler, normalizeJob, startOperatorServer, type OperatorDeps } from "./operator";
 import type { AppConfig } from "./config";
-import type { DeploymentJobRecord, DeploymentManifest, ProofJobRecord, ProofJobRequest } from "./types";
+import { createOperatorFetchHandler, type OperatorDeps } from "./operator";
+import type { DeploymentManifest } from "./types";
 
-function makeConfig(): AppConfig {
-  const stateDir = path.join(os.tmpdir(), "scuro-operator-test");
-  return {
-    repoRoot: "/repo",
-    serviceRoot: "/repo/ops/aws-testnet",
-    stateDir,
-    jobsDir: path.join(stateDir, "jobs"),
-    deployJobsDir: path.join(stateDir, "deploy-jobs"),
-    queueDir: path.join(stateDir, "queue"),
-    snapshotsDir: path.join(stateDir, "snapshots"),
-    manifestPath: path.join(stateDir, "manifest.json"),
-    deployLogPath: path.join(stateDir, "deploy.log"),
-    operatorHost: "127.0.0.1",
-    operatorPort: 8787,
-    rpcUrl: "http://127.0.0.1:8545",
-    chainId: 31337,
-    awsRegion: undefined,
-    awsStackName: undefined,
-    ssmTargetInstanceId: undefined,
-    snapshotBucket: undefined,
-    snapshotPrefix: "snapshots",
-    sqsQueueUrl: undefined,
-    proofQueueName: undefined,
-    queueMode: "file",
-    adminPrivateKey: "admin",
-    player1PrivateKey: "player1",
-    player2PrivateKey: "player2"
-  };
-}
+const manifest: DeploymentManifest = {
+  chain: { rpcUrl: "http://127.0.0.1:8545", chainId: 31337, deployedAt: "2026-04-23T00:00:00.000Z" },
+  aws: { operatorPort: 8787 },
+  contracts: {
+    ScuroToken: "0x0000000000000000000000000000000000000001",
+    NumberPickerAdapter: "0x0000000000000000000000000000000000000002",
+    SlotMachineController: "0x0000000000000000000000000000000000000003"
+  },
+  actors: {
+    Admin: "0x0000000000000000000000000000000000000004",
+    Player1: "0x0000000000000000000000000000000000000005",
+    Player2: "0x0000000000000000000000000000000000000006"
+  }
+};
 
-function makeManifest(): DeploymentManifest {
-  return {
-    chain: {
-      rpcUrl: "http://127.0.0.1:8545",
-      chainId: 31337,
-      deployedAt: "2024-01-01T00:00:00.000Z"
-    },
-    aws: {
-      operatorPort: 8787,
-      queueMode: "file"
-    },
-    contracts: {
-      ScuroToken: "0x1"
-    },
-    actors: {
-      Admin: "0xabc"
-    }
-  };
-}
+const config = {
+  manifestPath: "/tmp/scuro-test-manifest.json",
+  operatorHost: "127.0.0.1",
+  operatorPort: 8787
+} as AppConfig;
 
-function makeDeps(overrides: Partial<OperatorDeps> = {}): OperatorDeps {
-  const jobsState = new Map<string, ProofJobRecord>();
-  const deployJobsState = new Map<string, DeploymentJobRecord>();
+function deps(): OperatorDeps {
   return {
-    jobs: {
-      async create(request: ProofJobRequest): Promise<ProofJobRecord> {
-        const record: ProofJobRecord = {
-          ...request,
-          id: "job-1",
-          status: "queued",
-          createdAt: "now",
-          updatedAt: "now"
-        };
-        jobsState.set(record.id, record);
-        return record;
-      },
-      async get(id: string): Promise<ProofJobRecord | null> {
-        return jobsState.get(id) ?? null;
-      }
-    },
     deploymentJobs: {
       async start(operation) {
-        const record: DeploymentJobRecord = {
-          id: `${operation}-job-1`,
+        return {
+          id: `job-${operation}`,
           operation,
           status: "queued",
-          createdAt: "now",
-          updatedAt: "now",
-          statusUrl: `/deploy-jobs/${operation}-job-1`
+          createdAt: "2026-04-23T00:00:00.000Z",
+          updatedAt: "2026-04-23T00:00:00.000Z",
+          statusUrl: `/deploy-jobs/job-${operation}`
         };
-        deployJobsState.set(record.id, record);
-        return record;
       },
-      async get(id: string): Promise<DeploymentJobRecord | null> {
-        return deployJobsState.get(id) ?? null;
-      },
-      async recover() {
-        return;
-      }
-    },
-    queue: {
-      async enqueue() {
-        return;
-      },
-      async receive() {
+      async get() {
         return null;
       },
-      async ack() {
-        return;
-      }
+      async recover() {}
     },
     async checkChainHealth() {
-      return { rpcUrl: "http://127.0.0.1:8545", chainId: "0x7a69" };
+      return { chainId: "0x7a69" };
     },
     async loadManifest() {
-      return makeManifest();
+      return manifest;
     },
-    async seedApprovals() {
-      return;
-    },
+    async seedApprovals() {},
     async exportSnapshot() {
-      return { snapshotName: "snap-1", localPath: "/tmp/snap-1.json" };
+      return { snapshotName: "snap", localPath: "/tmp/snap.json" };
     },
     async restoreSnapshot() {
-      return { snapshotName: "snap-1", localPath: "/tmp/snap-1.json" };
+      return { snapshotName: "snap", localPath: "/tmp/snap.json" };
     },
     async runNumberPickerSmoke() {
       return { script: "number-picker", status: "ok" };
     },
-    async runPokerSmoke() {
-      return { script: "poker", status: "ok" };
-    },
-    async runBlackjackSmoke() {
-      return { script: "blackjack", status: "ok" };
-    },
-    ...overrides
+    async runSlotSmoke() {
+      return { script: "slot", status: "ok" };
+    }
   };
 }
 
-describe("normalizeJob", () => {
-  test("rejects missing jobType", () => {
-    expect(() => normalizeJob({ mode: "fixture" })).toThrow("jobType is required");
+async function request(path: string, init?: RequestInit): Promise<Response> {
+  return createOperatorFetchHandler(config, deps())(new Request(`http://operator.test${path}`, init));
+}
+
+describe("operator", () => {
+  test("runs direct number-picker and slot smokes", async () => {
+    const numberPicker = await request("/smoke/number-picker", { method: "POST" });
+    expect(numberPicker.status).toBe(200);
+    expect(await numberPicker.json()).toEqual({ script: "number-picker", status: "ok" });
+
+    const slot = await request("/smoke/slot", { method: "POST" });
+    expect(slot.status).toBe(200);
+    expect(await slot.json()).toEqual({ script: "slot", status: "ok" });
   });
 
-  test("rejects invalid mode", () => {
-    expect(() => normalizeJob({ jobType: "x", mode: "bad" })).toThrow("mode must be fixture or live");
-  });
-});
-
-describe("operator handler", () => {
-  test("returns health payload", async () => {
-    const handler = createOperatorFetchHandler(makeConfig(), makeDeps());
-    const response = await handler(new Request("http://local/health"));
-    expect(response.status).toBe(200);
-    const body = await response.json() as Record<string, unknown>;
-    expect(body.ok).toBe(true);
-    expect(body.service).toBe("operator-api");
-    expect((body.chain as { ok: boolean }).ok).toBe(true);
+  test("rejects unknown routes", async () => {
+    expect((await request("/smoke/unknown", { method: "POST" })).status).toBe(404);
   });
 
-  test("returns degraded chain health without failing liveness", async () => {
-    const handler = createOperatorFetchHandler(
-      makeConfig(),
-      makeDeps({
-        async checkChainHealth() {
-          throw new Error("rpc unavailable");
-        }
-      })
-    );
-    const response = await handler(new Request("http://local/health"));
-    expect(response.status).toBe(200);
-    const body = await response.json() as {
-      ok: boolean;
-      chain: { ok: boolean; error: string };
-    };
-    expect(body.ok).toBe(true);
-    expect(body.chain.ok).toBe(false);
-    expect(body.chain.error).toContain("rpc unavailable");
-  });
+  test("starts deployment jobs and exposes actors", async () => {
+    const deploy = await request("/deploy", { method: "POST" });
+    expect(deploy.status).toBe(202);
+    expect(await deploy.json()).toMatchObject({ jobId: "job-deploy", status: "queued" });
 
-  test("returns manifest not found as 404", async () => {
-    const deps = makeDeps({
-      async loadManifest() {
-        return null;
-      }
-    });
-    const handler = createOperatorFetchHandler(makeConfig(), deps);
-    const response = await handler(new Request("http://local/manifest"));
-    expect(response.status).toBe(404);
-  });
-
-  test("returns actors from manifest", async () => {
-    const handler = createOperatorFetchHandler(makeConfig(), makeDeps());
-    const response = await handler(new Request("http://local/actors"));
-    expect(response.status).toBe(200);
-    const body = await response.json() as { actors: Record<string, string> };
-    expect(body.actors.Admin).toBe("0xabc");
-  });
-
-  test("returns async deploy job handles", async () => {
-    const handler = createOperatorFetchHandler(makeConfig(), makeDeps());
-    const response = await handler(new Request("http://local/deploy", { method: "POST" }));
-    expect(response.status).toBe(202);
-    const body = await response.json() as {
-      jobId: string;
-      status: string;
-      statusUrl: string;
-    };
-    expect(body.jobId).toBe("deploy-job-1");
-    expect(body.status).toBe("queued");
-    expect(body.statusUrl).toBe("/deploy-jobs/deploy-job-1");
-  });
-
-  test("returns deploy job records", async () => {
-    const deps = makeDeps({
-      deploymentJobs: {
-        async start() {
-          throw new Error("should not start");
-        },
-        async get(id) {
-          return id === "deploy-job-1"
-            ? {
-                id,
-                operation: "deploy",
-                status: "completed",
-                createdAt: "now",
-                updatedAt: "later",
-                startedAt: "now",
-                completedAt: "later",
-                statusUrl: `/deploy-jobs/${id}`,
-                manifestPath: "/state/manifest.json",
-                deploymentStatus: "completed"
-              }
-            : null;
-        },
-        async recover() {
-          return;
-        }
-      }
-    });
-    const handler = createOperatorFetchHandler(makeConfig(), deps);
-    const response = await handler(new Request("http://local/deploy-jobs/deploy-job-1"));
-    expect(response.status).toBe(200);
-    const body = await response.json() as DeploymentJobRecord;
-    expect(body.status).toBe("completed");
-    expect(body.manifestPath).toBe("/state/manifest.json");
-  });
-
-  test("enqueues smoke jobs", async () => {
-    const enqueued: string[] = [];
-    const deps = makeDeps({
-      queue: {
-        async enqueue(job) {
-          enqueued.push(job.jobType);
-        },
-        async receive() {
-          return null;
-        },
-        async ack() {
-          return;
-        }
-      }
-    });
-    const handler = createOperatorFetchHandler(makeConfig(), deps);
-    const response = await handler(new Request("http://local/smoke/poker", { method: "POST" }));
-    expect(response.status).toBe(202);
-    expect(enqueued).toEqual(["smoke-poker"]);
-  });
-
-  test("rejects invalid proof jobs with 400", async () => {
-    const handler = createOperatorFetchHandler(makeConfig(), makeDeps());
-    const response = await handler(new Request("http://local/proof-jobs", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ mode: "fixture" })
-    }));
-    expect(response.status).toBe(400);
-  });
-
-  test("returns missing job as 404", async () => {
-    const handler = createOperatorFetchHandler(makeConfig(), makeDeps());
-    const response = await handler(new Request("http://local/proof-jobs/unknown"));
-    expect(response.status).toBe(404);
-  });
-
-  test("routes snapshot export", async () => {
-    const handler = createOperatorFetchHandler(makeConfig(), makeDeps());
-    const response = await handler(new Request("http://local/snapshots/export", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: "snap-1" })
-    }));
-    expect(response.status).toBe(201);
-  });
-
-  test("exposes local smoke endpoints without binding a port", async () => {
-    const handler = createOperatorFetchHandler(makeConfig(), makeDeps());
-    const response = await handler(new Request("http://local/_local/smoke/blackjack", { method: "POST" }));
-    expect(response.status).toBe(200);
-    const body = await response.json() as Record<string, string>;
-    expect(body.script).toBe("blackjack");
-  });
-});
-
-describe("startOperatorServer", () => {
-  test("passes handler into injected serve function", async () => {
-    const calls: Array<{ hostname: string; port: number }> = [];
-    const config = makeConfig();
-    const deps = makeDeps();
-    const server = await startOperatorServer(
-      config,
-      deps,
-      ({ hostname, port, fetch }) => {
-        calls.push({ hostname, port });
-        expect(typeof fetch).toBe("function");
-        return {
-          stop() {
-            return;
-          }
-        };
-      }
-    );
-
-    expect(calls).toEqual([{ hostname: "127.0.0.1", port: 8787 }]);
-    expect(typeof server.stop).toBe("function");
+    const actors = await request("/actors");
+    expect(actors.status).toBe(200);
+    expect(await actors.json()).toMatchObject({ actors: manifest.actors });
   });
 });

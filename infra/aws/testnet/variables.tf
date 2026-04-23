@@ -56,12 +56,6 @@ variable "enable_cloudwatch_logs" {
   default     = false
 }
 
-variable "enable_sqs_queue" {
-  description = "Whether to provision the async proof SQS queue and endpoint."
-  type        = bool
-  default     = false
-}
-
 variable "enable_public_rpc" {
   description = "Whether to expose public RPC through CloudFront and a host proxy."
   type        = bool

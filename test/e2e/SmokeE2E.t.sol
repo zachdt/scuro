@@ -10,22 +10,12 @@ contract SmokeE2ETest is BaseE2ETest {
         assertTrue(token.hasRole(token.MINTER_ROLE(), address(settlement)));
         assertTrue(token.hasRole(token.MINTER_ROLE(), address(developerRewards)));
         assertTrue(developerRewards.hasRole(developerRewards.SETTLEMENT_ROLE(), address(settlement)));
-        assertTrue(catalog.isLaunchableController(address(tournamentController)));
-        assertTrue(catalog.isLaunchableController(address(pvpController)));
         assertTrue(catalog.isLaunchableController(address(numberPickerAdapter)));
         assertTrue(catalog.isLaunchableController(address(slotMachineController)));
-        assertTrue(catalog.isLaunchableController(address(blackjackController)));
         assertTrue(catalog.isAuthorizedControllerForEngine(address(numberPickerAdapter), address(numberPickerEngine)));
         assertTrue(catalog.isAuthorizedControllerForEngine(address(slotMachineController), address(slotMachineEngine)));
-        assertTrue(
-            catalog.isAuthorizedControllerForEngine(address(tournamentController), address(tournamentPokerEngine))
-        );
-        assertTrue(catalog.isAuthorizedControllerForEngine(address(pvpController), address(pvpPokerEngine)));
-        assertTrue(catalog.isAuthorizedControllerForEngine(address(blackjackController), address(blackjackEngine)));
         assertEq(expressionRegistry.ownerOf(numberPickerExpressionTokenId), soloDeveloper.addr);
         assertEq(expressionRegistry.ownerOf(slotMachineExpressionTokenId), soloDeveloper.addr);
-        assertEq(expressionRegistry.ownerOf(pokerExpressionTokenId), pokerDeveloper.addr);
-        assertEq(expressionRegistry.ownerOf(blackjackExpressionTokenId), soloDeveloper.addr);
         assertTrue(timelock.hasRole(timelock.PROPOSER_ROLE(), address(governor)));
         assertTrue(timelock.hasRole(timelock.EXECUTOR_ROLE(), address(0)));
     }
@@ -68,31 +58,4 @@ contract SmokeE2ETest is BaseE2ETest {
         _assertDeveloperAccrual(soloDeveloper.addr, 1, 5 ether);
     }
 
-    function test_MinimalTournamentFlow() public {
-        _approveSettlement(player1, type(uint256).max);
-        _approveSettlement(player2, type(uint256).max);
-
-        (uint256 tournamentId, uint256 gameId) = _createTournament(10 ether, 20 ether, 1_000);
-        _playTournamentAllInSingleDraw(gameId, player1.addr);
-        tournamentController.reportOutcome(gameId);
-
-        _assertPlayerBalances(10_010 ether, 9_990 ether);
-        _assertDeveloperAccrual(pokerDeveloper.addr, 1, 4 ether);
-        (,,,, uint256 expressionTokenId) = tournamentController.tournaments(tournamentId);
-        assertEq(expressionTokenId, pokerExpressionTokenId);
-    }
-
-    function test_MinimalPvPFlow() public {
-        _approveSettlement(player1, type(uint256).max);
-        _approveSettlement(player2, type(uint256).max);
-
-        uint256 sessionId = _createPvPSession(10 ether, 20 ether, 1_000);
-        _playPvPAllInSingleDraw(sessionId, player1.addr);
-        pvpController.settleSession(sessionId);
-
-        _assertPlayerBalances(10_010 ether, 9_990 ether);
-        _assertDeveloperAccrual(pokerDeveloper.addr, 1, 4 ether);
-        (,,,,,, uint256 expressionTokenId) = pvpController.sessions(sessionId);
-        assertEq(expressionTokenId, pokerExpressionTokenId);
-    }
 }

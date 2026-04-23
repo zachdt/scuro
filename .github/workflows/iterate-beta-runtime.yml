@@ -245,14 +245,9 @@ jobs:
             | tee /tmp/scuro-release/smoke-number-picker.json
 
           bash script/aws/remote_snapshot_restore.sh "${INSTANCE_ID}" "${SMOKE_BASELINE_NAME}" "${AWS_REGION}" \
-            | tee /tmp/scuro-release/smoke-poker-restore.json
-          bash script/aws/remote_smoke.sh "${INSTANCE_ID}" poker "${AWS_REGION}" \
-            | tee /tmp/scuro-release/smoke-poker.json
-
-          bash script/aws/remote_snapshot_restore.sh "${INSTANCE_ID}" "${SMOKE_BASELINE_NAME}" "${AWS_REGION}" \
-            | tee /tmp/scuro-release/smoke-blackjack-restore.json
-          bash script/aws/remote_smoke.sh "${INSTANCE_ID}" blackjack "${AWS_REGION}" \
-            | tee /tmp/scuro-release/smoke-blackjack.json
+            | tee /tmp/scuro-release/smoke-slot-restore.json
+          bash script/aws/remote_smoke.sh "${INSTANCE_ID}" slot "${AWS_REGION}" \
+            | tee /tmp/scuro-release/smoke-slot.json
 
       - name: Verify public RPC
         if: ${{ inputs.verify_public_rpc }}

@@ -9,7 +9,6 @@ abstract contract BetaDeployCommon is Script {
     uint256 internal constant DEFAULT_PLAYER2_PRIVATE_KEY =
         0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a;
     address internal constant SOLO_DEVELOPER = 0x90F79bf6EB2c4f870365E785982E1f101E93b906;
-    address internal constant POKER_DEVELOPER = 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65;
     uint256 internal constant PLAYER_FUNDS = 10_000 ether;
     uint256 internal constant DEVELOPER_FUNDS = 1_000 ether;
 

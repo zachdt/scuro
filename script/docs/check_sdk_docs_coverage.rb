@@ -19,38 +19,22 @@ end
 manifest_path = File.join(GENERATED_DIR, "protocol-manifest.json")
 event_signatures_path = File.join(GENERATED_DIR, "event-signatures.json")
 enum_labels_path = File.join(GENERATED_DIR, "enum-labels.json")
-proof_inputs_path = File.join(GENERATED_DIR, "proof-inputs.json")
 
-[manifest_path, event_signatures_path, enum_labels_path, proof_inputs_path].each do |path|
+[manifest_path, event_signatures_path, enum_labels_path].each do |path|
   assert!(File.exist?(path), "missing generated artifact #{path.sub("#{ROOT}/", "")}")
 end
 
 manifest = JSON.parse(File.read(manifest_path))
 event_signatures = JSON.parse(File.read(event_signatures_path))
 enum_labels = JSON.parse(File.read(enum_labels_path))
-proof_inputs = JSON.parse(File.read(proof_inputs_path))
 
 assert!(manifest["contracts"].is_a?(Array), "manifest contracts must be an array")
 assert!(manifest["enum_labels"].is_a?(Hash), "manifest enum_labels must be an object")
-assert!(manifest["proof_inputs"].is_a?(Hash), "manifest proof_inputs must be an object")
 assert!(manifest["local_defaults"].is_a?(Hash), "manifest local_defaults must be an object")
 assert!(manifest["deployment_output_labels"].is_a?(Hash), "manifest deployment_output_labels must be an object")
 assert!(event_signatures.is_a?(Hash), "event signatures must be an object")
 assert!(enum_labels.is_a?(Hash), "enum labels must be an object")
-assert!(proof_inputs.is_a?(Hash), "proof inputs must be an object")
 assert!(manifest["enum_labels"] == enum_labels, "manifest enum_labels do not match docs/generated/enum-labels.json")
-assert!(manifest["proof_inputs"] == proof_inputs, "manifest proof_inputs do not match docs/generated/proof-inputs.json")
-assert!(proof_inputs == SdkDocsInventory.proof_inputs, "generated proof inputs do not match current verifier-bundle struct definitions")
-
-expected_blackjack_payout_labels = SdkDocsInventory.blackjack_payout_kind_labels
-assert!(
-  enum_labels["BlackjackEngine.HandPayoutKind"] == expected_blackjack_payout_labels,
-  "generated enum labels do not match blackjack payout constants"
-)
-assert!(
-  manifest["enum_labels"]["BlackjackEngine.HandPayoutKind"] == expected_blackjack_payout_labels,
-  "manifest enum labels do not match blackjack payout constants"
-)
 
 manifest_contracts = manifest["contracts"].map { |entry| [entry.fetch("name"), entry] }.to_h
 

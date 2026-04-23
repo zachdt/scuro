@@ -19,7 +19,7 @@
   "GameCatalog": [
     {
       "name": "ModuleRegistered",
-      "signature": "ModuleRegistered(uint256,uint8,address,address,bytes32,address,bytes32,uint16,uint8)",
+      "signature": "ModuleRegistered(uint256,address,address,bytes32,bytes32,uint16,uint8)",
       "anonymous": false
     },
     {
@@ -46,7 +46,7 @@
   "GameDeploymentFactory": [
     {
       "name": "ModuleDeployed",
-      "signature": "ModuleDeployed(uint256,uint8,uint8,address,address,address,bytes32)",
+      "signature": "ModuleDeployed(uint256,uint8,address,address,bytes32)",
       "anonymous": false
     },
     {
@@ -287,79 +287,10 @@
       "anonymous": false
     }
   ],
-  "TournamentController": [
+  "SlotMachineController": [
     {
-      "name": "GameSettled",
-      "signature": "GameSettled(uint256,address,uint256)",
-      "anonymous": false
-    },
-    {
-      "name": "GameStarted",
-      "signature": "GameStarted(uint256,uint256,address,address)",
-      "anonymous": false
-    },
-    {
-      "name": "RoleAdminChanged",
-      "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
-      "anonymous": false
-    },
-    {
-      "name": "RoleGranted",
-      "signature": "RoleGranted(bytes32,address,address)",
-      "anonymous": false
-    },
-    {
-      "name": "RoleRevoked",
-      "signature": "RoleRevoked(bytes32,address,address)",
-      "anonymous": false
-    },
-    {
-      "name": "TournamentActiveSet",
-      "signature": "TournamentActiveSet(uint256,bool)",
-      "anonymous": false
-    },
-    {
-      "name": "TournamentCreated",
-      "signature": "TournamentCreated(uint256,address,uint256,uint256,uint256)",
-      "anonymous": false
-    }
-  ],
-  "PvPController": [
-    {
-      "name": "RoleAdminChanged",
-      "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
-      "anonymous": false
-    },
-    {
-      "name": "RoleGranted",
-      "signature": "RoleGranted(bytes32,address,address)",
-      "anonymous": false
-    },
-    {
-      "name": "RoleRevoked",
-      "signature": "RoleRevoked(bytes32,address,address)",
-      "anonymous": false
-    },
-    {
-      "name": "SessionCreated",
-      "signature": "SessionCreated(uint256,address,uint256,address,address)",
-      "anonymous": false
-    },
-    {
-      "name": "SessionSettled",
-      "signature": "SessionSettled(uint256,address,uint256)",
-      "anonymous": false
-    }
-  ],
-  "BlackjackController": [
-    {
-      "name": "HandStarted",
-      "signature": "HandStarted(uint256,address,uint256,uint256,bytes32)",
-      "anonymous": false
-    },
-    {
-      "name": "SessionSettled",
-      "signature": "SessionSettled(uint256,address,uint256,uint256,uint256)",
+      "name": "SpinFinalized",
+      "signature": "SpinFinalized(uint256,address,uint256,uint256,uint256,uint256)",
       "anonymous": false
     }
   ],
@@ -375,66 +306,42 @@
       "anonymous": false
     }
   ],
-  "SingleDeckBlackjackEngine": [
+  "SlotMachineEngine": [
     {
-      "name": "ActionDeclared",
-      "signature": "ActionDeclared(uint256,address,uint8,uint256)",
+      "name": "BaseGameResolved",
+      "signature": "BaseGameResolved(uint256,uint256,bool,bool,bool)",
       "anonymous": false
     },
     {
-      "name": "ActionResolved",
-      "signature": "ActionResolved(uint256,uint8,uint8)",
+      "name": "FreeSpinsResolved",
+      "signature": "FreeSpinsResolved(uint256,uint8,uint256,uint8)",
       "anonymous": false
     },
     {
-      "name": "InitialDealResolved",
-      "signature": "InitialDealResolved(uint256,bytes32,uint256)",
+      "name": "HoldAndSpinResolved",
+      "signature": "HoldAndSpinResolved(uint256,uint8,uint8,uint256)",
       "anonymous": false
     },
     {
-      "name": "PlayerTimeoutClaimed",
-      "signature": "PlayerTimeoutClaimed(uint256)",
+      "name": "JackpotAwarded",
+      "signature": "JackpotAwarded(uint256,uint8,uint256)",
       "anonymous": false
     },
     {
-      "name": "SessionOpened",
-      "signature": "SessionOpened(uint256,address,uint256,bytes32)",
+      "name": "PickBonusResolved",
+      "signature": "PickBonusResolved(uint256,uint8,uint256)",
       "anonymous": false
     },
     {
-      "name": "ShowdownResolved",
-      "signature": "ShowdownResolved(uint256,uint256)",
-      "anonymous": false
-    }
-  ],
-  "SingleDraw2To7Engine": [
-    {
-      "name": "DrawDeclared",
-      "signature": "DrawDeclared(uint256,address,uint8)",
+      "name": "PresetActiveSet",
+      "signature": "PresetActiveSet(uint256,bool)",
       "anonymous": false
     },
     {
-      "name": "DrawResolved",
-      "signature": "DrawResolved(uint256,address,bytes32)",
+      "name": "PresetRegistered",
+      "signature": "PresetRegistered(uint256,uint8,bytes32)",
       "anonymous": false
     },
-    {
-      "name": "HandAwaitingInitialDeal",
-      "signature": "HandAwaitingInitialDeal(uint256,uint256)",
-      "anonymous": false
-    },
-    {
-      "name": "PublicActionTaken",
-      "signature": "PublicActionTaken(uint256,address,uint8,uint256)",
-      "anonymous": false
-    },
-    {
-      "name": "ShowdownSubmitted",
-      "signature": "ShowdownSubmitted(uint256,address,address,bool)",
-      "anonymous": false
-    }
-  ],
-  "PokerVerifierBundle": [
     {
       "name": "RoleAdminChanged",
       "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
@@ -449,22 +356,15 @@
       "name": "RoleRevoked",
       "signature": "RoleRevoked(bytes32,address,address)",
       "anonymous": false
-    }
-  ],
-  "BlackjackVerifierBundle": [
+    },
     {
-      "name": "RoleAdminChanged",
-      "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
+      "name": "SpinRequested",
+      "signature": "SpinRequested(uint256,address,uint256,uint256,bytes32)",
       "anonymous": false
     },
     {
-      "name": "RoleGranted",
-      "signature": "RoleGranted(bytes32,address,address)",
-      "anonymous": false
-    },
-    {
-      "name": "RoleRevoked",
-      "signature": "RoleRevoked(bytes32,address,address)",
+      "name": "SpinResolved",
+      "signature": "SpinResolved(uint256,uint256,uint256)",
       "anonymous": false
     }
   ],
@@ -472,21 +372,6 @@
 
   ],
   "ISoloLifecycleEngine": [
-
-  ],
-  "ITournamentGameEngine": [
-
-  ],
-  "IPokerEngine": [
-
-  ],
-  "IPokerZKEngine": [
-
-  ],
-  "IPokerVerifierBundle": [
-
-  ],
-  "IBlackjackVerifierBundle": [
 
   ]
 }

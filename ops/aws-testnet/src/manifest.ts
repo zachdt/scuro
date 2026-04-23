@@ -12,38 +12,30 @@ const LABELS = [
   "DeveloperExpressionRegistry",
   "DeveloperRewards",
   "ProtocolSettlement",
-  "TournamentController",
-  "TournamentPokerEngine",
-  "TournamentPokerVerifierBundle",
-  "PvPController",
-  "PvPPokerEngine",
-  "PvPPokerVerifierBundle",
   "VRFCoordinatorMock",
   "NumberPickerEngine",
   "NumberPickerAdapter",
-  "BlackjackVerifierBundle",
-  "BlackjackEngine",
-  "BlackjackController",
+  "SlotMachineEngine",
+  "SlotMachineController",
   "NumberPickerModuleId",
-  "TournamentPokerModuleId",
-  "PvPPokerModuleId",
-  "BlackjackModuleId",
+  "SlotMachineModuleId",
+  "SlotBasePresetId",
+  "SlotFreePresetId",
+  "SlotPickPresetId",
+  "SlotHoldPresetId",
   "Admin",
   "Player1",
   "Player2",
   "SoloDeveloper",
-  "PokerDeveloper",
   "NumberPickerExpressionTokenId",
-  "PokerExpressionTokenId",
-  "BlackjackExpressionTokenId"
+  "SlotMachineExpressionTokenId"
 ];
 
 const ACTOR_LABELS = [
   "Admin",
   "Player1",
   "Player2",
-  "SoloDeveloper",
-  "PokerDeveloper"
+  "SoloDeveloper"
 ];
 
 export function parseDeployOutput(output: string): Record<string, string> {
@@ -94,9 +86,6 @@ export function buildManifest(
       stackName: config.awsStackName,
       ssmTargetInstanceId: config.ssmTargetInstanceId,
       operatorPort: config.operatorPort,
-      queueMode: config.queueMode,
-      queueUrl: config.sqsQueueUrl,
-      proofQueueName: config.proofQueueName,
       snapshotBucket: config.snapshotBucket,
       snapshotPrefix: config.snapshotPrefix
     },

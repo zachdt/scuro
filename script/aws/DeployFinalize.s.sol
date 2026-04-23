@@ -7,8 +7,7 @@ import {GameCatalog} from "../../src/GameCatalog.sol";
 import {GameDeploymentFactory} from "../../src/GameDeploymentFactory.sol";
 import {ScuroToken} from "../../src/ScuroToken.sol";
 import {NumberPickerEngine} from "../../src/engines/NumberPickerEngine.sol";
-import {BlackjackEngine} from "../../src/engines/BlackjackEngine.sol";
-import {SingleDraw2To7Engine} from "../../src/engines/SingleDraw2To7Engine.sol";
+import {SlotMachineEngine} from "../../src/engines/SlotMachineEngine.sol";
 import {BetaDeployCommon} from "./BetaDeployCommon.s.sol";
 
 contract DeployFinalize is BetaDeployCommon {
@@ -26,30 +25,21 @@ contract DeployFinalize is BetaDeployCommon {
         GameDeploymentFactory factory = GameDeploymentFactory(envAddress("GameDeploymentFactory"));
         DeveloperExpressionRegistry expressionRegistry = DeveloperExpressionRegistry(envAddress("DeveloperExpressionRegistry"));
         NumberPickerEngine numberPickerEngine = NumberPickerEngine(envAddress("NumberPickerEngine"));
-        SingleDraw2To7Engine tournamentPokerEngine = SingleDraw2To7Engine(envAddress("TournamentPokerEngine"));
-        BlackjackEngine blackjackEngine = BlackjackEngine(envAddress("BlackjackEngine"));
+        SlotMachineEngine slotMachineEngine = SlotMachineEngine(envAddress("SlotMachineEngine"));
 
         logStageAction("Finalize:NumberPickerExpression");
         uint256 numberPickerExpressionTokenId = expressionRegistry.mintExpression(
             numberPickerEngine.engineType(), keccak256("number-picker-auto"), "ipfs://scuro/number-picker-auto"
         );
-        logStageAction("Finalize:BlackjackExpression");
-        uint256 blackjackExpressionTokenId = expressionRegistry.mintExpression(
-            blackjackEngine.engineType(),
-            keccak256("double-deck-blackjack-zk-v1"),
-            "ipfs://scuro/double-deck-blackjack-zk-v1"
-        );
-        logStageAction("Finalize:PokerExpression");
-        uint256 pokerExpressionTokenId = expressionRegistry.mintExpression(
-            tournamentPokerEngine.engineType(), keccak256("single-draw-2-7"), "ipfs://scuro/single-draw-2-7"
+        logStageAction("Finalize:SlotMachineExpression");
+        uint256 slotMachineExpressionTokenId = expressionRegistry.mintExpression(
+            slotMachineEngine.engineType(), keccak256("slot-machine"), "ipfs://scuro/slot-machine"
         );
 
         logStageAction("Finalize:TransferNumberPickerExpression");
         expressionRegistry.transferFrom(admin, SOLO_DEVELOPER, numberPickerExpressionTokenId);
-        logStageAction("Finalize:TransferBlackjackExpression");
-        expressionRegistry.transferFrom(admin, SOLO_DEVELOPER, blackjackExpressionTokenId);
-        logStageAction("Finalize:TransferPokerExpression");
-        expressionRegistry.transferFrom(admin, POKER_DEVELOPER, pokerExpressionTokenId);
+        logStageAction("Finalize:TransferSlotMachineExpression");
+        expressionRegistry.transferFrom(admin, SOLO_DEVELOPER, slotMachineExpressionTokenId);
 
         logStageAction("Finalize:MintPlayer1");
         token.mint(player1, PLAYER_FUNDS);
@@ -59,8 +49,6 @@ contract DeployFinalize is BetaDeployCommon {
         token.mint(admin, PLAYER_FUNDS);
         logStageAction("Finalize:MintSoloDeveloper");
         token.mint(SOLO_DEVELOPER, DEVELOPER_FUNDS);
-        logStageAction("Finalize:MintPokerDeveloper");
-        token.mint(POKER_DEVELOPER, DEVELOPER_FUNDS);
 
         logStageAction("Finalize:GrantCatalogAdminToTimelock");
         catalog.grantRole(catalog.DEFAULT_ADMIN_ROLE(), address(timelock));
@@ -84,10 +72,8 @@ contract DeployFinalize is BetaDeployCommon {
         logAddress("Player1", player1);
         logAddress("Player2", player2);
         logAddress("SoloDeveloper", SOLO_DEVELOPER);
-        logAddress("PokerDeveloper", POKER_DEVELOPER);
         logUint("NumberPickerExpressionTokenId", numberPickerExpressionTokenId);
-        logUint("PokerExpressionTokenId", pokerExpressionTokenId);
-        logUint("BlackjackExpressionTokenId", blackjackExpressionTokenId);
+        logUint("SlotMachineExpressionTokenId", slotMachineExpressionTokenId);
 
         vm.stopBroadcast();
     }

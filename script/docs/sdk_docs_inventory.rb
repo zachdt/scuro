@@ -13,21 +13,11 @@ module SdkDocsInventory
       ["ScuroStakingToken", "src/ScuroStakingToken.sol", "docs/reference/scuro-staking-token.md", "economics"],
       ["ScuroGovernor", "src/ScuroGovernor.sol", "docs/reference/scuro-governor.md", "governance"],
       ["NumberPickerAdapter", "src/controllers/NumberPickerAdapter.sol", "docs/reference/number-picker-adapter.md", "controller"],
-      ["TournamentController", "src/controllers/TournamentController.sol", "docs/reference/tournament-controller.md", "controller"],
-      ["PvPController", "src/controllers/PvPController.sol", "docs/reference/pvp-controller.md", "controller"],
-      ["BlackjackController", "src/controllers/BlackjackController.sol", "docs/reference/blackjack-controller.md", "controller"],
+      ["SlotMachineController", "src/controllers/SlotMachineController.sol", "docs/reference/slot-machine-controller.md", "controller"],
       ["NumberPickerEngine", "src/engines/NumberPickerEngine.sol", "docs/reference/number-picker-engine.md", "engine"],
-      ["BlackjackEngine", "src/engines/BlackjackEngine.sol", "docs/reference/blackjack-engine.md", "engine"],
-      ["SingleDraw2To7Engine", "src/engines/SingleDraw2To7Engine.sol", "docs/reference/single-draw-2-7-engine.md", "engine"],
-      ["PokerVerifierBundle", "src/verifiers/PokerVerifierBundle.sol", "docs/reference/poker-verifier-bundle.md", "verifier"],
-      ["BlackjackVerifierBundle", "src/verifiers/BlackjackVerifierBundle.sol", "docs/reference/blackjack-verifier-bundle.md", "verifier"],
+      ["SlotMachineEngine", "src/engines/SlotMachineEngine.sol", "docs/reference/slot-machine-engine.md", "engine"],
       ["IScuroGameEngine", "src/interfaces/IScuroGameEngine.sol", "docs/reference/gameplay-interfaces.md", "interface"],
-      ["ISoloLifecycleEngine", "src/interfaces/ISoloLifecycleEngine.sol", "docs/reference/gameplay-interfaces.md", "interface"],
-      ["ITournamentGameEngine", "src/interfaces/ITournamentGameEngine.sol", "docs/reference/gameplay-interfaces.md", "interface"],
-      ["IPokerEngine", "src/interfaces/IPokerEngine.sol", "docs/reference/gameplay-interfaces.md", "interface"],
-      ["IPokerZKEngine", "src/interfaces/IPokerZKEngine.sol", "docs/reference/gameplay-interfaces.md", "interface"],
-      ["IPokerVerifierBundle", "src/interfaces/IPokerVerifierBundle.sol", "docs/reference/proof-interfaces.md", "interface"],
-      ["IBlackjackVerifierBundle", "src/interfaces/IBlackjackVerifierBundle.sol", "docs/reference/proof-interfaces.md", "interface"]
+      ["ISoloLifecycleEngine", "src/interfaces/ISoloLifecycleEngine.sol", "docs/reference/gameplay-interfaces.md", "interface"]
     ].map do |name, source, doc, category|
       { name: name, source: source, doc: doc, category: category }
     end
@@ -35,51 +25,18 @@ module SdkDocsInventory
 
   def enum_labels
     {
-      "GameCatalog.GameMode" => { "0" => "Solo", "1" => "PvP", "2" => "Tournament" },
       "GameCatalog.ModuleStatus" => { "0" => "LIVE", "1" => "RETIRED", "2" => "DISABLED" },
-      "BlackjackEngine.SessionPhase" => {
-        "0" => "Inactive",
-        "1" => "AwaitingInitialDeal",
-        "2" => "AwaitingPrePlayDecision",
-        "3" => "AwaitingPeekResolution",
-        "4" => "AwaitingPostPeekDecision",
-        "5" => "AwaitingPlayerAction",
-        "6" => "AwaitingCoordinatorAction",
-        "7" => "Completed"
+      "SlotMachineEngine.VolatilityTier" => {
+        "1" => "VOL_LOW",
+        "2" => "VOL_MEDIUM",
+        "3" => "VOL_HIGH",
+        "4" => "VOL_EXTREME"
       },
-      "BlackjackEngine.Action" => {
-        "1" => "ACTION_HIT",
-        "2" => "ACTION_STAND",
-        "3" => "ACTION_DOUBLE",
-        "4" => "ACTION_SPLIT"
-      },
-      "BlackjackEngine.ActionMask" => {
-        "1" => "ALLOW_HIT",
-        "2" => "ALLOW_STAND",
-        "4" => "ALLOW_DOUBLE",
-        "8" => "ALLOW_SPLIT"
-      },
-      "BlackjackEngine.HandPayoutKind" => blackjack_payout_kind_labels,
-      "SingleDraw2To7Engine.MatchState" => { "0" => "Inactive", "1" => "Active", "2" => "Completed" },
-      "SingleDraw2To7Engine.HandPhase" => {
-        "0" => "None",
-        "1" => "AwaitingInitialDeal",
-        "2" => "PreDrawBetting",
-        "3" => "DrawDeclaration",
-        "4" => "DrawProofPending",
-        "5" => "PostDrawBetting",
-        "6" => "ShowdownProofPending",
-        "7" => "HandComplete"
+      "SlotMachineEngine.SpinStatus" => {
+        "1" => "STATUS_PENDING",
+        "2" => "STATUS_RESOLVED"
       }
     }
-  end
-
-  def proof_inputs
-    proof_input_interface_sources.each_with_object({}) do |(interface_name, source), structs|
-      struct_fields_for_source(source).each do |struct_name, field_names|
-        structs["#{interface_name}.#{struct_name}"] = field_names
-      end
-    end
   end
 
   def local_defaults
@@ -89,25 +46,9 @@ module SdkDocsInventory
         "developer_reward_bps" => 500,
         "vrf_mode" => "auto-callback mock"
       },
-      "tournament_poker" => {
-        "config_hash_label" => "single-draw-2-7-tournament",
-        "small_blind" => 10,
-        "big_blind" => 20,
-        "blind_escalation_interval" => 180,
-        "action_window" => 60,
-        "developer_reward_bps" => 1000
-      },
-      "pvp_poker" => {
-        "config_hash_label" => "single-draw-2-7-pvp",
-        "small_blind" => 10,
-        "big_blind" => 20,
-        "blind_escalation_interval" => 180,
-        "action_window" => 60,
-        "developer_reward_bps" => 1000
-      },
-      "blackjack" => {
-        "config_hash_label" => "double-deck-blackjack-zk-v1",
-        "default_action_window" => 60,
+      "slot_machine" => {
+        "config_hash_label" => "slot-machine-auto",
+        "presets" => %w[base free pick hold],
         "developer_reward_bps" => 500
       }
     }
@@ -119,44 +60,12 @@ module SdkDocsInventory
         ScuroToken ScuroStakingToken TimelockController ScuroGovernor GameCatalog GameDeploymentFactory
         DeveloperExpressionRegistry DeveloperRewards ProtocolSettlement
       ],
-      "controllers" => %w[NumberPickerAdapter TournamentController PvPController BlackjackController],
-      "engines" => %w[NumberPickerEngine TournamentPokerEngine PvPPokerEngine BlackjackEngine],
-      "verifiers" => %w[TournamentPokerVerifierBundle PvPPokerVerifierBundle BlackjackVerifierBundle],
-      "module_ids" => %w[NumberPickerModuleId TournamentPokerModuleId PvPPokerModuleId BlackjackModuleId],
-      "actors" => %w[Admin Player1 Player2 SoloDeveloper PokerDeveloper],
-      "expressions" => %w[NumberPickerExpressionTokenId PokerExpressionTokenId BlackjackExpressionTokenId]
+      "controllers" => %w[NumberPickerAdapter SlotMachineController],
+      "engines" => %w[NumberPickerEngine SlotMachineEngine],
+      "module_ids" => %w[NumberPickerModuleId SlotMachineModuleId],
+      "slot_presets" => %w[SlotBasePresetId SlotFreePresetId SlotPickPresetId SlotHoldPresetId],
+      "actors" => %w[Admin Player1 Player2 SoloDeveloper],
+      "expressions" => %w[NumberPickerExpressionTokenId SlotMachineExpressionTokenId]
     }
-  end
-
-  def blackjack_payout_kind_labels
-    engine_source = File.read(File.join(ROOT, "src/engines/BlackjackEngine.sol"))
-    engine_source.scan(/uint8\s+public\s+constant\s+(HAND_PAYOUT_[A-Z0-9_]+)\s*=\s*(\d+);/).each_with_object({}) do |(label, value), labels|
-      labels[value] = label
-    end
-  end
-
-  def proof_input_interface_sources
-    {
-      "IPokerVerifierBundle" => "src/interfaces/IPokerVerifierBundle.sol",
-      "IBlackjackVerifierBundle" => "src/interfaces/IBlackjackVerifierBundle.sol"
-    }
-  end
-
-  def struct_fields_for_source(source)
-    body = File.read(File.join(ROOT, source))
-    body.scan(/struct\s+([A-Za-z0-9_]+)\s*\{(.*?)^\s*\}/m).each_with_object({}) do |(struct_name, struct_body), structs|
-      fields = struct_body.each_line.each_with_object([]) do |line, names|
-        candidate = line.sub(%r{//.*$}, "").strip
-        next if candidate.empty? || candidate.start_with?("///", "/**", "*", "*/")
-        next unless candidate.end_with?(";")
-
-        match = candidate.match(/^[A-Za-z0-9_\[\]]+\s+([A-Za-z_][A-Za-z0-9_]*)\s*;$/)
-        raise "unsupported struct field syntax in #{source}: #{candidate}" unless match
-
-        names << match[1]
-      end
-
-      structs[struct_name] = fields
-    end
   end
 end

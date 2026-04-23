@@ -19,9 +19,7 @@ interface DeployStage {
 const DEPLOY_STAGES: DeployStage[] = [
   { name: "core", target: "script/aws/DeployCore.s.sol:DeployCore" },
   { name: "number-picker", target: "script/aws/DeployNumberPickerModule.s.sol:DeployNumberPickerModule" },
-  { name: "poker-tournament", target: "script/aws/DeployPokerTournamentModule.s.sol:DeployPokerTournamentModule" },
-  { name: "poker-pvp", target: "script/aws/DeployPokerPvPModule.s.sol:DeployPokerPvPModule" },
-  { name: "blackjack", target: "script/aws/DeployBlackjackModule.s.sol:DeployBlackjackModule" },
+  { name: "slot", target: "script/aws/DeploySlotModule.s.sol:DeploySlotModule" },
   { name: "finalize", target: "script/aws/DeployFinalize.s.sol:DeployFinalize" }
 ];
 
@@ -145,17 +143,12 @@ function smokeEnv(config: AppConfig, manifest: DeploymentManifest): Record<strin
     DEVELOPER_REWARDS: manifest.contracts.DeveloperRewards,
     NUMBER_PICKER_ADAPTER: manifest.contracts.NumberPickerAdapter,
     NUMBER_PICKER_ENGINE: manifest.contracts.NumberPickerEngine,
-    TOURNAMENT_CONTROLLER: manifest.contracts.TournamentController,
-    TOURNAMENT_POKER_ENGINE: manifest.contracts.TournamentPokerEngine,
-    TOURNAMENT_POKER_VERIFIER_BUNDLE: manifest.contracts.TournamentPokerVerifierBundle,
-    BLACKJACK_CONTROLLER: manifest.contracts.BlackjackController,
-    BLACKJACK_ENGINE: manifest.contracts.BlackjackEngine,
-    BLACKJACK_VERIFIER_BUNDLE: manifest.contracts.BlackjackVerifierBundle,
+    SLOT_MACHINE_CONTROLLER: manifest.contracts.SlotMachineController,
+    SLOT_MACHINE_ENGINE: manifest.contracts.SlotMachineEngine,
     SOLO_DEVELOPER: manifest.contracts.SoloDeveloper,
-    POKER_DEVELOPER: manifest.contracts.PokerDeveloper,
     NUMBER_PICKER_EXPRESSION_TOKEN_ID: manifest.contracts.NumberPickerExpressionTokenId,
-    POKER_EXPRESSION_TOKEN_ID: manifest.contracts.PokerExpressionTokenId,
-    BLACKJACK_EXPRESSION_TOKEN_ID: manifest.contracts.BlackjackExpressionTokenId
+    SLOT_MACHINE_EXPRESSION_TOKEN_ID: manifest.contracts.SlotMachineExpressionTokenId,
+    SLOT_BASE_PRESET_ID: manifest.contracts.SlotBasePresetId
   };
 }
 
@@ -295,7 +288,7 @@ export async function deployProtocol(
     deploymentStages.push({ name: stage.name, status: "completed" });
   }
 
-  if (!contracts.ScuroToken || !contracts.BlackjackController || !contracts.TournamentController) {
+  if (!contracts.ScuroToken || !contracts.NumberPickerAdapter || !contracts.SlotMachineController) {
     throw new Error("failed to assemble staged deployment output");
   }
 
@@ -450,7 +443,7 @@ export async function runNumberPickerSmoke(
   return runSmokeScript("script/aws/SmokeNumberPicker.s.sol:SmokeNumberPicker", config, activeManifest, deps);
 }
 
-export async function runPokerSmoke(
+export async function runSlotSmoke(
   config: AppConfig,
   manifest?: DeploymentManifest,
   depsOverrides: Partial<ProtocolDeps> = {}
@@ -460,18 +453,5 @@ export async function runPokerSmoke(
   if (!activeManifest) {
     throw notFound("manifest not found");
   }
-  return runSmokeScript("script/aws/SmokePokerFixture.s.sol:SmokePokerFixture", config, activeManifest, deps);
-}
-
-export async function runBlackjackSmoke(
-  config: AppConfig,
-  manifest?: DeploymentManifest,
-  depsOverrides: Partial<ProtocolDeps> = {}
-): Promise<Record<string, string>> {
-  const deps = withProtocolDeps(depsOverrides);
-  const activeManifest = manifest ?? (await deps.loadManifest(config.manifestPath));
-  if (!activeManifest) {
-    throw notFound("manifest not found");
-  }
-  return runSmokeScript("script/aws/SmokeBlackjackFixture.s.sol:SmokeBlackjackFixture", config, activeManifest, deps);
+  return runSmokeScript("script/aws/SmokeSlot.s.sol:SmokeSlot", config, activeManifest, deps);
 }

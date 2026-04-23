@@ -10,9 +10,6 @@ import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
 import {ScuroToken} from "../src/ScuroToken.sol";
 import {NumberPickerAdapter} from "../src/controllers/NumberPickerAdapter.sol";
 import {NumberPickerEngine} from "../src/engines/NumberPickerEngine.sol";
-import {BlackjackModuleDeployer} from "../src/factory/BlackjackModuleDeployer.sol";
-import {CheminDeFerModuleDeployer} from "../src/factory/CheminDeFerModuleDeployer.sol";
-import {PokerModuleDeployer} from "../src/factory/PokerModuleDeployer.sol";
 import {SoloModuleDeployer} from "../src/factory/SoloModuleDeployer.sol";
 import {VRFCoordinatorMock} from "../src/mocks/VRFCoordinatorMock.sol";
 
@@ -42,10 +39,7 @@ contract NumberPickerAdapterTest is Test {
             address(this),
             address(catalog),
             address(settlement),
-            address(new SoloModuleDeployer()),
-            address(new BlackjackModuleDeployer()),
-            address(new PokerModuleDeployer()),
-            address(new CheminDeFerModuleDeployer())
+            address(new SoloModuleDeployer())
         );
         catalog.grantRole(catalog.REGISTRAR_ROLE(), address(factory));
 
@@ -61,7 +55,7 @@ contract NumberPickerAdapterTest is Test {
         });
         address controllerAddress;
         address engineAddress;
-        (, controllerAddress, engineAddress, ) =
+        (, controllerAddress, engineAddress) =
             factory.deploySoloModule(uint8(GameDeploymentFactory.SoloFamily.NumberPicker), abi.encode(params));
         adapter = NumberPickerAdapter(controllerAddress);
         engine = NumberPickerEngine(engineAddress);

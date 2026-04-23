@@ -13,7 +13,7 @@
 - VRF coordinator resolves the request
 - Any caller may finalize if the outcome is resolved but not yet settled by the controller
 
-## Randomness / Proof Source
+## Randomness Source
 
 - Source: VRF-backed single random word
 - Local test flows may auto-callback immediately, making the session effectively single-transaction

@@ -15,9 +15,7 @@ forge build \
   script/aws/BetaDeployCommon.s.sol \
   script/aws/DeployCore.s.sol \
   script/aws/DeployNumberPickerModule.s.sol \
-  script/aws/DeployPokerTournamentModule.s.sol \
-  script/aws/DeployPokerPvPModule.s.sol \
-  script/aws/DeployBlackjackModule.s.sol \
+  script/aws/DeploySlotModule.s.sol \
   script/aws/DeployFinalize.s.sol >/dev/null
 
 python3 - <<'PY' "${ROOT}" "${THRESHOLDS_PATH}"
@@ -33,20 +31,10 @@ thresholds_path = pathlib.Path(sys.argv[2])
 artifact_paths = {
     "GameDeploymentFactory": "out/GameDeploymentFactory.sol/GameDeploymentFactory.json",
     "SoloModuleDeployer": "out/SoloModuleDeployer.sol/SoloModuleDeployer.json",
-    "BlackjackModuleDeployer": "out/BlackjackModuleDeployer.sol/BlackjackModuleDeployer.json",
-    "PokerModuleDeployer": "out/PokerModuleDeployer.sol/PokerModuleDeployer.json",
-    "CheminDeFerModuleDeployer": "out/CheminDeFerModuleDeployer.sol/CheminDeFerModuleDeployer.json",
-    "PokerVerifierBundle": "out/PokerVerifierBundle.sol/PokerVerifierBundle.json",
-    "BlackjackVerifierBundle": "out/BlackjackVerifierBundle.sol/BlackjackVerifierBundle.json",
-    "PokerInitialDealVerifier": "out/PokerInitialDealVerifier.sol/PokerInitialDealVerifier.json",
-    "PokerDrawResolveVerifier": "out/PokerDrawResolveVerifier.sol/PokerDrawResolveVerifier.json",
-    "PokerShowdownVerifier": "out/PokerShowdownVerifier.sol/PokerShowdownVerifier.json",
-    "BlackjackInitialDealVerifier": "out/BlackjackInitialDealVerifier.sol/BlackjackInitialDealVerifier.json",
-    "BlackjackPeekVerifier": "out/BlackjackPeekVerifier.sol/BlackjackPeekVerifier.json",
-    "BlackjackActionResolveVerifier": "out/BlackjackActionResolveVerifier.sol/BlackjackActionResolveVerifier.json",
-    "BlackjackShowdownVerifier": "out/BlackjackShowdownVerifier.sol/BlackjackShowdownVerifier.json",
-    "SingleDraw2To7Engine": "out/SingleDraw2To7Engine.sol/SingleDraw2To7Engine.json",
-    "BlackjackEngine": "out/BlackjackEngine.sol/BlackjackEngine.json",
+    "NumberPickerEngine": "out/NumberPickerEngine.sol/NumberPickerEngine.json",
+    "SlotMachineEngine": "out/SlotMachineEngine.sol/SlotMachineEngine.json",
+    "NumberPickerAdapter": "out/NumberPickerAdapter.sol/NumberPickerAdapter.json",
+    "SlotMachineController": "out/SlotMachineController.sol/SlotMachineController.json",
 }
 
 thresholds = json.loads(thresholds_path.read_text())

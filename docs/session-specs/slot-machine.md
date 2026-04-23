@@ -14,7 +14,7 @@
 - VRF coordinator resolves the spin
 - Any caller may settle a resolved but unfinalized spin
 
-## Randomness / Proof Source
+## Randomness Source
 
 - Source: VRF-backed randomness
 - Preset configuration is governed and immutable once registered

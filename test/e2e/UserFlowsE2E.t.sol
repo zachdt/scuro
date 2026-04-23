@@ -106,36 +106,6 @@ contract UserFlowsE2ETest is BaseE2ETest {
         _assertDeveloperAccrual(outsider.addr, 1, 10 ether);
     }
 
-    function test_TournamentFlow_EndToEnd() public {
-        _approveSettlement(player1, type(uint256).max);
-        _approveSettlement(player2, type(uint256).max);
-
-        (, uint256 gameId) = _createTournament(10 ether, 20 ether, 1_000);
-        _playTournamentAllInSingleDraw(gameId, player1.addr);
-        tournamentController.reportOutcome(gameId);
-
-        _assertPlayerBalances(10_010 ether, 9_990 ether);
-        _assertDeveloperAccrual(pokerDeveloper.addr, 1, 4 ether);
-
-        vm.expectRevert("TournamentController: reported");
-        tournamentController.reportOutcome(gameId);
-    }
-
-    function test_PvPFlow_EndToEnd() public {
-        _approveSettlement(player1, type(uint256).max);
-        _approveSettlement(player2, type(uint256).max);
-
-        uint256 sessionId = _createPvPSession(10 ether, 20 ether, 1_000);
-        _playPvPAllInSingleDraw(sessionId, player1.addr);
-        pvpController.settleSession(sessionId);
-
-        _assertPlayerBalances(10_010 ether, 9_990 ether);
-        _assertDeveloperAccrual(pokerDeveloper.addr, 1, 4 ether);
-
-        vm.expectRevert("PvPController: settled");
-        pvpController.settleSession(sessionId);
-    }
-
     function test_GovernanceFlow_ChangesEpochDurationAndBehavior() public {
         _approveSettlement(player1, 100 ether);
         vm.prank(player1.addr);

@@ -1,67 +1,46 @@
 # Scuro
 
-Scuro is a next-generation on-chain gaming protocol designed as a shared economic backbone for decentralized games. Unlike traditional models that rely on isolated, one-off contracts, Scuro provides a unified infrastructure for play, staking, governance, and developer incentives—allowing game developers to focus on logic while inheriting a robust, secure settlement layer.
+Scuro is an on-chain gaming protocol centered on a shared economic core and two canonical solo RNG modules: `NumberPicker` and `SlotMachine`.
+
+The current branch intentionally removes the former non-canonical game and off-chain validation surfaces. Git history is the archive for those modules; the canonical source tree now focuses on deployable slot and number-picker gameplay.
 
 ## Core Primitives
 
-A single protocol token (`SCU`) powers the entire ecosystem, ensuring deep liquidity and shared utility across all hosted modules.
+- **`ScuroToken` (`SCU`)**: The protocol asset used for wagers, rewards, staking, and payouts.
+- **`ScuroStakingToken` (`sSCU`)**: A staked SCU representation used for governance voting power.
+- **`ProtocolSettlement`**: The shared value-movement layer for burns, payouts, and developer accruals.
+- **`GameCatalog`**: The registry of authorized controllers and engines, with `LIVE`, `RETIRED`, and `DISABLED` lifecycle controls.
+- **`GameDeploymentFactory`**: The canonical deployment helper for `NumberPicker` and `SlotMachine` solo modules.
+- **`DeveloperExpressionRegistry`**: ERC721 expression identities used for developer reward attribution.
+- **`DeveloperRewards`**: Epoch-based developer reward accounting.
+- **`ScuroGovernor` and `TimelockController`**: Governance and delayed execution for protocol administration.
 
-- **`ScuroToken` (`SCU`)**: The native protocol asset used for wagers, rewards, and developer payouts.
-- **`ScuroStakingToken` (`sSCU`)**: A liquid representation of staked SCU that confers governance voting power.
-- **`ProtocolSettlement`**: The central authority for value movement, managing wagers, payouts, and accruals.
-- **`GameCatalog`**: A registry of authorized game modules, engines, and verifiers, enforcing protocol-level policy.
-- **`GameDeploymentFactory`**: A streamlined tool for deploying and registering new controller/engine bundles.
-- **`DeveloperExpressionRegistry`**: An ERC721 registry for developer-owned "expressions"—logical identities used for reward attribution.
-- **`DeveloperRewards`**: An automated system that tracks and distributes inflationary rewards to developers based on activity.
-- **`ScuroGovernor` & `TimelockController`**: The decentralized governance layer that manages global protocol parameters.
+## Canonical Modules
 
-## The Scuro Lifecycle
+- **NumberPicker**: A compact VRF-backed solo game for picking a number and settling immediately through the shared core.
+- **SlotMachine**: A governed preset-based slot runtime with canonical `base`, `free`, `pick`, and `hold` presets.
 
-The protocol abstracts complex settlement logic away from the player, providing a seamless experience across diverse game types.
-
-1.  **Entry**: Players engage with game-specific **Controllers** using `SCU`. They don't interact with settlement logic directly; instead, they enter via gameplay or staking.
-2.  **Attribution**: Every session is tagged with an `expressionTokenId`. This ensures that the original developers are rewarded for every interaction their logic facilitates.
-3.  **Execution**: **Engines** enforce game-specific rules. Whether it's a VRF-backed solo game or a ZK-proven poker match, the engine ensures integrity while the controller manages the session flow.
-4.  **Settlement**: When a game concludes, the controller calls the shared **Settlement** layer. Settlement validates the module's status via the **Catalog**, moves value, and books developer rewards to the current holder of the expression NFT.
-5.  **Governance**: The community uses the **Governor** to tune reward rates, manage the catalog, and guide the protocol's evolution without needing to redeploy core logic.
-
-## Supported Game Modules
-
-Scuro's architecture is flexible enough to support a wide array of gaming experiences out of the box:
-
-- **Solo Randomness**: `NumberPicker` demonstrates simple VRF-backed gameplay.
-- **Governed Slots**: `SlotMachineController` and `SlotMachineEngine` provide preset-driven solo slot gameplay with bounded bonus families and atomic settlement.
-- **Competitive Poker**: `TournamentController` and `PvPController` power poker sessions with Groth16 proof verification.
-- **Automated Baccarat**: `SuperBaccaratController` and `CheminDeFerController` add EV-neutral solo and player-banked baccarat over VRF-backed fresh shoes.
-- **ZK Blackjack**: `BlackjackController` offers a secure solo blackjack experience using zero-knowledge proofs.
-- **Developer Sandbox**: The local stack includes example expression NFTs, allowing developers to test the full attribution path immediately.
+Both modules use the same expression/reward path and are deployed by the local and AWS beta scripts.
 
 ## Developer Quickstart
 
-Get the Scuro protocol running locally in minutes:
+- Build: `forge build --offline`
+- Test: `forge test --offline`
+- Slot invariants: `forge test --match-path 'test/invariants/*.t.sol' --offline`
+- Local deploy smoke: `./script/e2e_deploy_smoke.sh`
+- AWS local check: `bash script/aws/verify_local.sh`
 
-- **Build**: `forge build` compiles the smart contracts.
-- **Test**: `forge test --offline` runs the comprehensive test suite.
-- **Blackjack ZK Parity**: `bun run --cwd zk check:blackjack` verifies the checked-in blackjack fixtures still match the current verifier set.
-- **Slot Invariants**: `forge test --match-path 'test/invariants/*.t.sol' --offline` runs the slot-focused invariant suite.
-- **Smoke Check**: `./script/e2e_deploy_smoke.sh` performs a full-stack local integration test.
-- **ZK Resync**: `bun run --cwd zk resync` rebuilds verifier artifacts, regenerates fixtures, and reruns parity checks after circuit or verifier changes.
-
-For detailed setup instructions and ZK artifact guidance, see [Local Deployment and Testing](./docs/local-deployment-testing.md).
+For setup details, see [Local Deployment and Testing](./docs/local-deployment-testing.md).
 
 ## Documentation Map
 
-- **[Docs Index](./docs/README.md)**: Your entry point to the full documentation suite.
-- **[Concepts Lane](./docs/concepts/README.md)**: Canonical terminology, enum mappings, event indexing, and deployment metadata for SDK authors.
-- **[Reference Lane](./docs/reference/README.md)**: Contract-by-contract API reference for core services, controllers, engines, and proof bundles.
-- **[Integration Lane](./docs/integration/README.md)**: Transaction playbooks for Node and Rust API implementers.
-- **[Generated Metadata](./docs/generated/README.md)**: Machine-readable manifest, ABIs, event signatures, and proof-input field maps.
-- **[Protocol Architecture](./docs/protocol-architecture.md)**: Deep dive into the system design, component layers, and code map.
-- **[Game Module User Flows](./docs/game-module-user-flows.md)**: Detailed per-module sequence diagrams for the shipped gameplay controllers and engines.
-- **[Local Deployment](./docs/local-deployment-testing.md)**: Technical guide for environment setup, building, and running tests, including the slot-focused invariant and analysis lanes.
-- **[Private AWS Testnet](./docs/private-aws-testnet.md)**: Private single-host AWS deployment, operator API, and prover-worker guide.
-- **GitHub Delivery**: `.github/workflows/verify.yml` and `.github/workflows/release-beta.yml` gate the beta release path for the private AWS testnet.
-- **[E2E Scenario Matrix](./test/e2e/MATRIX.md)**: A detailed mapping of user stories to automated test cases.
+- [Docs Index](./docs/README.md)
+- [Protocol Architecture](./docs/protocol-architecture.md)
+- [Reference Lane](./docs/reference/README.md)
+- [Integration Lane](./docs/integration/README.md)
+- [Generated Metadata](./docs/generated/README.md)
+- [Private AWS Testnet](./docs/private-aws-testnet.md)
+- [E2E Scenario Matrix](./test/e2e/MATRIX.md)
 
 ## License
 

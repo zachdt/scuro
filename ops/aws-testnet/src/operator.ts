@@ -1,29 +1,21 @@
 import type { AppConfig } from "./config";
 import { loadConfig } from "./config";
 import { createDeploymentJobManager } from "./deployment-jobs";
-import { HttpError, badRequest, notFound } from "./errors";
+import { HttpError, notFound } from "./errors";
 import { ensureStateDirs } from "./fs";
 import { json, notFound as notFoundResponse, readJsonRequest } from "./http";
-import { JobStore } from "./jobs";
 import { loadManifest } from "./manifest";
 import {
   checkChainHealth,
   deployProtocol,
   exportSnapshot,
-  runBlackjackSmoke,
-  runNumberPickerSmoke,
-  runPokerSmoke,
   resetAndDeploy,
   restoreSnapshot,
+  runNumberPickerSmoke,
+  runSlotSmoke,
   seedApprovals
 } from "./protocol";
-import { createQueueClient, type QueueClient } from "./queue";
-import type { DeploymentJobRecord, ProofJobRecord, ProofJobRequest } from "./types";
-
-export interface JobStoreLike {
-  create(request: ProofJobRequest): Promise<ProofJobRecord>;
-  get(id: string): Promise<ProofJobRecord | null>;
-}
+import type { DeploymentJobRecord } from "./types";
 
 export interface DeploymentJobsLike {
   start(operation: "deploy" | "reset"): Promise<DeploymentJobRecord>;
@@ -32,17 +24,14 @@ export interface DeploymentJobsLike {
 }
 
 export interface OperatorDeps {
-  jobs: JobStoreLike;
   deploymentJobs: DeploymentJobsLike;
-  queue: QueueClient;
   checkChainHealth: typeof checkChainHealth;
   loadManifest: typeof loadManifest;
   seedApprovals: typeof seedApprovals;
   exportSnapshot: typeof exportSnapshot;
   restoreSnapshot: typeof restoreSnapshot;
   runNumberPickerSmoke: typeof runNumberPickerSmoke;
-  runPokerSmoke: typeof runPokerSmoke;
-  runBlackjackSmoke: typeof runBlackjackSmoke;
+  runSlotSmoke: typeof runSlotSmoke;
 }
 
 export interface ServerLike {
@@ -56,31 +45,8 @@ export type ServeFunction = (options: {
   fetch: (request: Request) => Promise<Response> | Response;
 }) => ServerLike;
 
-export function normalizeJob(body: Record<string, unknown>): ProofJobRequest {
-  if (typeof body.jobType !== "string") {
-    throw badRequest("jobType is required");
-  }
-  if (body.mode !== "fixture" && body.mode !== "live") {
-    throw badRequest("mode must be fixture or live");
-  }
-  return {
-    jobType: body.jobType,
-    mode: body.mode,
-    chainRef: typeof body.chainRef === "string" ? body.chainRef : undefined,
-    gameRef: typeof body.gameRef === "string" ? body.gameRef : undefined,
-    fixtureName: typeof body.fixtureName === "string" ? body.fixtureName : undefined,
-    payload: typeof body.payload === "object" && body.payload ? body.payload as Record<string, unknown> : undefined,
-    requestedBy: typeof body.requestedBy === "string" ? body.requestedBy : undefined
-  };
-}
-
-function jobResponsePath(jobId: string): string {
-  return `/proof-jobs/${jobId}`;
-}
-
 export function createDefaultOperatorDeps(config: AppConfig): OperatorDeps {
   return {
-    jobs: new JobStore(config.jobsDir),
     deploymentJobs: createDeploymentJobManager(config, {
       deployProtocol,
       resetAndDeploy,
@@ -88,15 +54,13 @@ export function createDefaultOperatorDeps(config: AppConfig): OperatorDeps {
       loadManifest,
       logger: console
     }),
-    queue: createQueueClient(config),
     checkChainHealth,
     loadManifest,
     seedApprovals,
     exportSnapshot,
     restoreSnapshot,
     runNumberPickerSmoke,
-    runPokerSmoke,
-    runBlackjackSmoke
+    runSlotSmoke
   };
 }
 
@@ -110,12 +74,7 @@ function mapError(error: unknown): Response {
   if (error instanceof Error && /ENOENT|no such file/i.test(error.message)) {
     return json({ error: error.message }, { status: 404 });
   }
-  return json(
-    {
-      error: error instanceof Error ? error.message : String(error)
-    },
-    { status: 500 }
-  );
+  return json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
 }
 
 export function createOperatorFetchHandler(
@@ -129,23 +88,11 @@ export function createOperatorFetchHandler(
       if (request.method === "GET" && url.pathname === "/health") {
         let chain: Record<string, unknown>;
         try {
-          chain = {
-            ok: true,
-            ...(await deps.checkChainHealth(config))
-          };
+          chain = { ok: true, ...(await deps.checkChainHealth(config)) };
         } catch (error) {
-          chain = {
-            ok: false,
-            error: error instanceof Error ? error.message : String(error)
-          };
+          chain = { ok: false, error: error instanceof Error ? error.message : String(error) };
         }
-
-        return json({
-          ok: true,
-          service: "operator-api",
-          queueMode: config.queueMode,
-          chain
-        });
+        return json({ ok: true, service: "operator-api", chain });
       }
 
       if (request.method === "GET" && url.pathname === "/manifest") {
@@ -170,26 +117,12 @@ export function createOperatorFetchHandler(
 
       if (request.method === "POST" && url.pathname === "/deploy") {
         const record = await deps.deploymentJobs.start("deploy");
-        return json(
-          {
-            jobId: record.id,
-            status: record.status,
-            statusUrl: record.statusUrl
-          },
-          { status: 202 }
-        );
+        return json({ jobId: record.id, status: record.status, statusUrl: record.statusUrl }, { status: 202 });
       }
 
       if (request.method === "POST" && url.pathname === "/reset") {
         const record = await deps.deploymentJobs.start("reset");
-        return json(
-          {
-            jobId: record.id,
-            status: record.status,
-            statusUrl: record.statusUrl
-          },
-          { status: 202 }
-        );
+        return json({ jobId: record.id, status: record.status, statusUrl: record.statusUrl }, { status: 202 });
       }
 
       if (request.method === "POST" && url.pathname === "/seed") {
@@ -198,37 +131,11 @@ export function createOperatorFetchHandler(
       }
 
       if (request.method === "POST" && url.pathname === "/smoke/number-picker") {
-        const record = await deps.jobs.create({ jobType: "smoke-number-picker", mode: "fixture" });
-        await deps.queue.enqueue(record);
-        return json({ jobId: record.id, statusUrl: jobResponsePath(record.id) }, { status: 202 });
+        return json(await deps.runNumberPickerSmoke(config));
       }
 
-      if (request.method === "POST" && url.pathname === "/smoke/poker") {
-        const record = await deps.jobs.create({ jobType: "smoke-poker", mode: "fixture" });
-        await deps.queue.enqueue(record);
-        return json({ jobId: record.id, statusUrl: jobResponsePath(record.id) }, { status: 202 });
-      }
-
-      if (request.method === "POST" && url.pathname === "/smoke/blackjack") {
-        const record = await deps.jobs.create({ jobType: "smoke-blackjack", mode: "fixture" });
-        await deps.queue.enqueue(record);
-        return json({ jobId: record.id, statusUrl: jobResponsePath(record.id) }, { status: 202 });
-      }
-
-      if (request.method === "POST" && url.pathname === "/proof-jobs") {
-        const body = await readJsonRequest(request);
-        const record = await deps.jobs.create(normalizeJob(body));
-        await deps.queue.enqueue(record);
-        return json({ jobId: record.id, statusUrl: jobResponsePath(record.id) }, { status: 202 });
-      }
-
-      if (request.method === "GET" && url.pathname.startsWith("/proof-jobs/")) {
-        const jobId = url.pathname.split("/").pop();
-        if (!jobId) {
-          throw notFound("job not found");
-        }
-        const record = await deps.jobs.get(jobId);
-        return record ? json(record) : json({ error: "job not found" }, { status: 404 });
+      if (request.method === "POST" && url.pathname === "/smoke/slot") {
+        return json(await deps.runSlotSmoke(config));
       }
 
       if (request.method === "GET" && url.pathname.startsWith("/deploy-jobs/")) {
@@ -242,10 +149,7 @@ export function createOperatorFetchHandler(
 
       if (request.method === "POST" && url.pathname === "/snapshots/export") {
         const body = await readJsonRequest(request);
-        const snapshot = await deps.exportSnapshot(
-          config,
-          typeof body.name === "string" ? body.name : undefined
-        );
+        const snapshot = await deps.exportSnapshot(config, typeof body.name === "string" ? body.name : undefined);
         return json(snapshot, { status: 201 });
       }
 
@@ -262,12 +166,8 @@ export function createOperatorFetchHandler(
         return json(await deps.runNumberPickerSmoke(config));
       }
 
-      if (request.method === "POST" && url.pathname === "/_local/smoke/poker") {
-        return json(await deps.runPokerSmoke(config));
-      }
-
-      if (request.method === "POST" && url.pathname === "/_local/smoke/blackjack") {
-        return json(await deps.runBlackjackSmoke(config));
+      if (request.method === "POST" && url.pathname === "/_local/smoke/slot") {
+        return json(await deps.runSlotSmoke(config));
       }
 
       return notFoundResponse();
@@ -282,13 +182,7 @@ export async function startOperatorServer(
   deps: OperatorDeps = createDefaultOperatorDeps(config),
   serve: ServeFunction = Bun.serve
 ): Promise<ServerLike> {
-  await ensureStateDirs([
-    config.stateDir,
-    config.jobsDir,
-    config.deployJobsDir,
-    config.queueDir,
-    config.snapshotsDir
-  ]);
+  await ensureStateDirs([config.stateDir, config.deployJobsDir, config.snapshotsDir]);
   await deps.deploymentJobs.recover();
 
   const fetch = createOperatorFetchHandler(config, deps);

@@ -6,11 +6,11 @@ if (!Array.isArray(manifest.contracts) || manifest.contracts.length === 0) {
   throw new Error("manifest.contracts must be a non-empty array");
 }
 
-if (!manifest.enum_labels || !manifest.proof_inputs) {
-  throw new Error("manifest must include enum_labels and proof_inputs");
+if (!manifest.enum_labels) {
+  throw new Error("manifest must include enum_labels");
 }
 
-const required = ["ProtocolSettlement", "GameCatalog", "NumberPickerAdapter", "SingleDraw2To7Engine", "BlackjackEngine"];
+const required = ["ProtocolSettlement", "GameCatalog", "NumberPickerAdapter", "SlotMachineController", "SlotMachineEngine"];
 for (const name of required) {
   if (!manifest.contracts.find((entry) => entry.name === name)) {
     throw new Error(`missing contract ${name}`);

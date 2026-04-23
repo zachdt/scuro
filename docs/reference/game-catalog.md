@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`GameCatalog` is the source of truth for module identity, lifecycle status, engine type, verifier bundle, config hash, and developer reward basis points.
+`GameCatalog` is the source of truth for module identity, lifecycle status, engine type, config hash, and developer reward basis points.
 
 ## Caller Model
 

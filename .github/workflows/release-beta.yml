@@ -146,7 +146,6 @@ jobs:
             "bucket_force_destroy": true,
             "runtime_env_parameter_name": "${{ vars.SCURO_BETA_RUNTIME_ENV_PARAMETER || '' }}",
             "enable_cloudwatch_logs": false,
-            "enable_sqs_queue": false,
             "enable_public_rpc": true
           }
           EOF
@@ -221,7 +220,6 @@ jobs:
             "bucket_force_destroy": true,
             "runtime_env_parameter_name": "${{ vars.SCURO_BETA_RUNTIME_ENV_PARAMETER || '' }}",
             "enable_cloudwatch_logs": false,
-            "enable_sqs_queue": false,
             "enable_public_rpc": true
           }
           EOF
@@ -360,14 +358,9 @@ jobs:
             | tee /tmp/scuro-release/smoke-number-picker.json
 
           bash script/aws/remote_snapshot_restore.sh "${INSTANCE_ID}" "${SMOKE_BASELINE_NAME}" "${AWS_REGION}" \
-            | tee /tmp/scuro-release/smoke-poker-restore.json
-          bash script/aws/remote_smoke.sh "${INSTANCE_ID}" poker "${AWS_REGION}" \
-            | tee /tmp/scuro-release/smoke-poker.json
-
-          bash script/aws/remote_snapshot_restore.sh "${INSTANCE_ID}" "${SMOKE_BASELINE_NAME}" "${AWS_REGION}" \
-            | tee /tmp/scuro-release/smoke-blackjack-restore.json
-          bash script/aws/remote_smoke.sh "${INSTANCE_ID}" blackjack "${AWS_REGION}" \
-            | tee /tmp/scuro-release/smoke-blackjack.json
+            | tee /tmp/scuro-release/smoke-slot-restore.json
+          bash script/aws/remote_smoke.sh "${INSTANCE_ID}" slot "${AWS_REGION}" \
+            | tee /tmp/scuro-release/smoke-slot.json
 
       - name: Export release snapshot
         if: ${{ inputs.export_snapshot }}
@@ -492,7 +485,6 @@ jobs:
             host-deploy-log.txt \
             host-operator-log.txt \
             host-anvil-log.txt \
-            host-worker-log.txt \
             host-anvil-version.txt \
             host-nginx-status.txt \
             host-nginx-config.txt \
@@ -581,10 +573,8 @@ jobs:
             echo "- smoke-baseline.json"
             echo "- smoke-number-picker-restore.json"
             echo "- smoke-number-picker.json"
-            echo "- smoke-poker-restore.json"
-            echo "- smoke-poker.json"
-            echo "- smoke-blackjack-restore.json"
-            echo "- smoke-blackjack.json"
+            echo "- smoke-slot-restore.json"
+            echo "- smoke-slot.json"
             echo "- snapshot.json"
             echo "- public-rpc-health.json"
             echo "- public-rpc-block-number.json"

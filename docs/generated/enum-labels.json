@@ -1,54 +1,17 @@
 {
-  "GameCatalog.GameMode": {
-    "0": "Solo",
-    "1": "PvP",
-    "2": "Tournament"
-  },
   "GameCatalog.ModuleStatus": {
     "0": "LIVE",
     "1": "RETIRED",
     "2": "DISABLED"
   },
-  "SingleDeckBlackjackEngine.SessionPhase": {
-    "0": "Inactive",
-    "1": "AwaitingInitialDeal",
-    "2": "AwaitingPlayerAction",
-    "3": "AwaitingCoordinator",
-    "4": "Completed"
+  "SlotMachineEngine.VolatilityTier": {
+    "1": "VOL_LOW",
+    "2": "VOL_MEDIUM",
+    "3": "VOL_HIGH",
+    "4": "VOL_EXTREME"
   },
-  "SingleDeckBlackjackEngine.Action": {
-    "1": "ACTION_HIT",
-    "2": "ACTION_STAND",
-    "3": "ACTION_DOUBLE",
-    "4": "ACTION_SPLIT"
-  },
-  "SingleDeckBlackjackEngine.ActionMask": {
-    "1": "ALLOW_HIT",
-    "2": "ALLOW_STAND",
-    "4": "ALLOW_DOUBLE",
-    "8": "ALLOW_SPLIT"
-  },
-  "SingleDeckBlackjackEngine.HandPayoutKind": {
-    "0": "HAND_PAYOUT_NONE",
-    "1": "HAND_PAYOUT_LOSS",
-    "2": "HAND_PAYOUT_PUSH",
-    "3": "HAND_PAYOUT_EVEN_MONEY",
-    "4": "HAND_PAYOUT_BLACKJACK_3_TO_2",
-    "5": "HAND_PAYOUT_SUITED_BLACKJACK_2_TO_1"
-  },
-  "SingleDraw2To7Engine.MatchState": {
-    "0": "Inactive",
-    "1": "Active",
-    "2": "Completed"
-  },
-  "SingleDraw2To7Engine.HandPhase": {
-    "0": "None",
-    "1": "AwaitingInitialDeal",
-    "2": "PreDrawBetting",
-    "3": "DrawDeclaration",
-    "4": "DrawProofPending",
-    "5": "PostDrawBetting",
-    "6": "ShowdownProofPending",
-    "7": "HandComplete"
+  "SlotMachineEngine.SpinStatus": {
+    "1": "STATUS_PENDING",
+    "2": "STATUS_RESOLVED"
   }
 }

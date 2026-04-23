@@ -11,14 +11,11 @@ import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
 import {ScuroGovernor} from "../src/ScuroGovernor.sol";
 import {ScuroStakingToken} from "../src/ScuroStakingToken.sol";
 import {ScuroToken} from "../src/ScuroToken.sol";
-import {BlackjackModuleDeployer} from "../src/factory/BlackjackModuleDeployer.sol";
-import {CheminDeFerModuleDeployer} from "../src/factory/CheminDeFerModuleDeployer.sol";
-import {PokerModuleDeployer} from "../src/factory/PokerModuleDeployer.sol";
 import {SoloModuleDeployer} from "../src/factory/SoloModuleDeployer.sol";
 
 contract ProtocolCoreTest is Test {
     bytes32 internal constant NUMBER_PICKER_TYPE = keccak256("NUMBER_PICKER");
-    bytes32 internal constant BLACKJACK_TYPE = keccak256("BLACKJACK");
+    bytes32 internal constant SLOT_TYPE = keccak256("SLOT_MACHINE");
 
     ScuroToken internal token;
     ScuroStakingToken internal stakingToken;
@@ -56,10 +53,7 @@ contract ProtocolCoreTest is Test {
             address(this),
             address(catalog),
             address(settlement),
-            address(new SoloModuleDeployer()),
-            address(new BlackjackModuleDeployer()),
-            address(new PokerModuleDeployer()),
-            address(new CheminDeFerModuleDeployer())
+            address(new SoloModuleDeployer())
         );
 
         token.grantRole(token.MINTER_ROLE(), address(settlement));
@@ -133,11 +127,9 @@ contract ProtocolCoreTest is Test {
 
         catalog.registerModule(
             GameCatalog.Module({
-                mode: GameCatalog.GameMode.Solo,
                 controller: controller,
                 engine: engine,
                 engineType: NUMBER_PICKER_TYPE,
-                verifier: address(0),
                 configHash: keccak256("number-picker-auto"),
                 developerRewardBps: 500,
                 status: GameCatalog.ModuleStatus.LIVE
@@ -152,11 +144,9 @@ contract ProtocolCoreTest is Test {
     function test_SettlementRoutesDeveloperAccrualToExpressionOwnerAndHonorsTransfers() public {
         catalog.registerModule(
             GameCatalog.Module({
-                mode: GameCatalog.GameMode.Solo,
                 controller: controller,
                 engine: engine,
                 engineType: NUMBER_PICKER_TYPE,
-                verifier: address(0),
                 configHash: keccak256("number-picker-auto"),
                 developerRewardBps: 500,
                 status: GameCatalog.ModuleStatus.LIVE
@@ -184,11 +174,9 @@ contract ProtocolCoreTest is Test {
     function test_SettlementRejectsInactiveOrMismatchedExpressions() public {
         catalog.registerModule(
             GameCatalog.Module({
-                mode: GameCatalog.GameMode.Solo,
                 controller: controller,
                 engine: engine,
                 engineType: NUMBER_PICKER_TYPE,
-                verifier: address(0),
                 configHash: keccak256("number-picker-auto"),
                 developerRewardBps: 500,
                 status: GameCatalog.ModuleStatus.LIVE
@@ -199,8 +187,7 @@ contract ProtocolCoreTest is Test {
         uint256 numberPickerExpressionId =
             expressionRegistry.mintExpression(NUMBER_PICKER_TYPE, keccak256("expr-1"), "ipfs://expr-1");
         vm.prank(alice);
-        uint256 blackjackExpressionId =
-            expressionRegistry.mintExpression(BLACKJACK_TYPE, keccak256("expr-2"), "ipfs://expr-2");
+        uint256 slotExpressionId = expressionRegistry.mintExpression(SLOT_TYPE, keccak256("expr-2"), "ipfs://expr-2");
 
         expressionRegistry.setExpressionActive(numberPickerExpressionId, false);
         vm.prank(controller);
@@ -209,7 +196,7 @@ contract ProtocolCoreTest is Test {
 
         vm.prank(controller);
         vm.expectRevert("Settlement: expression mismatch");
-        settlement.accrueDeveloperForExpression(blackjackExpressionId, 100 ether);
+        settlement.accrueDeveloperForExpression(slotExpressionId, 100 ether);
     }
 
     function test_GovernanceCanDeployModuleThroughFactory() public {
@@ -255,6 +242,5 @@ contract ProtocolCoreTest is Test {
         assertEq(catalog.nextModuleId(), 2);
         GameCatalog.Module memory moduleData = catalog.getModule(1);
         assertEq(moduleData.configHash, keccak256("governed-number-picker"));
-        assertEq(uint256(moduleData.mode), uint256(GameCatalog.GameMode.Solo));
     }
 }

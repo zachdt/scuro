@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`GameDeploymentFactory` standardizes controller, engine, verifier-bundle, and catalog registration for shipped module families.
+`GameDeploymentFactory` standardizes controller, engine, and catalog registration for the canonical solo module families.
 
 ## Caller Model
 
@@ -16,22 +16,17 @@
 
 ## Constructor And Config
 
-- `constructor(admin, catalogAddress, settlementAddress)`
+- `constructor(admin, catalogAddress, settlementAddress, soloModuleDeployerAddress)`
 - Supported families:
   - `SoloFamily.NumberPicker`
-  - `SoloFamily.Blackjack`
-  - `SoloFamily.SuperBaccarat`
   - `SoloFamily.SlotMachine`
-  - `MatchFamily.PokerSingleDraw2To7`
-  - `MatchFamily.CheminDeFerBaccarat`
 
 ## Public API
 
 - `catalog()`
 - `settlement()`
+- `soloModuleDeployer()`
 - `deploySoloModule(family, deploymentParams)`
-- `deployPvPModule(family, deploymentParams)`
-- `deployTournamentModule(family, deploymentParams)`
 
 ## Events
 
@@ -39,10 +34,10 @@
 
 ## State And Lifecycle Notes
 
-- The factory deploys verifier bundles for poker and blackjack automatically
-- Number picker, slot machine, solo baccarat, and chemin de fer deploy without verifier bundles and instead use VRF coordinators
+- Number picker and slot machine use the configured VRF coordinator
 - Every deployed module starts as `LIVE` in the catalog
 - `deploymentParams` are ABI-encoded family-specific structs, so SDKs should expose typed wrappers rather than raw bytes
+- Number picker modules use `NumberPickerDeployment { vrfCoordinator, configHash, developerRewardBps }`
 - Slot modules use `SlotDeployment { vrfCoordinator, configHash, developerRewardBps }`
 
 ## Revert Conditions

@@ -30,9 +30,7 @@ forge build \
   script/aws/BetaDeployCommon.s.sol \
   script/aws/DeployCore.s.sol \
   script/aws/DeployNumberPickerModule.s.sol \
-  script/aws/DeployPokerTournamentModule.s.sol \
-  script/aws/DeployPokerPvPModule.s.sol \
-  script/aws/DeployBlackjackModule.s.sol \
+  script/aws/DeploySlotModule.s.sol \
   script/aws/DeployFinalize.s.sol >/dev/null
 
 echo "[gas-check] starting anvil on ${RPC_URL}"
@@ -75,9 +73,7 @@ thresholds = json.loads(pathlib.Path(sys.argv[2]).read_text())
 stage_files = {
     "core": root / "broadcast/DeployCore.s.sol/31337/run-latest.json",
     "number_picker": root / "broadcast/DeployNumberPickerModule.s.sol/31337/run-latest.json",
-    "poker_tournament": root / "broadcast/DeployPokerTournamentModule.s.sol/31337/run-latest.json",
-    "poker_pvp": root / "broadcast/DeployPokerPvPModule.s.sol/31337/run-latest.json",
-    "blackjack": root / "broadcast/DeployBlackjackModule.s.sol/31337/run-latest.json",
+    "slot": root / "broadcast/DeploySlotModule.s.sol/31337/run-latest.json",
     "finalize": root / "broadcast/DeployFinalize.s.sol/31337/run-latest.json",
 }
 
@@ -97,9 +93,6 @@ core_run = json.loads(stage_files["core"].read_text())
 core_seen: dict[str, int] = {}
 core_map = {
     "SoloModuleDeployer": "solo_module_deployer",
-    "BlackjackModuleDeployer": "blackjack_module_deployer",
-    "PokerModuleDeployer": "poker_module_deployer",
-    "CheminDeFerModuleDeployer": "chemin_de_fer_module_deployer",
     "GameDeploymentFactory": "game_deployment_factory",
 }
 
@@ -122,9 +115,7 @@ for contract_name, threshold_key in core_map.items():
 
 stage_map = {
     "number_picker": "number_picker_module",
-    "poker_tournament": "poker_tournament_module",
-    "poker_pvp": "poker_pvp_module",
-    "blackjack": "blackjack_module",
+    "slot": "slot_machine_module",
 }
 
 for name, threshold_key in stage_map.items():

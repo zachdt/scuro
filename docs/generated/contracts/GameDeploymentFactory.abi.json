@@ -21,21 +21,6 @@
         "name": "soloModuleDeployer",
         "type": "address",
         "internalType": "address"
-      },
-      {
-        "name": "blackjackModuleDeployer",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "pokerModuleDeployer",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "cheminDeFerModuleDeployer",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
@@ -87,45 +72,6 @@
   },
   {
     "type": "function",
-    "name": "deployPvPModule",
-    "inputs": [
-      {
-        "name": "family",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "deploymentParams",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "moduleId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "controller",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "engine",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "verifier",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "deploySoloModule",
     "inputs": [
       {
@@ -152,50 +98,6 @@
       },
       {
         "name": "engine",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "verifier",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "deployTournamentModule",
-    "inputs": [
-      {
-        "name": "family",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "deploymentParams",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "moduleId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "controller",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "engine",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "verifier",
         "type": "address",
         "internalType": "address"
       }
@@ -350,12 +252,6 @@
         "internalType": "uint256"
       },
       {
-        "name": "mode",
-        "type": "uint8",
-        "indexed": true,
-        "internalType": "enum GameCatalog.GameMode"
-      },
-      {
         "name": "family",
         "type": "uint8",
         "indexed": true,
@@ -369,12 +265,6 @@
       },
       {
         "name": "engine",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "verifier",
         "type": "address",
         "indexed": false,
         "internalType": "address"

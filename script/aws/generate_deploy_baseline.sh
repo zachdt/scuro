@@ -29,9 +29,7 @@ forge build \
   script/aws/BetaDeployCommon.s.sol \
   script/aws/DeployCore.s.sol \
   script/aws/DeployNumberPickerModule.s.sol \
-  script/aws/DeployPokerTournamentModule.s.sol \
-  script/aws/DeployPokerPvPModule.s.sol \
-  script/aws/DeployBlackjackModule.s.sol \
+  script/aws/DeploySlotModule.s.sol \
   script/aws/DeployFinalize.s.sol >/dev/null
 
 anvil --port "${RPC_PORT}" --disable-code-size-limit --gas-limit 100000000 >"${ANVIL_LOG}" 2>&1 &
@@ -75,20 +73,10 @@ deploy_status = int(sys.argv[3])
 contracts = [
     ("GameDeploymentFactory", "out/GameDeploymentFactory.sol/GameDeploymentFactory.json"),
     ("SoloModuleDeployer", "out/SoloModuleDeployer.sol/SoloModuleDeployer.json"),
-    ("BlackjackModuleDeployer", "out/BlackjackModuleDeployer.sol/BlackjackModuleDeployer.json"),
-    ("PokerModuleDeployer", "out/PokerModuleDeployer.sol/PokerModuleDeployer.json"),
-    ("CheminDeFerModuleDeployer", "out/CheminDeFerModuleDeployer.sol/CheminDeFerModuleDeployer.json"),
-    ("PokerVerifierBundle", "out/PokerVerifierBundle.sol/PokerVerifierBundle.json"),
-    ("BlackjackVerifierBundle", "out/BlackjackVerifierBundle.sol/BlackjackVerifierBundle.json"),
-    ("PokerInitialDealVerifier", "out/PokerInitialDealVerifier.sol/PokerInitialDealVerifier.json"),
-    ("PokerDrawResolveVerifier", "out/PokerDrawResolveVerifier.sol/PokerDrawResolveVerifier.json"),
-    ("PokerShowdownVerifier", "out/PokerShowdownVerifier.sol/PokerShowdownVerifier.json"),
-    ("BlackjackInitialDealVerifier", "out/BlackjackInitialDealVerifier.sol/BlackjackInitialDealVerifier.json"),
-    ("BlackjackPeekVerifier", "out/BlackjackPeekVerifier.sol/BlackjackPeekVerifier.json"),
-    ("BlackjackActionResolveVerifier", "out/BlackjackActionResolveVerifier.sol/BlackjackActionResolveVerifier.json"),
-    ("BlackjackShowdownVerifier", "out/BlackjackShowdownVerifier.sol/BlackjackShowdownVerifier.json"),
-    ("SingleDraw2To7Engine", "out/SingleDraw2To7Engine.sol/SingleDraw2To7Engine.json"),
-    ("BlackjackEngine", "out/BlackjackEngine.sol/BlackjackEngine.json"),
+    ("NumberPickerEngine", "out/NumberPickerEngine.sol/NumberPickerEngine.json"),
+    ("SlotMachineEngine", "out/SlotMachineEngine.sol/SlotMachineEngine.json"),
+    ("NumberPickerAdapter", "out/NumberPickerAdapter.sol/NumberPickerAdapter.json"),
+    ("SlotMachineController", "out/SlotMachineController.sol/SlotMachineController.json"),
 ]
 
 size_rows: list[tuple[str, int, int]] = []
@@ -107,9 +95,6 @@ stage_receipts = [
         root / "broadcast/DeployCore.s.sol/31337/run-latest.json",
         {
             "SoloModuleDeployer": "Core:SoloModuleDeployer",
-            "BlackjackModuleDeployer": "Core:BlackjackModuleDeployer",
-            "PokerModuleDeployer": "Core:PokerModuleDeployer",
-            "CheminDeFerModuleDeployer": "Core:CheminDeFerModuleDeployer",
             "GameDeploymentFactory": "Core:GameDeploymentFactory",
         },
     ),
@@ -118,16 +103,8 @@ stage_receipts = [
         {"deploySoloModule(uint8,bytes)": "NumberPicker:DeployModule"},
     ),
     (
-        root / "broadcast/DeployPokerTournamentModule.s.sol/31337/run-latest.json",
-        {"deployTournamentModule(uint8,bytes)": "TournamentPoker:DeployModule"},
-    ),
-    (
-        root / "broadcast/DeployPokerPvPModule.s.sol/31337/run-latest.json",
-        {"deployPvPModule(uint8,bytes)": "PvPPoker:DeployModule"},
-    ),
-    (
-        root / "broadcast/DeployBlackjackModule.s.sol/31337/run-latest.json",
-        {"deploySoloModule(uint8,bytes)": "Blackjack:DeployModule"},
+        root / "broadcast/DeploySlotModule.s.sol/31337/run-latest.json",
+        {"deploySoloModule(uint8,bytes)": "SlotMachine:DeployModule"},
     ),
     (
         root / "broadcast/DeployFinalize.s.sol/31337/run-latest.json",
@@ -156,7 +133,7 @@ report_lines = [
     "",
     "- Anvil reference gas limit: `100000000`",
     "- This baseline uses the staged beta deploy path, not `DeployLocal`.",
-    "- The previously failing tx was approximately `32194656` gas, which is below the Anvil ceiling and points to deployment architecture size rather than a simple chain gas-cap mismatch.",
+    "- The canonical staged path deploys core, number-picker, slot, then finalizes expression ownership.",
     "",
     "## Bytecode Size Baseline",
     "",

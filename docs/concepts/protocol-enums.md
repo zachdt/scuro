@@ -1,89 +1,23 @@
-# Enum and Phase Mappings
-
-Clients should use these mappings explicitly instead of inferring integer meanings from tests or source layout.
-
-## `GameCatalog.GameMode`
-
-| Value | Label |
-| --- | --- |
-| `0` | `Solo` |
-| `1` | `PvP` |
-| `2` | `Tournament` |
+# Enum And Constant Labels
 
 ## `GameCatalog.ModuleStatus`
 
-| Value | Label | Launch new sessions | Settle existing sessions |
-| --- | --- | --- | --- |
-| `0` | `LIVE` | yes | yes |
-| `1` | `RETIRED` | no | yes |
-| `2` | `DISABLED` | no | no |
-
-## Blackjack Session Phase
-
 | Value | Label | Meaning |
-| --- | --- | --- |
-| `0` | `Inactive` | No session state yet |
-| `1` | `AwaitingInitialDeal` | Waiting for coordinator init proof |
-| `2` | `AwaitingPlayerAction` | Waiting for player action before `deadlineAt` |
-| `3` | `AwaitingCoordinator` | Waiting for action or showdown proof |
-| `4` | `Completed` | Session can be settled |
+| ---: | --- | --- |
+| `0` | `LIVE` | New play and settlement are allowed |
+| `1` | `RETIRED` | New play is blocked, settlement remains allowed |
+| `2` | `DISABLED` | New play and settlement are blocked |
 
-## Blackjack Action Constants
+## Slot Constants
 
 | Value | Label |
-| --- | --- |
-| `1` | `ACTION_HIT` |
-| `2` | `ACTION_STAND` |
-| `3` | `ACTION_DOUBLE` |
-| `4` | `ACTION_SPLIT` |
-
-## Blackjack Action-Mask Flags
+| ---: | --- |
+| `1` | `VOL_LOW` |
+| `2` | `VOL_MEDIUM` |
+| `3` | `VOL_HIGH` |
+| `4` | `VOL_EXTREME` |
 
 | Value | Label |
-| --- | --- |
-| `1` | `ALLOW_HIT` |
-| `2` | `ALLOW_STAND` |
-| `4` | `ALLOW_DOUBLE` |
-| `8` | `ALLOW_SPLIT` |
-
-## Blackjack Hand Payout Kinds
-
-| Value | Label |
-| --- | --- |
-| `0` | `HAND_PAYOUT_NONE` |
-| `1` | `HAND_PAYOUT_LOSS` |
-| `2` | `HAND_PAYOUT_PUSH` |
-| `3` | `HAND_PAYOUT_EVEN_MONEY` |
-| `4` | `HAND_PAYOUT_BLACKJACK_3_TO_2` |
-| `5` | `HAND_PAYOUT_SUITED_BLACKJACK_2_TO_1` |
-
-Blackjack migration note:
-- The canonical blackjack product is the double-deck ruleset described in the [Blackjack session spec](../session-specs/blackjack.md).
-- New integrations should treat this table as legacy engine-surface data until the double-deck migration lands with its final action and payout enum surface.
-
-## `SingleDraw2To7Engine.MatchState`
-
-| Value | Label |
-| --- | --- |
-| `0` | `Inactive` |
-| `1` | `Active` |
-| `2` | `Completed` |
-
-## `SingleDraw2To7Engine.HandPhase`
-
-| Value | Label | Meaning |
-| --- | --- | --- |
-| `0` | `None` | Empty state |
-| `1` | `AwaitingInitialDeal` | Waiting for initial proof |
-| `2` | `PreDrawBetting` | First player-clock betting round |
-| `3` | `DrawDeclaration` | Players declare discard masks |
-| `4` | `DrawProofPending` | Coordinator must submit draw proofs |
-| `5` | `PostDrawBetting` | Second player-clock betting round |
-| `6` | `ShowdownProofPending` | Coordinator must submit showdown proof |
-| `7` | `HandComplete` | Hand ended before next hand/bootstrap logic |
-
-## Client Notes
-
-- Treat unknown enum values as incompatible state and surface them as typed errors.
-- Prefer typed wrappers around these values in both Node and Rust SDKs.
-- Persist both the numeric value and the canonical label in indexed data so schema migrations remain explicit.
+| ---: | --- |
+| `1` | `STATUS_PENDING` |
+| `2` | `STATUS_RESOLVED` |

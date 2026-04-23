@@ -10,9 +10,6 @@ import {ProtocolSettlement} from "../../src/ProtocolSettlement.sol";
 import {ScuroGovernor} from "../../src/ScuroGovernor.sol";
 import {ScuroStakingToken} from "../../src/ScuroStakingToken.sol";
 import {ScuroToken} from "../../src/ScuroToken.sol";
-import {BlackjackModuleDeployer} from "../../src/factory/BlackjackModuleDeployer.sol";
-import {CheminDeFerModuleDeployer} from "../../src/factory/CheminDeFerModuleDeployer.sol";
-import {PokerModuleDeployer} from "../../src/factory/PokerModuleDeployer.sol";
 import {SoloModuleDeployer} from "../../src/factory/SoloModuleDeployer.sol";
 import {VRFCoordinatorMock} from "../../src/mocks/VRFCoordinatorMock.sol";
 import {BetaDeployCommon} from "./BetaDeployCommon.s.sol";
@@ -48,21 +45,12 @@ contract DeployCore is BetaDeployCommon {
             new ProtocolSettlement(address(token), address(catalog), address(expressionRegistry), address(developerRewards));
         logStageAction("Core:SoloModuleDeployer");
         SoloModuleDeployer soloModuleDeployer = new SoloModuleDeployer();
-        logStageAction("Core:BlackjackModuleDeployer");
-        BlackjackModuleDeployer blackjackModuleDeployer = new BlackjackModuleDeployer();
-        logStageAction("Core:PokerModuleDeployer");
-        PokerModuleDeployer pokerModuleDeployer = new PokerModuleDeployer();
-        logStageAction("Core:CheminDeFerModuleDeployer");
-        CheminDeFerModuleDeployer cheminDeFerModuleDeployer = new CheminDeFerModuleDeployer();
         logStageAction("Core:GameDeploymentFactory");
         GameDeploymentFactory factory = new GameDeploymentFactory(
             admin,
             address(catalog),
             address(settlement),
-            address(soloModuleDeployer),
-            address(blackjackModuleDeployer),
-            address(pokerModuleDeployer),
-            address(cheminDeFerModuleDeployer)
+            address(soloModuleDeployer)
         );
         logStageAction("Core:VRFCoordinatorMock");
         VRFCoordinatorMock vrfCoordinator = new VRFCoordinatorMock();

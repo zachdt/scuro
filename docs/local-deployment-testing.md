@@ -1,218 +1,55 @@
-# Local Deployment and Testing
+# Local Deployment And Testing
 
-This guide serves as the technical companion to the [Protocol Architecture](./protocol-architecture.md), providing the workflows and commands necessary to build, deploy, and verify the Scuro protocol in a local environment.
+Local development targets the canonical core, `NumberPicker`, and `SlotMachine`.
 
-Following this guide ensures you can rapidly iterate on game logic, ZK circuits, and protocol-level integrations while maintaining a high degree of confidence in the system's integrity.
+## Build And Test
 
----
-
-## Technical Scope
-
-The local stack includes a comprehensive set of example engines and protocol services:
-
-### Gameplay Modules
-- **`NumberPickerEngine`**: A low-latency, VRF-backed solo gaming example.
-- **`SlotMachineEngine`**: A governed ways-based slot runtime with bounded bonus families and immutable presets.
-- **`SingleDraw2To7Engine`**: A ZK-proven poker engine used across tournament and PvP controllers.
-- **`BlackjackEngine`**: A secure solo blackjack experience utilizing Groth16 proofs.
-
-> [!NOTE]
-> The slot engine/controller pair is live in the codebase and test harnesses, but `script/DeployLocal.s.sol` still has not been updated to print slot deployment labels in the canonical local bootstrap flow.
-
-### Protocol Infrastructure
-- **`GameCatalog`**: Manages global module authorization, lifecycle, and reward configurations.
-- **`GameDeploymentFactory`**: Streamlines the registration of new controllers and engines.
-- **`DeveloperExpressionRegistry`**: Handles the lifecycle and ownership of developer-attribution NFTs.
-- **`DeveloperRewards`**: Automates the calculation and distribution of inflationary activity rewards.
-
-> [!NOTE]
-> The root package is the primary build target. Archived directories are maintained for reference only and are excluded from active workflows.
-
----
-
-## Prerequisites
-
-Ensure your environment is equipped with the following:
-- **Foundry**: `forge`, `cast`, and `anvil` for EVM development.
-- **Bun**: For managing ZK-related scripts and tasks.
-- **Bash**: For running integration and smoke scripts.
-
-> [!TIP]
-> Use the `--offline` flag with `forge test` to bypass unnecessary external lookups and accelerate your local feedback loop.
-
----
-
-## Action-Oriented Command Reference
-
-### Build & Validate
-Prepare the codebase and ensure ZK artifacts are consistent:
 ```bash
-# Compile all smart contracts
-forge build
-
-# Verify checked-in ZK artifacts and fixtures
-bun run --cwd zk check
-
-# Verify the checked-in blackjack fixtures against the current verifier contracts
-bun run --cwd zk check:blackjack
-
-# Rebuild ZK artifacts (only needed when circuit sources change)
-bun run --cwd zk build
-
-# Rebuild zk artifacts, regenerate fixtures, and rerun parity checks
-bun run --cwd zk resync
-```
-
-### Protocol Verification
-Run the comprehensive test suite to ensure system-wide integrity:
-```bash
-# Execute the full test suite
+forge build --offline
 forge test --offline
-
-# Run the slot-focused invariant suite
 forge test --match-path 'test/invariants/*.t.sol' --offline
-
-# Increase invariant depth locally or in automation
-FOUNDRY_FUZZ_RUNS=512 forge test --match-path 'test/invariants/*.t.sol' --offline
-
-# Run ONLY the layered end-to-end scenarios
-forge test --match-path 'test/e2e/*.t.sol' --offline
-
-# Perform a targeted contract test
-forge test --match-path 'test/ProtocolCore.t.sol' --offline
-
-# Generate advisory gas snapshots for slot paths
-./script/slot_gas_snapshot.sh
-
-# Run advisory static analysis
-slither .
-
-# Generate report-first slot EV analysis
-python -m analysis.slot_ev.report --preset all
-
-# Run the new local verification wrapper
-./script/verify_local.sh
-
-# Regenerate SDK-facing protocol metadata
-ruby script/docs/generate_protocol_docs_metadata.rb
-
-# Validate docs coverage, generated metadata, and the Node smoke consumer
-ruby script/docs/check_sdk_docs_coverage.rb
-node script/docs/smoke_manifest_node.mjs
 ```
 
-### Integration Smoke Test
-The **highest-signal** verification pass. This script deploys the full stack to a local Anvil instance and executes real gameplay flows:
+Focused lanes:
+
+- `test/ProtocolCore.t.sol`
+- `test/NumberPickerAdapter.t.sol`
+- `test/SlotMachineController.t.sol`
+- `test/e2e/*.t.sol`
+- `test/invariants/SlotMachineInvariants.t.sol`
+
+## Local Deployment
+
+```bash
+forge script script/DeployLocal.s.sol:DeployLocal --broadcast --rpc-url http://127.0.0.1:8545
+```
+
+The local deploy wires:
+
+- Core token, staking, governance, catalog, settlement, expression, and rewards contracts
+- Number-picker controller and engine
+- Slot controller and engine
+- Canonical slot presets: `base`, `free`, `pick`, `hold`
+- Seed actors and expression token ids for local smokes
+
+## Smoke Checks
+
 ```bash
 ./script/e2e_deploy_smoke.sh
+bash script/aws/verify_local.sh
 ```
 
----
+AWS-style smoke targets:
 
-## Test Suite Deep Dive
+```bash
+bash script/aws/smoke.sh number-picker
+bash script/aws/smoke.sh slot
+```
 
-Scuro utilizes a multi-layered testing strategy to balance speed and coverage.
+## Generated Metadata
 
-### Focused Unit Tests
-These tests target individual subsystems in isolation:
-- **`ProtocolCore`**: Validates tokens, staking, governance, and the economics of settlement.
-- **`DeveloperExpressions`**: Verifies permissionless minting, transfers, and moderation logic.
-- **`Gameplay Controllers`**: Individual tests for `Tournament`, `Blackjack`, `NumberPicker`, and `SlotMachine` orchestration.
+```bash
+bash script/docs/check_sdk_docs.sh
+```
 
-### Layered End-to-End (E2E)
-Located in `test/e2e/`, these act as the final completeness gate:
-- **`SmokeE2E`**: Confirms basic wiring and one happy path for every major subsystem.
-- **`UserFlowsE2E`**: Simulates complete user journeys, from staking to competitive play and reward claims.
-- **`AbusePathsE2E`**: Rigorously tests the protocol's defenses against replay attacks, unauthorized access, and invalid proofs.
-
-### Stateful Invariants
-Located in `test/invariants/`, these focus on slot-specific state safety under randomized call sequences:
-- **`SlotSpinHandler`**: Exercises launch, fulfill, and settlement paths while tracking payout, balance, and developer-accrual accounting.
-- **`SlotPresetHandler`**: Exercises preset activation, immutable preset registration snapshots, and deterministic seed replay.
-- **`LifecycleHandler`**: Exercises `LIVE`, `RETIRED`, and `DISABLED` transitions against launch/progress/settlement expectations.
-
-### Economic Analysis
-Located in `analysis/slot_ev/`, this report-first Python lane estimates:
-- EV deviation from the neutral target
-- Variance and standard deviation
-- Bonus and jackpot trigger frequency
-- Max observed payout and event-count envelopes
-- Simulator throughput for economic-scale runs
-
-The analysis package consumes ABI-shaped preset fixtures, emits both JSON and markdown summaries, and warns when advisory thresholds drift.
-
-### Static Analysis
-Use [script/check_slither.sh](/Users/zachdt/work/scuro/script/check_slither.sh) for the advisory structural-security pass. The baseline [slither.config.json](/Users/zachdt/work/scuro/slither.config.json) suppresses low-signal findings so the default output stays reviewable.
-
----
-
-## Coverage Philosophy
-
-Scuro prioritizes **high-signal confidence layers** over raw line-percentage metrics.
-
-**The Rationale:**
-- The codebase leverages `via_ir`, which can cause compiler limitations (e.g., "stack too deep") when traditional coverage instrumentation is applied.
-- Comprehensive user-story mapping (maintained in the [E2E Scenario Matrix](../test/e2e/MATRIX.md)) provides a more accurate measure of protocol safety than simple line hits.
-- Foundry invariants prove lifecycle and settlement safety properties under randomized call sequences.
-- Python analysis estimates EV, volatility, feature frequencies, and throughput characteristics for governed slot presets.
-- Slither provides an advisory structural-security layer for new controller and engine code.
-
-### Testing Philosophy For Slot Math
-- **Foundry** proves runtime invariants, payout caps, lifecycle rules, and settlement correctness.
-- **Scenario E2E** proves real player flows, expression transfer behavior, and lifecycle edge cases.
-- **Python EV analysis** estimates neutrality drift, variance, feature rates, and simulator performance without blocking ordinary PRs.
-- **Slither** catches structural issues such as authorization mistakes, unsafe storage patterns, and suspicious low-level call surfaces.
-
----
-
-## Manual Deployment Workflow
-
-For developers who need fine-grained control over the local environment:
-
-1.  **Launch Anvil**:
-    ```bash
-    anvil
-    ```
-2.  **Deploy the Stack**:
-    ```bash
-    PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-    forge script script/DeployLocal.s.sol:DeployLocal \
-      --rpc-url http://127.0.0.1:8545 \
-      --broadcast
-    ```
-
-The deployment script wires the entire ecosystem, including all controllers, engines, ZK verifiers, and example developer expressions with seeded balances.
-
----
-
-## Developer Attribution & Rewards
-
-Scuro enforces a robust attribution model for every gameplay interaction.
-
-### Key Invariants
-- **Engine Matching**: The Expression NFT's engine type must match the module's registered engine.
-- **Live Status**: Both the module and the expression must be active for settlement to occur.
-- **Dynamic Accrual**: Rewards are credited to the **current owner** of the Expression NFT at the exact moment of settlement.
-
-### Debugging Tips
-When verifying rewards locally:
-- Inspect `GameCatalog` for module metadata and reward percentages.
-- Check `DeveloperExpressionRegistry` for NFT ownership status.
-- Monitor `DeveloperRewards` to see accruals accumulate across epochs.
-
----
-
-## Strategic Review Notes
-
-- **Access Gating**: Poker game initialization is strictly controller-gated to prevent predictable game ID seeding.
-- **Graceful Retirement**: The protocol supports a tiered decommissioning process (`RETIRED` vs. `DISABLED`) to protect in-flight user funds.
-- **Coordinator Resilience**: Current ZK engines rely on off-chain coordinators. While proof validation is robust, work is ongoing to implement automated timeouts and recovery paths for stalled submissions.
-
----
-
-## Phase 2 Options
-
-The local workflow intentionally stops short of operationalizing heavier analyzers in phase 1. The next-step open-source tools to evaluate are:
-- **`Medusa`** for nightly coverage-guided sequence fuzzing once slot branches or preset count grow materially.
-- **`Echidna`** if Foundry invariants prove too shallow for long randomized session sequences.
-- **`Halmos`** for bounded symbolic checks of a small number of critical slot invariants such as payout ceilings or authorization barriers.
+This regenerates the protocol manifest, event signatures, enum labels, and ABI files from the current Foundry build.

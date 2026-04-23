@@ -37,12 +37,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
 
-      - name: Install zk dependencies
-        run: bun install --cwd zk --frozen-lockfile
-
-      - name: Build blackjack proof artifacts
-        run: bun run --cwd zk build:blackjack-initial
-
       - name: Bun checks
         run: bun run --cwd ops/aws-testnet check
 
@@ -55,25 +49,16 @@ jobs:
             script/aws/BetaDeployCommon.s.sol \
             script/aws/DeployCore.s.sol \
             script/aws/DeployNumberPickerModule.s.sol \
-            script/aws/DeployPokerTournamentModule.s.sol \
-            script/aws/DeployPokerPvPModule.s.sol \
-            script/aws/DeployBlackjackModule.s.sol \
+            script/aws/DeploySlotModule.s.sol \
             script/aws/DeployFinalize.s.sol \
-            script/aws/FixtureLoaders.sol \
             script/aws/SmokeNumberPicker.s.sol \
-            script/aws/SmokePokerFixture.s.sol \
-            script/aws/SmokeBlackjackFixture.s.sol \
-            script/aws/SubmitPokerInitialDeal.s.sol \
-            script/aws/SubmitPokerDraw.s.sol \
-            script/aws/SubmitPokerShowdown.s.sol \
-            script/aws/SubmitBlackjackInitialDeal.s.sol \
-            script/aws/SubmitBlackjackAction.s.sol \
-            script/aws/SubmitBlackjackShowdown.s.sol
+            script/aws/SmokeSlot.s.sol
 
       - name: Focused Forge tests
         run: |
           forge clean
-          forge test --match-path 'test/aws/*.t.sol' --offline
+          forge test --match-path 'test/{ProtocolCore,NumberPickerAdapter,SlotMachineController}.t.sol' --offline -vv
+          forge test --match-path 'test/invariants/*.t.sol' --offline -vv
 
       - name: Terraform fmt
         run: terraform -chdir=infra/aws/testnet fmt -check -diff

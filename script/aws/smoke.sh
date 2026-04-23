@@ -10,11 +10,11 @@ PORT="${SCURO_OPERATOR_PORT:-8787}"
 TARGET="${1:-number-picker}"
 
 case "${TARGET}" in
-  number-picker|poker|blackjack)
+  number-picker|slot)
     curl -sSf -X POST "http://${HOST}:${PORT}/smoke/${TARGET}"
     ;;
   *)
-    echo "usage: $0 [number-picker|poker|blackjack]" >&2
+    echo "usage: $0 [number-picker|slot]" >&2
     exit 1
     ;;
 esac

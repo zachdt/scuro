@@ -60,11 +60,9 @@ contract SlotMachineInvariantTest is StdInvariant, Test {
 
         moduleId = catalog.registerModule(
             GameCatalog.Module({
-                mode: GameCatalog.GameMode.Solo,
                 controller: address(controller),
                 engine: address(engine),
                 engineType: engine.engineType(),
-                verifier: address(0),
                 configHash: keccak256("slot-invariant"),
                 developerRewardBps: DEVELOPER_BPS,
                 status: GameCatalog.ModuleStatus.LIVE

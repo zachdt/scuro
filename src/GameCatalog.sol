@@ -4,16 +4,9 @@ pragma solidity ^0.8.24;
 import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
 
 /// @title Scuro game catalog
-/// @notice Tracks the controller, engine, verifier, and lifecycle metadata for every registered module.
+/// @notice Tracks the controller, engine, and lifecycle metadata for every registered module.
 contract GameCatalog is AccessControl {
     bytes32 public constant REGISTRAR_ROLE = keccak256("REGISTRAR_ROLE");
-
-    /// @notice Supported gameplay modes used for module registration.
-    enum GameMode {
-        Solo,
-        PvP,
-        Tournament
-    }
 
     /// @notice Lifecycle gates that control whether modules can launch or settle.
     enum ModuleStatus {
@@ -24,11 +17,9 @@ contract GameCatalog is AccessControl {
 
     /// @notice The canonical metadata stored for each module id.
     struct Module {
-        GameMode mode;
         address controller;
         address engine;
         bytes32 engineType;
-        address verifier;
         bytes32 configHash;
         uint16 developerRewardBps;
         ModuleStatus status;
@@ -43,11 +34,9 @@ contract GameCatalog is AccessControl {
     /// @notice Emitted when a new module is registered.
     event ModuleRegistered(
         uint256 indexed moduleId,
-        GameMode indexed mode,
         address indexed controller,
         address engine,
         bytes32 engineType,
-        address verifier,
         bytes32 configHash,
         uint16 developerRewardBps,
         ModuleStatus status
@@ -77,11 +66,9 @@ contract GameCatalog is AccessControl {
 
         emit ModuleRegistered(
             moduleId,
-            moduleData.mode,
             moduleData.controller,
             moduleData.engine,
             moduleData.engineType,
-            moduleData.verifier,
             moduleData.configHash,
             moduleData.developerRewardBps,
             moduleData.status

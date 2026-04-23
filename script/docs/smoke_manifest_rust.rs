@@ -7,10 +7,9 @@ fn main() {
     for needle in [
         "\"contracts\"",
         "\"enum_labels\"",
-        "\"proof_inputs\"",
         "\"ProtocolSettlement\"",
-        "\"SingleDraw2To7Engine\"",
-        "\"BlackjackEngine\"",
+        "\"SlotMachineController\"",
+        "\"SlotMachineEngine\"",
     ] {
         assert!(raw.contains(needle), "manifest missing {}", needle);
     }

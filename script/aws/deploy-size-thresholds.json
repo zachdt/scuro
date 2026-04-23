@@ -7,60 +7,20 @@
     "constructor_bytes_max": 41061,
     "runtime_bytes_max": 41034
   },
-  "BlackjackModuleDeployer": {
-    "constructor_bytes_max": 30761,
-    "runtime_bytes_max": 30734
+  "NumberPickerEngine": {
+    "constructor_bytes_max": 9000,
+    "runtime_bytes_max": 8500
   },
-  "PokerModuleDeployer": {
-    "constructor_bytes_max": 36017,
-    "runtime_bytes_max": 35990
+  "SlotMachineEngine": {
+    "constructor_bytes_max": 46000,
+    "runtime_bytes_max": 45500
   },
-  "CheminDeFerModuleDeployer": {
-    "constructor_bytes_max": 13466,
-    "runtime_bytes_max": 13439
+  "NumberPickerAdapter": {
+    "constructor_bytes_max": 10000,
+    "runtime_bytes_max": 9500
   },
-  "PokerVerifierBundle": {
-    "constructor_bytes_max": 3675,
-    "runtime_bytes_max": 3083
-  },
-  "BlackjackVerifierBundle": {
-    "constructor_bytes_max": 3944,
-    "runtime_bytes_max": 3352
-  },
-  "PokerInitialDealVerifier": {
-    "constructor_bytes_max": 2591,
-    "runtime_bytes_max": 2564
-  },
-  "PokerDrawResolveVerifier": {
-    "constructor_bytes_max": 2775,
-    "runtime_bytes_max": 2748
-  },
-  "PokerShowdownVerifier": {
-    "constructor_bytes_max": 2096,
-    "runtime_bytes_max": 2069
-  },
-  "BlackjackInitialDealVerifier": {
-    "constructor_bytes_max": 5204,
-    "runtime_bytes_max": 5177
-  },
-  "BlackjackActionResolveVerifier": {
-    "constructor_bytes_max": 5204,
-    "runtime_bytes_max": 5177
-  },
-  "BlackjackShowdownVerifier": {
-    "constructor_bytes_max": 2937,
-    "runtime_bytes_max": 2910
-  },
-  "BlackjackPeekVerifier": {
-    "constructor_bytes_max": 3500,
-    "runtime_bytes_max": 3200
-  },
-  "SingleDraw2To7Engine": {
-    "constructor_bytes_max": 12264,
-    "runtime_bytes_max": 11915
-  },
-  "BlackjackEngine": {
-    "constructor_bytes_max": 12000,
-    "runtime_bytes_max": 11000
+  "SlotMachineController": {
+    "constructor_bytes_max": 11000,
+    "runtime_bytes_max": 10500
   }
 }

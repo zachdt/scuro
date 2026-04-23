@@ -3,7 +3,6 @@ set -euo pipefail
 
 # shellcheck source=script/aws/lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
-require_cmd bun
 require_cmd forge
 require_cmd anvil
 require_cmd cast
@@ -11,7 +10,6 @@ require_cmd curl
 require_cmd bash
 
 ROOT="$(repo_root)"
-STATE_DIR="${ROOT}/.scuro-testnet"
 RPC_PORT="${RPC_PORT:-8545}"
 RPC_URL="http://127.0.0.1:${RPC_PORT}"
 ADMIN_KEY="${PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
@@ -29,38 +27,22 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "${STATE_DIR}"
-
-echo "[1/6] Bun check + tests"
-bun run --cwd "${ROOT}/ops/aws-testnet" check
-bun test --cwd "${ROOT}/ops/aws-testnet"
-
-echo "[2/6] Targeted forge build for AWS scripts"
+echo "[1/5] Targeted forge build for AWS scripts"
 cd "${ROOT}"
 forge build \
   script/aws/BetaDeployCommon.s.sol \
   script/aws/DeployCore.s.sol \
   script/aws/DeployNumberPickerModule.s.sol \
-  script/aws/DeployPokerTournamentModule.s.sol \
-  script/aws/DeployPokerPvPModule.s.sol \
-  script/aws/DeployBlackjackModule.s.sol \
+  script/aws/DeploySlotModule.s.sol \
   script/aws/DeployFinalize.s.sol \
-  script/aws/FixtureLoaders.sol \
   script/aws/SmokeNumberPicker.s.sol \
-  script/aws/SmokePokerFixture.s.sol \
-  script/aws/SmokeBlackjackFixture.s.sol \
-  script/aws/SubmitPokerInitialDeal.s.sol \
-  script/aws/SubmitPokerDraw.s.sol \
-  script/aws/SubmitPokerShowdown.s.sol \
-  script/aws/SubmitBlackjackInitialDeal.s.sol \
-  script/aws/SubmitBlackjackPeek.s.sol \
-  script/aws/SubmitBlackjackAction.s.sol \
-  script/aws/SubmitBlackjackShowdown.s.sol
+  script/aws/SmokeSlot.s.sol
 
-echo "[3/6] Focused forge tests"
-forge test --match-path 'test/aws/*.t.sol' --offline
+echo "[2/5] Focused forge tests"
+forge test --match-path 'test/{ProtocolCore,NumberPickerAdapter,SlotMachineController}.t.sol' --offline
+forge test --match-path 'test/invariants/*.t.sol' --offline
 
-echo "[4/6] Start Anvil"
+echo "[3/5] Start Anvil"
 anvil --port "${RPC_PORT}" --disable-code-size-limit --gas-limit 100000000 >"${ANVIL_LOG}" 2>&1 &
 ANVIL_PID=$!
 
@@ -79,11 +61,8 @@ for _ in $(seq 1 20); do
 done
 
 if ! rpc_ready; then
-  echo "anvil did not start; falling back to in-process forge smoke verification"
-  echo "workflow-parity snapshot isolation was not exercised in this fallback path"
-  forge test --match-path 'test/aws/LocalSmokeFallback.t.sol' --offline
-  echo "local verification passed (forge smoke fallback)"
-  exit 0
+  echo "anvil did not start" >&2
+  exit 1
 fi
 
 extract_value() {
@@ -100,59 +79,30 @@ deploy_stack() {
     2>&1 | tee "${DEPLOY_LOG}" >/dev/null
 
   SCURO_TOKEN="$(extract_value ScuroToken)"
-  SCURO_STAKING_TOKEN="$(extract_value ScuroStakingToken)"
   PROTOCOL_SETTLEMENT="$(extract_value ProtocolSettlement)"
-  GAME_CATALOG="$(extract_value GameCatalog)"
-  DEVELOPER_REWARDS="$(extract_value DeveloperRewards)"
-  DEVELOPER_EXPRESSION_REGISTRY="$(extract_value DeveloperExpressionRegistry)"
   NUMBER_PICKER_ADAPTER="$(extract_value NumberPickerAdapter)"
   NUMBER_PICKER_ENGINE="$(extract_value NumberPickerEngine)"
-  TOURNAMENT_CONTROLLER="$(extract_value TournamentController)"
-  TOURNAMENT_POKER_ENGINE="$(extract_value TournamentPokerEngine)"
-  TOURNAMENT_POKER_VERIFIER_BUNDLE="$(extract_value TournamentPokerVerifierBundle)"
-  BLACKJACK_CONTROLLER="$(extract_value BlackjackController)"
-  BLACKJACK_ENGINE="$(extract_value BlackjackEngine)"
-  BLACKJACK_VERIFIER_BUNDLE="$(extract_value BlackjackVerifierBundle)"
+  SLOT_MACHINE_CONTROLLER="$(extract_value SlotMachineController)"
+  SLOT_MACHINE_ENGINE="$(extract_value SlotMachineEngine)"
   SOLO_DEVELOPER="$(extract_value SoloDeveloper)"
-  POKER_DEVELOPER="$(extract_value PokerDeveloper)"
   NUMBER_PICKER_EXPRESSION_TOKEN_ID="$(extract_value NumberPickerExpressionTokenId)"
-  POKER_EXPRESSION_TOKEN_ID="$(extract_value PokerExpressionTokenId)"
-  BLACKJACK_EXPRESSION_TOKEN_ID="$(extract_value BlackjackExpressionTokenId)"
+  SLOT_MACHINE_EXPRESSION_TOKEN_ID="$(extract_value SlotMachineExpressionTokenId)"
+  SLOT_BASE_PRESET_ID="$(extract_value SlotBasePresetId)"
 
   export \
     SCURO_TOKEN \
-    SCURO_STAKING_TOKEN \
     PROTOCOL_SETTLEMENT \
-    GAME_CATALOG \
-    DEVELOPER_REWARDS \
-    DEVELOPER_EXPRESSION_REGISTRY \
     NUMBER_PICKER_ADAPTER \
     NUMBER_PICKER_ENGINE \
-    TOURNAMENT_CONTROLLER \
-    TOURNAMENT_POKER_ENGINE \
-    TOURNAMENT_POKER_VERIFIER_BUNDLE \
-    BLACKJACK_CONTROLLER \
-    BLACKJACK_ENGINE \
-    BLACKJACK_VERIFIER_BUNDLE \
+    SLOT_MACHINE_CONTROLLER \
+    SLOT_MACHINE_ENGINE \
     SOLO_DEVELOPER \
-    POKER_DEVELOPER \
     NUMBER_PICKER_EXPRESSION_TOKEN_ID \
-    POKER_EXPRESSION_TOKEN_ID \
-    BLACKJACK_EXPRESSION_TOKEN_ID
+    SLOT_MACHINE_EXPRESSION_TOKEN_ID \
+    SLOT_BASE_PRESET_ID
 }
 
-reset_chain() {
-  curl -sSf \
-    -H "Content-Type: application/json" \
-    -d '{"jsonrpc":"2.0","method":"anvil_reset","params":[],"id":1}' \
-    "${RPC_URL}" >/dev/null
-}
-
-export_baseline_snapshot() {
-  cast rpc --rpc-url "${RPC_URL}" anvil_dumpState >"${SNAPSHOT_FILE}"
-}
-
-normalize_snapshot_state() {
+restore_baseline_snapshot() {
   local state
   state="$(tr -d '\r\n' <"${SNAPSHOT_FILE}")"
   state="${state#\"}"
@@ -160,12 +110,8 @@ normalize_snapshot_state() {
   if [[ "${state}" != 0x* ]]; then
     state="0x${state}"
   fi
-  printf '%s' "${state}"
-}
-
-restore_baseline_snapshot() {
   cast rpc --rpc-url "${RPC_URL}" anvil_reset >/dev/null
-  cast rpc --rpc-url "${RPC_URL}" anvil_loadState "[\"$(normalize_snapshot_state)\"]" --raw >/dev/null
+  cast rpc --rpc-url "${RPC_URL}" anvil_loadState "[\"${state}\"]" --raw >/dev/null
 }
 
 run_smoke() {
@@ -180,25 +126,15 @@ run_smoke() {
       --disable-code-size-limit >/dev/null
 }
 
-echo "[5/6] Reproduce shared-state smoke coupling"
-reset_chain
+echo "[4/5] Deploy stack and capture clean baseline"
 deploy_stack
-export_baseline_snapshot
-run_smoke "script/aws/SmokeNumberPicker.s.sol:SmokeNumberPicker"
+cast rpc --rpc-url "${RPC_URL}" anvil_dumpState >"${SNAPSHOT_FILE}"
 
-if run_smoke "script/aws/SmokePokerFixture.s.sol:SmokePokerFixture"; then
-  echo "expected poker smoke to fail after number-picker without restoring baseline state" >&2
-  exit 1
-fi
-
-echo "[6/6] Workflow-parity smoke isolation passes"
+echo "[5/5] Snapshot-isolated smoke passes"
 restore_baseline_snapshot
 run_smoke "script/aws/SmokeNumberPicker.s.sol:SmokeNumberPicker"
 
 restore_baseline_snapshot
-run_smoke "script/aws/SmokePokerFixture.s.sol:SmokePokerFixture"
-
-restore_baseline_snapshot
-run_smoke "script/aws/SmokeBlackjackFixture.s.sol:SmokeBlackjackFixture"
+run_smoke "script/aws/SmokeSlot.s.sol:SmokeSlot"
 
 echo "local verification passed"

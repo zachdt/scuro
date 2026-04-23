@@ -76,10 +76,10 @@ df -h || true
 echo "==== memory ===="
 free -m || true
 echo "==== service status ===="
-systemctl --no-pager --full status scuro-anvil.service scuro-operator-api.service scuro-prover-worker.service || true
+systemctl --no-pager --full status scuro-anvil.service scuro-operator-api.service || true
 systemctl --no-pager --full status nginx.service || true
 echo "==== journalctl services ===="
-journalctl -u scuro-anvil.service -u scuro-operator-api.service -u scuro-prover-worker.service --no-pager -n 120 || true
+journalctl -u scuro-anvil.service -u scuro-operator-api.service --no-pager -n 120 || true
 echo "==== kernel log tail ===="
 journalctl -k --no-pager -n 80 || true
 echo "==== bootstrap env ===="
@@ -106,12 +106,6 @@ EOF
 capture_ssm_output "host-anvil-log.txt" "Collect Scuro anvil log tail" "$(cat <<'EOF'
 set -euo pipefail
 tail -n 200 /var/log/scuro-testnet/anvil.log || true
-EOF
-)"
-
-capture_ssm_output "host-worker-log.txt" "Collect Scuro worker log tail" "$(cat <<'EOF'
-set -euo pipefail
-tail -n 200 /var/log/scuro-testnet/prover-worker.log || true
 EOF
 )"
 
@@ -178,7 +172,6 @@ SUMMARY_PATH="${OUTPUT_DIR}/host-diagnostics.txt"
     host-deploy-log.txt \
     host-operator-log.txt \
     host-anvil-log.txt \
-    host-worker-log.txt \
     host-anvil-version.txt \
     host-nginx-status.txt \
     host-nginx-config.txt \

@@ -16,8 +16,7 @@ locals {
       "ssmmessages",
       "ec2messages"
     ],
-    var.enable_cloudwatch_logs ? ["logs"] : [],
-    var.enable_sqs_queue ? ["sqs"] : []
+    var.enable_cloudwatch_logs ? ["logs"] : []
   ))
 
   runtime_env_parameter_arn     = var.runtime_env_parameter_name != "" ? "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${trimprefix(var.runtime_env_parameter_name, "/")}" : null
@@ -189,34 +188,6 @@ resource "random_password" "public_rpc_secret" {
   special = false
 }
 
-resource "aws_sqs_queue" "proof_dlq" {
-  count = var.enable_sqs_queue ? 1 : 0
-
-  name = "${var.name}-proof-dlq"
-
-  tags = merge(local.common_tags, {
-    Name = "${var.name}-proof-dlq"
-  })
-}
-
-resource "aws_sqs_queue" "proof" {
-  count = var.enable_sqs_queue ? 1 : 0
-
-  name                       = "${var.name}-proof"
-  visibility_timeout_seconds = 300
-  message_retention_seconds  = 1209600
-  receive_wait_time_seconds  = 20
-
-  redrive_policy = jsonencode({
-    deadLetterTargetArn = aws_sqs_queue.proof_dlq[0].arn
-    maxReceiveCount     = 5
-  })
-
-  tags = merge(local.common_tags, {
-    Name = "${var.name}-proof"
-  })
-}
-
 resource "aws_cloudwatch_log_group" "services" {
   count = var.enable_cloudwatch_logs ? 1 : 0
 
@@ -268,22 +239,6 @@ resource "aws_iam_role_policy" "runtime" {
         ]
       }
       ],
-      var.enable_sqs_queue ? [
-        {
-          Effect = "Allow"
-          Action = [
-            "sqs:DeleteMessage",
-            "sqs:GetQueueAttributes",
-            "sqs:GetQueueUrl",
-            "sqs:ReceiveMessage",
-            "sqs:SendMessage"
-          ]
-          Resource = [
-            aws_sqs_queue.proof[0].arn,
-            aws_sqs_queue.proof_dlq[0].arn
-          ]
-        }
-      ] : [],
       var.enable_cloudwatch_logs ? [
         {
           Effect = "Allow"
@@ -342,8 +297,6 @@ resource "aws_instance" "host" {
     region                     = var.region
     root_volume_size           = var.root_volume_size
     bucket                     = aws_s3_bucket.artifacts.bucket
-    queue_url                  = var.enable_sqs_queue ? aws_sqs_queue.proof[0].id : ""
-    queue_name                 = var.enable_sqs_queue ? aws_sqs_queue.proof[0].name : ""
     runtime_env_parameter_name = var.runtime_env_parameter_name
     cloudwatch_log_group_name  = var.enable_cloudwatch_logs ? local.cloudwatch_log_group_name : ""
     enable_public_rpc          = var.enable_public_rpc ? "1" : "0"

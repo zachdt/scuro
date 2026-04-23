@@ -12,7 +12,7 @@ contract DeployNumberPickerModule is BetaDeployCommon {
         logStage("DeployNumberPickerModule");
         GameDeploymentFactory factory = GameDeploymentFactory(envAddress("GameDeploymentFactory"));
         logStageAction("NumberPicker:DeployModule");
-        (uint256 moduleId, address controller, address engine,) = factory.deploySoloModule(
+        (uint256 moduleId, address controller, address engine) = factory.deploySoloModule(
             uint8(GameDeploymentFactory.SoloFamily.NumberPicker),
             abi.encode(
                 GameDeploymentFactory.NumberPickerDeployment({

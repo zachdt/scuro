@@ -115,12 +115,6 @@ configure_cloudwatch_agent() {
             "log_group_name": "${SCURO_CLOUDWATCH_LOG_GROUP}",
             "log_stream_name": "{instance_id}/operator-api",
             "timezone": "UTC"
-          },
-          {
-            "file_path": "${LOG_DIR}/prover-worker.log",
-            "log_group_name": "${SCURO_CLOUDWATCH_LOG_GROUP}",
-            "log_stream_name": "{instance_id}/prover-worker",
-            "timezone": "UTC"
           }
         ]
       }
@@ -206,13 +200,11 @@ ensure_swap
 
 cp "${INSTALL_ROOT}/current/ops/aws-testnet/runtime/systemd/scuro-anvil.service" /etc/systemd/system/scuro-anvil.service
 cp "${INSTALL_ROOT}/current/ops/aws-testnet/runtime/systemd/scuro-operator-api.service" /etc/systemd/system/scuro-operator-api.service
-cp "${INSTALL_ROOT}/current/ops/aws-testnet/runtime/systemd/scuro-prover-worker.service" /etc/systemd/system/scuro-prover-worker.service
 
 systemctl daemon-reload
-systemctl enable scuro-anvil.service scuro-operator-api.service scuro-prover-worker.service
+systemctl enable scuro-anvil.service scuro-operator-api.service
 systemctl restart scuro-anvil.service
 systemctl restart scuro-operator-api.service
-systemctl restart scuro-prover-worker.service
 configure_public_rpc_proxy
 configure_cloudwatch_agent
 

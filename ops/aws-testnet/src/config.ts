@@ -23,9 +23,7 @@ export interface AppConfig {
   repoRoot: string;
   serviceRoot: string;
   stateDir: string;
-  jobsDir: string;
   deployJobsDir: string;
-  queueDir: string;
   snapshotsDir: string;
   manifestPath: string;
   deployLogPath: string;
@@ -38,9 +36,6 @@ export interface AppConfig {
   ssmTargetInstanceId?: string;
   snapshotBucket?: string;
   snapshotPrefix: string;
-  sqsQueueUrl?: string;
-  proofQueueName?: string;
-  queueMode: "file" | "sqs";
   adminPrivateKey: string;
   player1PrivateKey: string;
   player2PrivateKey: string;
@@ -51,15 +46,12 @@ export function loadConfig(): AppConfig {
   const serviceRoot = process.env.SCURO_SERVICE_ROOT ?? path.resolve(import.meta.dir, "..");
   const stateDir = process.env.SCURO_STATE_DIR ?? path.join(repoRoot, ".scuro-testnet");
   const operatorPort = parseNumber(process.env.SCURO_OPERATOR_PORT, 8787);
-  const sqsQueueUrl = process.env.SCURO_SQS_QUEUE_URL;
 
   return {
     repoRoot,
     serviceRoot,
     stateDir,
-    jobsDir: path.join(stateDir, "jobs"),
     deployJobsDir: path.join(stateDir, "deploy-jobs"),
-    queueDir: path.join(stateDir, "queue"),
     snapshotsDir: path.join(stateDir, "snapshots"),
     manifestPath: path.join(stateDir, "manifest.json"),
     deployLogPath: path.join(stateDir, "deploy.log"),
@@ -72,9 +64,6 @@ export function loadConfig(): AppConfig {
     ssmTargetInstanceId: process.env.SCURO_SSM_TARGET_INSTANCE_ID,
     snapshotBucket: process.env.SCURO_SNAPSHOT_BUCKET,
     snapshotPrefix: process.env.SCURO_SNAPSHOT_PREFIX ?? "snapshots",
-    sqsQueueUrl,
-    proofQueueName: process.env.SCURO_PROOF_QUEUE_NAME,
-    queueMode: sqsQueueUrl ? "sqs" : "file",
     adminPrivateKey: process.env.PRIVATE_KEY ?? DEFAULT_ADMIN_KEY,
     player1PrivateKey: process.env.PLAYER1_PRIVATE_KEY ?? DEFAULT_PLAYER1_KEY,
     player2PrivateKey: process.env.PLAYER2_PRIVATE_KEY ?? DEFAULT_PLAYER2_KEY
