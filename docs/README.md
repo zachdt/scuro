@@ -15,7 +15,8 @@ This documentation set describes the canonical Scuro protocol surface: shared co
 ## Operations
 
 - [Local Deployment and Testing](./local-deployment-testing.md)
-- [Private AWS Testnet](./private-aws-testnet.md)
+- [Canonical Testnet](./canonical-testnet.md)
+- [GitHub Actions Testnet Setup](./github-actions-testnet-setup.md)
 - [Deploy Gas Baseline](./deploy-gas-baseline.md)
 
 ## Session Specs

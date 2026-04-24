@@ -1,0 +1,28 @@
+# Copy this file to terraform.auto.tfvars and fill in real values.
+# Do not commit terraform.auto.tfvars, Terraform state, private keys, or rendered certificates.
+
+name = "scuro-testnet"
+
+# Provider tokens are read from the environment:
+#   export HCLOUD_TOKEN="<hetzner-cloud-token>"
+#   export CLOUDFLARE_API_TOKEN="<cloudflare-api-token>"
+# Some Cloudflare Origin CA flows may also require:
+#   export CLOUDFLARE_API_USER_SERVICE_KEY="<cloudflare-origin-ca-service-key>"
+
+cloudflare_zone_id = "00000000000000000000000000000000"
+rpc_hostname       = "rpc-testnet.example.com"
+
+ssh_public_key_path = "~/.ssh/scuro_testnet.pub"
+ssh_admin_cidrs = [
+  "203.0.113.10/32"
+]
+
+# Keep broad only while the Cloudflare DNS record is proxied. To lock this down further,
+# replace this list with Cloudflare origin-pull ranges and apply Terraform.
+http_source_cidrs = [
+  "0.0.0.0/0"
+]
+
+# Cheapest canonical x86 default. Keep x86 unless the bundle/toolchain is rebuilt for arm64.
+location    = "fsn1"
+server_type = "cx23"

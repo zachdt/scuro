@@ -1,7 +1,7 @@
 # Deploy Gas Baseline
 
 - Anvil reference gas limit: default
-- This baseline uses the staged beta deploy path, not `DeployLocal`.
+- This baseline uses the staged testnet deploy path, not `DeployLocal`.
 - The canonical staged path deploys core, number-picker, slot, then finalizes expression ownership.
 
 ## Bytecode Size Baseline
@@ -28,4 +28,4 @@
 | SlotMachine:RegisterPreset | 928862 |
 | SlotMachine:RegisterPreset | 928874 |
 
-- Full staged beta deploy total gas: `25244298`
+- Full staged testnet deploy total gas: `25244298`

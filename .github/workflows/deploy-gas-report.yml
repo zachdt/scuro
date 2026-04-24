@@ -30,13 +30,13 @@ jobs:
           version: stable
 
       - name: Generate deploy gas baseline
-        run: bash script/aws/generate_deploy_baseline.sh
+        run: bash script/testnet/generate_deploy_baseline.sh
 
       - name: Enforce deploy gas thresholds
-        run: bash script/aws/check_deploy_gas_regressions.sh
+        run: bash script/testnet/check_deploy_gas_regressions.sh
 
       - name: Enforce deploy size thresholds
-        run: bash script/aws/check_deploy_size_regressions.sh
+        run: bash script/testnet/check_deploy_size_regressions.sh
 
       - name: Upload deploy gas baseline
         uses: actions/upload-artifact@v4
@@ -44,5 +44,5 @@ jobs:
           name: deploy-gas-baseline
           path: |
             docs/deploy-gas-baseline.md
-            script/aws/deploy-gas-thresholds.json
-            script/aws/deploy-size-thresholds.json
+            script/testnet/deploy-gas-thresholds.json
+            script/testnet/deploy-size-thresholds.json

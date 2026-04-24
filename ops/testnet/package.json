@@ -1,0 +1,10 @@
+{
+  "name": "scuro-testnet",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "operator": "bun run src/operator.ts",
+    "check": "bun run src/check.ts",
+    "test": "bun test"
+  }
+}

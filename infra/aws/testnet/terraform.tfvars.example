@@ -1,9 +1,0 @@
-name              = "scuro-testnet"
-region            = "us-east-2"
-availability_zone = "us-east-2a"
-instance_type     = "t3.micro"
-root_volume_size  = 40
-bucket_force_destroy = false
-runtime_env_parameter_name = "/scuro/beta/runtime-env"
-enable_cloudwatch_logs = false
-enable_public_rpc = true

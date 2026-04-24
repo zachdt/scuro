@@ -29,7 +29,7 @@ Product rules and economics live in the [Slot Machine session spec](../session-s
 - Off-chain theme, art, and authored descriptions should be keyed separately from on-chain preset ids and hashes
 - The controller burns the stake before randomness is requested
 - Developer accrual uses the original stake amount as activity
-- Local and AWS beta deployment scripts emit slot controller, engine, module id, and canonical preset ids after direct `GameCatalog` registration
+- Local and canonical testnet deployment scripts emit slot controller, engine, module id, and canonical preset ids after direct `GameCatalog` registration
 
 ## Relevant References
 

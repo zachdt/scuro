@@ -38,21 +38,21 @@ jobs:
           sudo apt-get install -y shellcheck
 
       - name: Bun checks
-        run: bun run --cwd ops/aws-testnet check
+        run: bun run --cwd ops/testnet check
 
       - name: Bun tests
-        run: bun test --cwd ops/aws-testnet
+        run: bun test --cwd ops/testnet
 
       - name: Targeted Forge build
         run: |
           forge build \
-            script/aws/BetaDeployCommon.s.sol \
-            script/aws/DeployCore.s.sol \
-            script/aws/DeployNumberPickerModule.s.sol \
-            script/aws/DeploySlotModule.s.sol \
-            script/aws/DeployFinalize.s.sol \
-            script/aws/SmokeNumberPicker.s.sol \
-            script/aws/SmokeSlot.s.sol
+            script/testnet/TestnetDeployCommon.s.sol \
+            script/testnet/DeployCore.s.sol \
+            script/testnet/DeployNumberPickerModule.s.sol \
+            script/testnet/DeploySlotModule.s.sol \
+            script/testnet/DeployFinalize.s.sol \
+            script/testnet/SmokeNumberPicker.s.sol \
+            script/testnet/SmokeSlot.s.sol
 
       - name: Focused Forge tests
         run: |
@@ -61,15 +61,15 @@ jobs:
           forge test --match-path 'test/invariants/*.t.sol' --offline -vv
 
       - name: Terraform fmt
-        run: terraform -chdir=infra/aws/testnet fmt -check -diff
+        run: terraform -chdir=infra/hetzner-cloudflare/testnet fmt -check -diff
 
       - name: Terraform validate
         run: |
-          terraform -chdir=infra/aws/testnet init -backend=false
-          terraform -chdir=infra/aws/testnet validate
+          terraform -chdir=infra/hetzner-cloudflare/testnet init -backend=false
+          terraform -chdir=infra/hetzner-cloudflare/testnet validate
 
       - name: Shellcheck
-        run: shellcheck -x script/aws/*.sh ops/aws-testnet/runtime/*.sh
+        run: shellcheck -x script/testnet/*.sh ops/testnet/runtime/*.sh
 
       - name: Build Linux bundle
-        run: SCURO_BUNDLE_INCLUDE_HOST_TOOLS=0 bash script/aws/build_bundle.sh /tmp/scuro-beta-bundle.tar.gz
+        run: SCURO_BUNDLE_INCLUDE_HOST_TOOLS=0 bash script/testnet/build_bundle.sh /tmp/scuro-testnet-bundle.tar.gz

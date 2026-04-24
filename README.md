@@ -19,7 +19,7 @@ The current branch intentionally removes the former non-canonical game and off-c
 - **NumberPicker**: A compact VRF-backed solo game for picking a number and settling immediately through the shared core.
 - **SlotMachine**: A governed preset-based slot runtime with canonical `base`, `free`, `pick`, and `hold` presets.
 
-Both modules use the same expression/reward path. Local and AWS beta scripts deploy each engine/controller pair directly, register it in `GameCatalog`, register slot presets, and then hand core roles to governance.
+Both modules use the same expression/reward path. Local and canonical testnet scripts deploy each engine/controller pair directly, register it in `GameCatalog`, register slot presets, and then hand core roles to governance.
 
 ## Developer Quickstart
 
@@ -27,9 +27,9 @@ Both modules use the same expression/reward path. Local and AWS beta scripts dep
 - Test: `forge test --offline`
 - Slot invariants: `forge test --match-path 'test/invariants/*.t.sol' --offline`
 - Local deploy smoke: `./script/e2e_deploy_smoke.sh`
-- AWS local check: `bash script/aws/verify_local.sh`
+- Canonical staged testnet check: `bash script/testnet/verify_local.sh`
 
-For setup details, see [Local Deployment and Testing](./docs/local-deployment-testing.md). For the CI/CD rebuild baseline, see [CI/CD And Testing Overview](./docs/ci-cd-testing.md).
+For setup details, see [Local Deployment and Testing](./docs/local-deployment-testing.md). For the canonical hosted testnet runbook, see [Canonical Testnet](./docs/canonical-testnet.md). For the CI/CD rebuild baseline, see [CI/CD And Testing Overview](./docs/ci-cd-testing.md).
 
 ## Documentation Map
 
@@ -39,7 +39,8 @@ For setup details, see [Local Deployment and Testing](./docs/local-deployment-te
 - [Integration Lane](./docs/integration/README.md)
 - [Generated Metadata](./docs/generated/README.md)
 - [CI/CD And Testing Overview](./docs/ci-cd-testing.md)
-- [Private AWS Testnet](./docs/private-aws-testnet.md)
+- [Canonical Testnet](./docs/canonical-testnet.md)
+- [GitHub Actions Testnet Setup](./docs/github-actions-testnet-setup.md)
 - [E2E Scenario Matrix](./test/e2e/MATRIX.md)
 
 ## License

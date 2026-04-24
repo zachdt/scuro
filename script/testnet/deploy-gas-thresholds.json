@@ -1,0 +1,7 @@
+{
+  "staged_deploy": {
+    "number_picker_module": 1700000,
+    "slot_machine_module": 9500000,
+    "full_testnet_deploy_total": 26000000
+  }
+}

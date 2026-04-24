@@ -17,9 +17,11 @@
 /zk/**/*.wasm
 /.scuro-testnet/
 /.codex-tmp/
-/infra/aws/testnet/.terraform/
-/infra/aws/testnet/*.tfstate
-/infra/aws/testnet/*.tfstate.*
-/infra/aws/testnet/backend*.hcl
-!/infra/aws/testnet/backend.beta.hcl.example
-/infra/aws/testnet/*.auto.tfvars.json
+/infra/hetzner-cloudflare/testnet/.terraform/
+/infra/hetzner-cloudflare/testnet/*.tfstate
+/infra/hetzner-cloudflare/testnet/*.tfstate.*
+/infra/hetzner-cloudflare/testnet/*.auto.tfvars
+/infra/hetzner-cloudflare/testnet/*.auto.tfvars.json
+/infra/hetzner-cloudflare/testnet/*origin*.crt
+/infra/hetzner-cloudflare/testnet/*origin*.key
+/infra/hetzner-cloudflare/testnet/.origin/

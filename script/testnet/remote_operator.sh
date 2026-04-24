@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# shellcheck source=script/testnet/lib/common.sh
+source "$(dirname "$0")/lib/common.sh"
+
+if [[ $# -lt 3 ]]; then
+  echo "usage: $0 <ssh-target> <method> <path> [json-body]" >&2
+  exit 1
+fi
+
+TARGET="$(remote_target "$1")"
+METHOD="$2"
+PATHNAME="$3"
+BODY="${4:-}"
+PORT="${SCURO_OPERATOR_PORT:-8787}"
+BODY_B64=""
+
+if [[ -n "${BODY}" ]]; then
+  BODY_B64="$(printf '%s' "${BODY}" | base64 | tr -d '\n')"
+fi
+
+COMMANDS=$(cat <<EOF
+set -euo pipefail
+URL="http://127.0.0.1:${PORT}${PATHNAME}"
+run_curl() {
+  if [[ -n "${BODY_B64}" ]]; then
+    printf '%s' '${BODY_B64}' | base64 -d >/tmp/scuro-operator-body.json
+    curl -sS -w '\n%{http_code}' -X "${METHOD}" -H 'Content-Type: application/json' --data-binary @/tmp/scuro-operator-body.json "\${URL}"
+  else
+    curl -sS -w '\n%{http_code}' -X "${METHOD}" "\${URL}"
+  fi
+}
+
+set +e
+RESPONSE="\$(run_curl)"
+curl_status=\$?
+set -e
+
+BODY="\$(printf '%s\n' "\${RESPONSE}" | sed '\$d')"
+HTTP_STATUS="\$(printf '%s\n' "\${RESPONSE}" | tail -n1)"
+
+if [[ -n "\${BODY}" ]]; then
+  printf '%s\n' "\${BODY}"
+fi
+
+if [[ "\${curl_status}" -ne 0 || ! "\${HTTP_STATUS}" =~ ^2[0-9][0-9]\$ ]]; then
+  echo "==== operator request failed ====" >&2
+  echo "curl exit status: \${curl_status}" >&2
+  echo "http status: \${HTTP_STATUS}" >&2
+  echo "url: \${URL}" >&2
+  if [[ -n "\${BODY}" ]]; then
+    echo "==== operator response body ====" >&2
+    printf '%s\n' "\${BODY}" >&2
+  fi
+  echo "==== operator health after failure ====" >&2
+  curl -sS http://127.0.0.1:${PORT}/health >&2 || true
+  echo >&2
+  echo "==== operator and anvil service status ====" >&2
+  systemctl --no-pager --full status scuro-operator-api.service scuro-anvil.service >&2 || true
+  echo "==== operator log tail ====" >&2
+  tail -n 160 /var/log/scuro-testnet/operator-api.log >&2 || true
+  echo "==== anvil log tail ====" >&2
+  tail -n 160 /var/log/scuro-testnet/anvil.log >&2 || true
+  echo "==== deploy log tail ====" >&2
+  tail -n 160 /var/lib/scuro-testnet/deploy.log >&2 || true
+  echo "==== kernel log tail ====" >&2
+  journalctl -k --no-pager -n 120 >&2 || true
+  if [[ "\${curl_status}" -ne 0 ]]; then
+    exit "\${curl_status}"
+  fi
+  exit 1
+fi
+EOF
+)
+
+remote_run "${TARGET}" "${COMMANDS}"

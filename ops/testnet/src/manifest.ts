@@ -1,0 +1,112 @@
+import type { AppConfig } from "./config";
+import { readJsonFile, writeJsonFile } from "./fs";
+import type { DeploymentManifest } from "./types";
+
+const LABELS = [
+  "ScuroToken",
+  "ScuroStakingToken",
+  "TimelockController",
+  "ScuroGovernor",
+  "GameCatalog",
+  "GameDeploymentFactory",
+  "DeveloperExpressionRegistry",
+  "DeveloperRewards",
+  "ProtocolSettlement",
+  "VRFCoordinatorMock",
+  "NumberPickerEngine",
+  "NumberPickerAdapter",
+  "SlotMachineEngine",
+  "SlotMachineController",
+  "NumberPickerModuleId",
+  "SlotMachineModuleId",
+  "SlotBasePresetId",
+  "SlotFreePresetId",
+  "SlotPickPresetId",
+  "SlotHoldPresetId",
+  "Admin",
+  "Player1",
+  "Player2",
+  "SoloDeveloper",
+  "NumberPickerExpressionTokenId",
+  "SlotMachineExpressionTokenId"
+];
+
+const ACTOR_LABELS = [
+  "Admin",
+  "Player1",
+  "Player2",
+  "SoloDeveloper"
+];
+
+export function parseDeployOutput(output: string): Record<string, string> {
+  const wanted = new Set(LABELS);
+  const parsed: Record<string, string> = {};
+
+  for (const line of output.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const [label, value] = trimmed.split(/\s+/, 2);
+    if (wanted.has(label) && value) {
+      parsed[label] = value;
+    }
+  }
+
+  return parsed;
+}
+
+export function buildManifest(
+  contracts: Record<string, string>,
+  config: AppConfig,
+  deployment?:
+    | {
+        status: "completed" | "failed";
+        stages: Array<{ name: string; status: "completed" | "failed" }>;
+        failedStage?: string;
+        error?: string;
+      }
+    | undefined
+): DeploymentManifest {
+  const actors: Record<string, string> = {};
+  for (const label of ACTOR_LABELS) {
+    if (contracts[label]) {
+      actors[label] = contracts[label];
+    }
+  }
+
+  return {
+    chain: {
+      rpcUrl: config.rpcUrl,
+      chainId: config.chainId,
+      deployedAt: new Date().toISOString()
+    },
+    hosting: {
+      provider: config.hostingProvider,
+      hetznerServerId: config.hetznerServerId,
+      hetznerServerName: config.hetznerServerName,
+      cloudflareRpcHostname: config.cloudflareRpcHostname,
+      publicRpcUrl: config.publicRpcUrl,
+      operatorPort: config.operatorPort,
+      snapshotPrefix: config.snapshotPrefix
+    },
+    contracts,
+    actors,
+    ...(deployment
+      ? {
+          deploymentStatus: deployment.status,
+          deploymentStages: deployment.stages,
+          ...(deployment.failedStage ? { failedStage: deployment.failedStage } : {}),
+          ...(deployment.error ? { deploymentError: deployment.error } : {})
+        }
+      : {})
+  };
+}
+
+export async function writeManifest(manifestPath: string, manifest: DeploymentManifest): Promise<void> {
+  await writeJsonFile(manifestPath, manifest);
+}
+
+export async function loadManifest(manifestPath: string): Promise<DeploymentManifest | null> {
+  return readJsonFile<DeploymentManifest>(manifestPath);
+}

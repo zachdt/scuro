@@ -1,0 +1,111 @@
+name: Iterate Testnet Runtime
+
+on:
+  workflow_dispatch:
+    inputs:
+      redeploy_protocol:
+        description: Redeploy protocol after runtime bootstrap
+        required: false
+        default: false
+        type: boolean
+      run_smokes:
+        description: Run snapshot-isolated smoke jobs after optional deploy
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-testnet
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  SCURO_TESTNET_RPC_HOSTNAME: ${{ vars.SCURO_TESTNET_RPC_HOSTNAME }}
+  SCURO_TESTNET_SSH_HOST: ${{ vars.SCURO_TESTNET_SSH_HOST }}
+  SCURO_TESTNET_SSH_USER: ${{ vars.SCURO_TESTNET_SSH_USER || 'root' }}
+  FOUNDRY_GIT_REF: ${{ vars.FOUNDRY_GIT_REF || 'stable' }}
+
+jobs:
+  iterate:
+    runs-on: ubuntu-latest
+    environment:
+      name: testnet
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.1
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FOUNDRY_GIT_REF }}
+
+      - name: Prepare workspace and SSH key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SCURO_TESTNET_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/scuro-release
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > ~/.ssh/scuro_testnet
+          chmod 600 ~/.ssh/scuro_testnet
+          echo "SCURO_TESTNET_SSH_KEY_PATH=${HOME}/.ssh/scuro_testnet" >> "${GITHUB_ENV}"
+          echo "SCURO_TESTNET_SSH_TARGET=${SCURO_TESTNET_SSH_USER}@${SCURO_TESTNET_SSH_HOST}" >> "${GITHUB_ENV}"
+
+      - name: Build and upload bundle
+        run: |
+          bash script/testnet/build_bundle.sh "/tmp/scuro-release/${GITHUB_SHA}.tar.gz"
+          bash script/testnet/upload_bundle.sh \
+            "${SCURO_TESTNET_SSH_TARGET}" \
+            "/tmp/scuro-release/${GITHUB_SHA}.tar.gz" \
+            /tmp/scuro-bootstrap/bundle.tar.gz
+
+      - name: Bootstrap host
+        run: bash script/testnet/remote_bootstrap.sh "${SCURO_TESTNET_SSH_TARGET}" /tmp/scuro-bootstrap/bundle.tar.gz
+
+      - name: Wait for runtime
+        run: |
+          bash script/testnet/remote_wait_for_health.sh "${SCURO_TESTNET_SSH_TARGET}"
+          bash script/testnet/remote_wait_for_chain.sh "${SCURO_TESTNET_SSH_TARGET}"
+
+      - name: Redeploy protocol
+        if: ${{ inputs.redeploy_protocol }}
+        run: |
+          set -euo pipefail
+          RESPONSE="$(bash script/testnet/remote_operator.sh "${SCURO_TESTNET_SSH_TARGET}" POST /deploy)"
+          printf '%s\n' "${RESPONSE}" | tee /tmp/scuro-release/deploy-submit.json
+          DEPLOY_JOB_ID="$(printf '%s' "${RESPONSE}" | python3 -c 'import json, sys; print(json.load(sys.stdin)["jobId"])')"
+          echo "DEPLOY_JOB_ID=${DEPLOY_JOB_ID}" >> "${GITHUB_ENV}"
+          bash script/testnet/remote_wait_for_deploy_job.sh "${SCURO_TESTNET_SSH_TARGET}" "${DEPLOY_JOB_ID}" \
+            | tee /tmp/scuro-release/deploy-job.json
+
+      - name: Capture manifest
+        run: bash script/testnet/remote_operator.sh "${SCURO_TESTNET_SSH_TARGET}" GET /manifest | tee /tmp/scuro-release/manifest.json
+
+      - name: Run remote smoke jobs
+        if: ${{ inputs.run_smokes }}
+        run: |
+          set -euo pipefail
+          SMOKE_BASELINE_NAME="testnet-iterate-smoke-${GITHUB_SHA:0:12}"
+          bash script/testnet/remote_snapshot_export.sh "${SCURO_TESTNET_SSH_TARGET}" "${SMOKE_BASELINE_NAME}" \
+            | tee /tmp/scuro-release/smoke-baseline.json
+          bash script/testnet/remote_snapshot_restore.sh "${SCURO_TESTNET_SSH_TARGET}" "${SMOKE_BASELINE_NAME}" >/dev/null
+          bash script/testnet/remote_smoke.sh "${SCURO_TESTNET_SSH_TARGET}" number-picker \
+            | tee /tmp/scuro-release/smoke-number-picker.json
+          bash script/testnet/remote_snapshot_restore.sh "${SCURO_TESTNET_SSH_TARGET}" "${SMOKE_BASELINE_NAME}" >/dev/null
+          bash script/testnet/remote_smoke.sh "${SCURO_TESTNET_SSH_TARGET}" slot \
+            | tee /tmp/scuro-release/smoke-slot.json
+
+      - name: Upload runtime records
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testnet-runtime-records
+          path: /tmp/scuro-release

@@ -44,17 +44,17 @@ The local deploy wires:
 
 ```bash
 ./script/e2e_deploy_smoke.sh
-bash script/aws/verify_local.sh
+bash script/testnet/verify_local.sh
 ```
 
-AWS-style smoke targets:
+Canonical staged smoke targets:
 
 ```bash
-bash script/aws/smoke.sh number-picker
-bash script/aws/smoke.sh slot
+bash script/testnet/smoke.sh number-picker
+bash script/testnet/smoke.sh slot
 ```
 
-`script/aws/verify_local.sh` is the closest local match for beta deploy confidence. It builds staged deploy scripts, runs focused Forge tests, starts Anvil, deploys through `script/aws/deploy_staged.sh`, snapshots the clean deployed state, and runs number-picker and slot smokes from isolated snapshots.
+`script/testnet/verify_local.sh` is the closest local match for hosted testnet deploy confidence. It builds staged deploy scripts, runs focused Forge tests, starts Anvil, deploys through `script/testnet/deploy_staged.sh`, snapshots the clean deployed state, and runs number-picker and slot smokes from isolated snapshots.
 
 ## Generated Metadata
 

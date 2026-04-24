@@ -60,5 +60,5 @@ Canonical deployment scripts deploy each module's engine/controller pair directl
 - Economics and governance: `src/ScuroToken.sol`, `src/ScuroStakingToken.sol`, `src/ScuroGovernor.sol`, `src/DeveloperExpressionRegistry.sol`, `src/DeveloperRewards.sol`
 - Controllers: `src/controllers/NumberPickerAdapter.sol`, `src/controllers/SlotMachineController.sol`
 - Engines: `src/engines/NumberPickerEngine.sol`, `src/engines/SlotMachineEngine.sol`
-- Deployment: `script/DeployLocal.s.sol`, `script/aws/Deploy*.s.sol`
+- Deployment: `script/DeployLocal.s.sol`, `script/testnet/Deploy*.s.sol`
 - Tests: `test/`, `test/e2e/`, `test/invariants/`

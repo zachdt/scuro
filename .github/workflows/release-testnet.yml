@@ -1,0 +1,156 @@
+name: Release Testnet
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_smokes:
+        description: Run snapshot-isolated smoke jobs
+        required: false
+        default: true
+        type: boolean
+      verify_public_rpc:
+        description: Verify the Cloudflare public RPC endpoint
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-testnet
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  SCURO_TESTNET_RPC_HOSTNAME: ${{ vars.SCURO_TESTNET_RPC_HOSTNAME }}
+  SCURO_TESTNET_SSH_HOST: ${{ vars.SCURO_TESTNET_SSH_HOST }}
+  SCURO_TESTNET_SSH_USER: ${{ vars.SCURO_TESTNET_SSH_USER || 'root' }}
+  SCURO_TESTNET_SERVER_NAME: ${{ vars.SCURO_TESTNET_SERVER_NAME }}
+  FOUNDRY_GIT_REF: ${{ vars.FOUNDRY_GIT_REF || 'stable' }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment:
+      name: testnet
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.1
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FOUNDRY_GIT_REF }}
+
+      - name: Prepare release workspace
+        run: mkdir -p /tmp/scuro-release
+
+      - name: Install SSH key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SCURO_TESTNET_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "${SSH_PRIVATE_KEY}"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > ~/.ssh/scuro_testnet
+          chmod 600 ~/.ssh/scuro_testnet
+          echo "SCURO_TESTNET_SSH_KEY_PATH=${HOME}/.ssh/scuro_testnet" >> "${GITHUB_ENV}"
+          echo "SCURO_TESTNET_SSH_TARGET=${SCURO_TESTNET_SSH_USER}@${SCURO_TESTNET_SSH_HOST}" >> "${GITHUB_ENV}"
+
+      - name: Build Linux bundle
+        run: bash script/testnet/build_bundle.sh "/tmp/scuro-release/${GITHUB_SHA}.tar.gz"
+
+      - name: Upload bundle
+        run: |
+          bash script/testnet/upload_bundle.sh \
+            "${SCURO_TESTNET_SSH_TARGET}" \
+            "/tmp/scuro-release/${GITHUB_SHA}.tar.gz" \
+            /tmp/scuro-bootstrap/bundle.tar.gz
+
+      - name: Bootstrap host
+        run: bash script/testnet/remote_bootstrap.sh "${SCURO_TESTNET_SSH_TARGET}" /tmp/scuro-bootstrap/bundle.tar.gz
+
+      - name: Write runtime env
+        env:
+          PRIVATE_KEY: ${{ secrets.SCURO_TESTNET_PRIVATE_KEY }}
+          PLAYER1_PRIVATE_KEY: ${{ secrets.SCURO_TESTNET_PLAYER1_PRIVATE_KEY }}
+          PLAYER2_PRIVATE_KEY: ${{ secrets.SCURO_TESTNET_PLAYER2_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          {
+            if [[ -n "${PRIVATE_KEY}" ]]; then echo "PRIVATE_KEY=${PRIVATE_KEY}"; fi
+            if [[ -n "${PLAYER1_PRIVATE_KEY}" ]]; then echo "PLAYER1_PRIVATE_KEY=${PLAYER1_PRIVATE_KEY}"; fi
+            if [[ -n "${PLAYER2_PRIVATE_KEY}" ]]; then echo "PLAYER2_PRIVATE_KEY=${PLAYER2_PRIVATE_KEY}"; fi
+          } > /tmp/scuro-release/runtime.env
+          bash script/testnet/remote_write_runtime_env.sh "${SCURO_TESTNET_SSH_TARGET}" /tmp/scuro-release/runtime.env
+          bash script/testnet/remote_restart.sh "${SCURO_TESTNET_SSH_TARGET}"
+
+      - name: Wait for runtime
+        run: |
+          bash script/testnet/remote_wait_for_health.sh "${SCURO_TESTNET_SSH_TARGET}"
+          bash script/testnet/remote_wait_for_chain.sh "${SCURO_TESTNET_SSH_TARGET}"
+
+      - name: Deploy protocol
+        run: |
+          set -euo pipefail
+          RESPONSE="$(bash script/testnet/remote_operator.sh "${SCURO_TESTNET_SSH_TARGET}" POST /deploy)"
+          printf '%s\n' "${RESPONSE}" | tee /tmp/scuro-release/deploy-submit.json
+          DEPLOY_JOB_ID="$(printf '%s' "${RESPONSE}" | python3 -c 'import json, sys; print(json.load(sys.stdin)["jobId"])')"
+          echo "DEPLOY_JOB_ID=${DEPLOY_JOB_ID}" >> "${GITHUB_ENV}"
+
+      - name: Wait for deploy completion
+        run: |
+          bash script/testnet/remote_wait_for_deploy_job.sh "${SCURO_TESTNET_SSH_TARGET}" "${DEPLOY_JOB_ID}" \
+            | tee /tmp/scuro-release/deploy-job.json
+
+      - name: Capture manifest and actors
+        run: |
+          bash script/testnet/remote_operator.sh "${SCURO_TESTNET_SSH_TARGET}" GET /manifest \
+            | tee /tmp/scuro-release/manifest.json
+          bash script/testnet/remote_operator.sh "${SCURO_TESTNET_SSH_TARGET}" GET /actors \
+            | tee /tmp/scuro-release/actors.json
+
+      - name: Run remote smoke jobs
+        if: ${{ inputs.run_smokes }}
+        run: |
+          set -euo pipefail
+          SMOKE_BASELINE_NAME="testnet-smoke-baseline-${GITHUB_SHA:0:12}"
+          bash script/testnet/remote_snapshot_export.sh "${SCURO_TESTNET_SSH_TARGET}" "${SMOKE_BASELINE_NAME}" \
+            | tee /tmp/scuro-release/smoke-baseline.json
+          bash script/testnet/remote_snapshot_restore.sh "${SCURO_TESTNET_SSH_TARGET}" "${SMOKE_BASELINE_NAME}" \
+            | tee /tmp/scuro-release/smoke-number-picker-restore.json
+          bash script/testnet/remote_smoke.sh "${SCURO_TESTNET_SSH_TARGET}" number-picker \
+            | tee /tmp/scuro-release/smoke-number-picker.json
+          bash script/testnet/remote_snapshot_restore.sh "${SCURO_TESTNET_SSH_TARGET}" "${SMOKE_BASELINE_NAME}" \
+            | tee /tmp/scuro-release/smoke-slot-restore.json
+          bash script/testnet/remote_smoke.sh "${SCURO_TESTNET_SSH_TARGET}" slot \
+            | tee /tmp/scuro-release/smoke-slot.json
+
+      - name: Verify public RPC
+        if: ${{ inputs.verify_public_rpc }}
+        run: |
+          set -euo pipefail
+          curl -fsS \
+            -H 'content-type: application/json' \
+            --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+            "https://${SCURO_TESTNET_RPC_HOSTNAME}" \
+            | tee /tmp/scuro-release/public-rpc-health.json
+          ! curl -fsS --connect-timeout 3 "http://${SCURO_TESTNET_SSH_HOST}:8545"
+          ! curl -fsS --connect-timeout 3 "http://${SCURO_TESTNET_SSH_HOST}:8787"
+
+      - name: Capture diagnostics
+        if: always()
+        run: bash script/testnet/remote_collect_diagnostics.sh "${SCURO_TESTNET_SSH_TARGET}" /tmp/scuro-release || true
+
+      - name: Upload release records
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testnet-release-records
+          path: /tmp/scuro-release

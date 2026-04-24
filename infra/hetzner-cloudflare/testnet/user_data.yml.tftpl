@@ -1,0 +1,17 @@
+#cloud-config
+write_files:
+  - path: /etc/scuro-testnet/bootstrap.env
+    owner: root:root
+    permissions: "0600"
+    content: |
+      SCURO_HOSTING_PROVIDER=hetzner-cloudflare
+      SCURO_HETZNER_SERVER_NAME=${hetzner_server_name}
+      SCURO_CLOUDFLARE_RPC_HOSTNAME=${rpc_hostname}
+      SCURO_PUBLIC_RPC_URL=${public_rpc_url}
+      SCURO_ENABLE_PUBLIC_RPC=1
+      SCURO_ORIGIN_CERT_PATH=/etc/scuro-testnet/tls/origin.pem
+      SCURO_ORIGIN_KEY_PATH=/etc/scuro-testnet/tls/origin.key
+      SCURO_ROOT_VOLUME_SIZE_GIB=${root_volume_size_gib}
+runcmd:
+  - mkdir -p /opt/scuro-testnet /var/lib/scuro-testnet /var/log/scuro-testnet /etc/scuro-testnet/tls
+  - echo "Scuro Hetzner + Cloudflare host initialized; upload a bundle and run remote bootstrap." >> /var/log/scuro-testnet/bootstrap.log
