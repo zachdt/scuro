@@ -10,6 +10,14 @@ forge test --offline
 forge test --match-path 'test/invariants/*.t.sol' --offline
 ```
 
+The broader local verification script is:
+
+```bash
+bash script/verify_local.sh
+```
+
+It runs full Forge tests, slot invariants, the slot gas lane, optional Python EV analysis, and an advisory Slither pass when Slither is installed.
+
 Focused lanes:
 
 - `test/ProtocolCore.t.sol`
@@ -46,6 +54,8 @@ bash script/aws/smoke.sh number-picker
 bash script/aws/smoke.sh slot
 ```
 
+`script/aws/verify_local.sh` is the closest local match for beta deploy confidence. It builds staged deploy scripts, runs focused Forge tests, starts Anvil, deploys through `script/aws/deploy_staged.sh`, snapshots the clean deployed state, and runs number-picker and slot smokes from isolated snapshots.
+
 ## Generated Metadata
 
 ```bash
@@ -53,3 +63,7 @@ bash script/docs/check_sdk_docs.sh
 ```
 
 This regenerates the protocol manifest, event signatures, enum labels, and ABI files from the current Foundry build.
+
+## CI/CD Baseline
+
+See [CI/CD And Testing Overview](./ci-cd-testing.md) for the current workflow inventory, local-to-CI lane mapping, and suggested rebuild tiers.

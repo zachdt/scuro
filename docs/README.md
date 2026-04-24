@@ -5,11 +5,18 @@ This documentation set describes the canonical Scuro protocol surface: shared co
 ## Concepts
 
 - [Protocol Architecture](./protocol-architecture.md)
+- [CI/CD And Testing Overview](./ci-cd-testing.md)
 - [Game Module User Flows](./game-module-user-flows.md)
 - [Canonical Terminology](./concepts/canonical-terminology.md)
 - [Enum and Phase Mappings](./concepts/protocol-enums.md)
 - [Event Indexing Guide](./concepts/event-indexing.md)
 - [Deployment and Config Guide](./concepts/deployment-config.md)
+
+## Operations
+
+- [Local Deployment and Testing](./local-deployment-testing.md)
+- [Private AWS Testnet](./private-aws-testnet.md)
+- [Deploy Gas Baseline](./deploy-gas-baseline.md)
 
 ## Session Specs
 

@@ -29,7 +29,7 @@ Both modules use the same expression/reward path. Local and AWS beta scripts dep
 - Local deploy smoke: `./script/e2e_deploy_smoke.sh`
 - AWS local check: `bash script/aws/verify_local.sh`
 
-For setup details, see [Local Deployment and Testing](./docs/local-deployment-testing.md).
+For setup details, see [Local Deployment and Testing](./docs/local-deployment-testing.md). For the CI/CD rebuild baseline, see [CI/CD And Testing Overview](./docs/ci-cd-testing.md).
 
 ## Documentation Map
 
@@ -38,6 +38,7 @@ For setup details, see [Local Deployment and Testing](./docs/local-deployment-te
 - [Reference Lane](./docs/reference/README.md)
 - [Integration Lane](./docs/integration/README.md)
 - [Generated Metadata](./docs/generated/README.md)
+- [CI/CD And Testing Overview](./docs/ci-cd-testing.md)
 - [Private AWS Testnet](./docs/private-aws-testnet.md)
 - [E2E Scenario Matrix](./test/e2e/MATRIX.md)
 
