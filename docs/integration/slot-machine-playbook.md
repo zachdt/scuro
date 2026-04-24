@@ -29,11 +29,10 @@ Product rules and economics live in the [Slot Machine session spec](../session-s
 - Off-chain theme, art, and authored descriptions should be keyed separately from on-chain preset ids and hashes
 - The controller burns the stake before randomness is requested
 - Developer accrual uses the original stake amount as activity
-- `GameDeploymentFactory` supports slot deployment, but `script/DeployLocal.s.sol` has not yet been updated to emit slot addresses in the default local bootstrap flow
+- Local and AWS beta deployment scripts emit slot controller, engine, module id, and canonical preset ids after direct `GameCatalog` registration
 
 ## Relevant References
 
 - [Slot Machine Session Spec](../session-specs/slot-machine.md)
 - [SlotMachineController](../reference/slot-machine-controller.md)
 - [SlotMachineEngine](../reference/slot-machine-engine.md)
-- [GameDeploymentFactory](../reference/game-deployment-factory.md)

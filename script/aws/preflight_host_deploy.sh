@@ -49,9 +49,7 @@ fi
 "${ANVIL_BIN}" \
   --host 127.0.0.1 \
   --port "${RPC_PORT}" \
-  --chain-id 31337 \
-  --disable-code-size-limit \
-  --gas-limit 100000000 >"${ANVIL_LOG}" 2>&1 &
+  --chain-id 31337 >"${ANVIL_LOG}" 2>&1 &
 ANVIL_PID=$!
 
 rpc_ready() {
@@ -91,7 +89,6 @@ if [[ -n "${OUTPUT_LOG}" ]]; then
     --offline \
     --skip-simulation \
     --non-interactive \
-    --disable-code-size-limit \
     2>&1 | tee "${OUTPUT_LOG}"
 else
   PRIVATE_KEY="${PRIVATE_KEY}" "${FORGE_BIN}" script script/aws/DeployCore.s.sol:DeployCore \
@@ -99,6 +96,5 @@ else
     --broadcast \
     --offline \
     --skip-simulation \
-    --non-interactive \
-    --disable-code-size-limit
+    --non-interactive
 fi

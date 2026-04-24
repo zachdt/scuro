@@ -26,11 +26,6 @@ graph TB
     ProtocolSettlement --> DeveloperExpressionRegistry
     ProtocolSettlement --> DeveloperRewards
 
-    GameDeploymentFactory --> GameCatalog
-    GameDeploymentFactory --> SoloModuleDeployer
-    SoloModuleDeployer --> NumberPickerAdapter
-    SoloModuleDeployer --> SlotMachineController
-
     DeveloperRewards --> ScuroToken
     ScuroStakingToken --> ScuroToken
     ScuroGovernor --> TimelockController
@@ -51,7 +46,7 @@ graph TB
 
 `GameCatalog` stores each module as a controller/engine pair with engine type, config hash, developer reward basis points, and lifecycle status. `RETIRED` blocks new starts while allowing settlement; `DISABLED` halts progress.
 
-`GameDeploymentFactory` only deploys `SoloFamily.NumberPicker` and `SoloFamily.SlotMachine`, returning `(moduleId, controller, engine)`.
+Canonical deployment scripts deploy each module's engine/controller pair directly and register it in `GameCatalog`. Future governance additions can deploy implementations separately, then propose `GameCatalog.registerModule(...)` through the timelock-controlled registrar path.
 
 ### Controllers And Engines
 
@@ -61,7 +56,7 @@ graph TB
 
 ## Code Map
 
-- Core services: `src/ProtocolSettlement.sol`, `src/GameCatalog.sol`, `src/GameDeploymentFactory.sol`
+- Core services: `src/ProtocolSettlement.sol`, `src/GameCatalog.sol`
 - Economics and governance: `src/ScuroToken.sol`, `src/ScuroStakingToken.sol`, `src/ScuroGovernor.sol`, `src/DeveloperExpressionRegistry.sol`, `src/DeveloperRewards.sol`
 - Controllers: `src/controllers/NumberPickerAdapter.sol`, `src/controllers/SlotMachineController.sol`
 - Engines: `src/engines/NumberPickerEngine.sol`, `src/engines/SlotMachineEngine.sol`

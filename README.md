@@ -10,7 +10,6 @@ The current branch intentionally removes the former non-canonical game and off-c
 - **`ScuroStakingToken` (`sSCU`)**: A staked SCU representation used for governance voting power.
 - **`ProtocolSettlement`**: The shared value-movement layer for burns, payouts, and developer accruals.
 - **`GameCatalog`**: The registry of authorized controllers and engines, with `LIVE`, `RETIRED`, and `DISABLED` lifecycle controls.
-- **`GameDeploymentFactory`**: The canonical deployment helper for `NumberPicker` and `SlotMachine` solo modules.
 - **`DeveloperExpressionRegistry`**: ERC721 expression identities used for developer reward attribution.
 - **`DeveloperRewards`**: Epoch-based developer reward accounting.
 - **`ScuroGovernor` and `TimelockController`**: Governance and delayed execution for protocol administration.
@@ -20,7 +19,7 @@ The current branch intentionally removes the former non-canonical game and off-c
 - **NumberPicker**: A compact VRF-backed solo game for picking a number and settling immediately through the shared core.
 - **SlotMachine**: A governed preset-based slot runtime with canonical `base`, `free`, `pick`, and `hold` presets.
 
-Both modules use the same expression/reward path and are deployed by the local and AWS beta scripts.
+Both modules use the same expression/reward path. Local and AWS beta scripts deploy each engine/controller pair directly, register it in `GameCatalog`, register slot presets, and then hand core roles to governance.
 
 ## Developer Quickstart
 

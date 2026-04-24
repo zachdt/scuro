@@ -43,7 +43,7 @@ forge test --match-path 'test/{ProtocolCore,NumberPickerAdapter,SlotMachineContr
 forge test --match-path 'test/invariants/*.t.sol' --offline
 
 echo "[3/5] Start Anvil"
-anvil --port "${RPC_PORT}" --disable-code-size-limit --gas-limit 100000000 >"${ANVIL_LOG}" 2>&1 &
+anvil --port "${RPC_PORT}" >"${ANVIL_LOG}" 2>&1 &
 ANVIL_PID=$!
 
 rpc_ready() {
@@ -122,8 +122,7 @@ run_smoke() {
       --broadcast \
       --offline \
       --skip-simulation \
-      --non-interactive \
-      --disable-code-size-limit >/dev/null
+      --non-interactive >/dev/null
 }
 
 echo "[4/5] Deploy stack and capture clean baseline"

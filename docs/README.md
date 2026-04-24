@@ -20,7 +20,6 @@ This documentation set describes the canonical Scuro protocol surface: shared co
 
 - [ProtocolSettlement](./reference/protocol-settlement.md)
 - [GameCatalog](./reference/game-catalog.md)
-- [GameDeploymentFactory](./reference/game-deployment-factory.md)
 - [NumberPickerAdapter](./reference/number-picker-adapter.md)
 - [NumberPickerEngine](./reference/number-picker-engine.md)
 - [SlotMachineController](./reference/slot-machine-controller.md)

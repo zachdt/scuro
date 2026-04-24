@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {GameDeploymentFactory} from "../../src/GameDeploymentFactory.sol";
-import {SlotMachineEngine} from "../../src/engines/SlotMachineEngine.sol";
-import {SlotMachinePresets} from "../../src/libraries/SlotMachinePresets.sol";
-import {BetaDeployCommon} from "./BetaDeployCommon.s.sol";
+import { GameCatalog } from "../../src/GameCatalog.sol";
+import { SlotMachineController } from "../../src/controllers/SlotMachineController.sol";
+import { SlotMachineEngine } from "../../src/engines/SlotMachineEngine.sol";
+import { SlotMachinePresets } from "../../src/libraries/SlotMachinePresets.sol";
+import { BetaDeployCommon } from "./BetaDeployCommon.s.sol";
 
 contract DeploySlotModule is BetaDeployCommon {
     function run() external {
@@ -12,20 +13,28 @@ contract DeploySlotModule is BetaDeployCommon {
         vm.startBroadcast(deployerPrivateKey);
 
         logStage("DeploySlotModule");
-        GameDeploymentFactory factory = GameDeploymentFactory(envAddress("GameDeploymentFactory"));
-        logStageAction("SlotMachine:DeployModule");
-        (uint256 moduleId, address controller, address engine) = factory.deploySoloModule(
-            uint8(GameDeploymentFactory.SoloFamily.SlotMachine),
-            abi.encode(
-                GameDeploymentFactory.SlotDeployment({
-                    vrfCoordinator: envAddress("VRFCoordinatorMock"),
-                    configHash: keccak256("slot-machine-auto"),
-                    developerRewardBps: 500
-                })
-            )
+        GameCatalog catalog = GameCatalog(envAddress("GameCatalog"));
+        address settlement = envAddress("ProtocolSettlement");
+        address vrfCoordinator = envAddress("VRFCoordinatorMock");
+
+        logStageAction("SlotMachine:Engine");
+        SlotMachineEngine slotEngine =
+            new SlotMachineEngine(vm.addr(deployerPrivateKey), address(catalog), vrfCoordinator);
+        logStageAction("SlotMachine:Controller");
+        SlotMachineController slotController =
+            new SlotMachineController(settlement, address(catalog), address(slotEngine));
+        logStageAction("SlotMachine:RegisterModule");
+        uint256 moduleId = catalog.registerModule(
+            GameCatalog.Module({
+                controller: address(slotController),
+                engine: address(slotEngine),
+                engineType: slotEngine.engineType(),
+                configHash: keccak256("slot-machine-auto"),
+                developerRewardBps: 500,
+                status: GameCatalog.ModuleStatus.LIVE
+            })
         );
 
-        SlotMachineEngine slotEngine = SlotMachineEngine(engine);
         logStageAction("SlotMachine:RegisterBasePreset");
         uint256 basePresetId = slotEngine.registerPreset(SlotMachinePresets.basePreset(1));
         logStageAction("SlotMachine:RegisterFreePreset");
@@ -35,8 +44,8 @@ contract DeploySlotModule is BetaDeployCommon {
         logStageAction("SlotMachine:RegisterHoldPreset");
         uint256 holdPresetId = slotEngine.registerPreset(SlotMachinePresets.holdPreset(4));
 
-        logAddress("SlotMachineEngine", engine);
-        logAddress("SlotMachineController", controller);
+        logAddress("SlotMachineEngine", address(slotEngine));
+        logAddress("SlotMachineController", address(slotController));
         logUint("SlotMachineModuleId", moduleId);
         logUint("SlotBasePresetId", basePresetId);
         logUint("SlotFreePresetId", freePresetId);

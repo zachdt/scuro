@@ -49,7 +49,6 @@ run_stage() {
       --offline \
       --skip-simulation \
       --non-interactive \
-      --disable-code-size-limit \
       -vvvv 2>&1 | tee "${output_file}"
   else
     env \
@@ -70,7 +69,6 @@ run_stage() {
       --offline \
       --skip-simulation \
       --non-interactive \
-      --disable-code-size-limit \
       -vvvv 2>&1 | tee "${output_file}"
   fi
 
@@ -93,23 +91,25 @@ extract_value() {
 }
 
 GameCatalog="$(extract_value GameCatalog)"
+ProtocolSettlement="$(extract_value ProtocolSettlement)"
 VRFCoordinatorMock="$(extract_value VRFCoordinatorMock)"
 ScuroToken="$(extract_value ScuroToken)"
 TimelockController="$(extract_value TimelockController)"
-GameDeploymentFactory="$(extract_value GameDeploymentFactory)"
 DeveloperExpressionRegistry="$(extract_value DeveloperExpressionRegistry)"
 
 run_stage \
   "number-picker" \
   "script/aws/DeployNumberPickerModule.s.sol:DeployNumberPickerModule" \
   "${MODULE_NUMBER_PICKER_OUTPUT}" \
-  "GameDeploymentFactory=${GameDeploymentFactory}" \
+  "GameCatalog=${GameCatalog}" \
+  "ProtocolSettlement=${ProtocolSettlement}" \
   "VRFCoordinatorMock=${VRFCoordinatorMock}"
 run_stage \
   "slot" \
   "script/aws/DeploySlotModule.s.sol:DeploySlotModule" \
   "${MODULE_SLOT_OUTPUT}" \
-  "GameDeploymentFactory=${GameDeploymentFactory}" \
+  "GameCatalog=${GameCatalog}" \
+  "ProtocolSettlement=${ProtocolSettlement}" \
   "VRFCoordinatorMock=${VRFCoordinatorMock}"
 
 extract_module_value() {
@@ -127,7 +127,6 @@ run_stage \
   "ScuroToken=${ScuroToken}" \
   "TimelockController=${TimelockController}" \
   "GameCatalog=${GameCatalog}" \
-  "GameDeploymentFactory=${GameDeploymentFactory}" \
   "DeveloperExpressionRegistry=${DeveloperExpressionRegistry}" \
   "NumberPickerEngine=${NumberPickerEngine}" \
   "SlotMachineEngine=${SlotMachineEngine}"

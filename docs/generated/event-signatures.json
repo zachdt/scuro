@@ -43,28 +43,6 @@
       "anonymous": false
     }
   ],
-  "GameDeploymentFactory": [
-    {
-      "name": "ModuleDeployed",
-      "signature": "ModuleDeployed(uint256,uint8,address,address,bytes32)",
-      "anonymous": false
-    },
-    {
-      "name": "RoleAdminChanged",
-      "signature": "RoleAdminChanged(bytes32,bytes32,bytes32)",
-      "anonymous": false
-    },
-    {
-      "name": "RoleGranted",
-      "signature": "RoleGranted(bytes32,address,address)",
-      "anonymous": false
-    },
-    {
-      "name": "RoleRevoked",
-      "signature": "RoleRevoked(bytes32,address,address)",
-      "anonymous": false
-    }
-  ],
   "DeveloperExpressionRegistry": [
     {
       "name": "Approval",

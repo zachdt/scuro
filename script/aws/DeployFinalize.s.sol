@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {TimelockController} from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
-import {DeveloperExpressionRegistry} from "../../src/DeveloperExpressionRegistry.sol";
-import {GameCatalog} from "../../src/GameCatalog.sol";
-import {GameDeploymentFactory} from "../../src/GameDeploymentFactory.sol";
-import {ScuroToken} from "../../src/ScuroToken.sol";
-import {NumberPickerEngine} from "../../src/engines/NumberPickerEngine.sol";
-import {SlotMachineEngine} from "../../src/engines/SlotMachineEngine.sol";
-import {BetaDeployCommon} from "./BetaDeployCommon.s.sol";
+import { TimelockController } from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
+import { DeveloperExpressionRegistry } from "../../src/DeveloperExpressionRegistry.sol";
+import { GameCatalog } from "../../src/GameCatalog.sol";
+import { ScuroToken } from "../../src/ScuroToken.sol";
+import { NumberPickerEngine } from "../../src/engines/NumberPickerEngine.sol";
+import { SlotMachineEngine } from "../../src/engines/SlotMachineEngine.sol";
+import { BetaDeployCommon } from "./BetaDeployCommon.s.sol";
 
 contract DeployFinalize is BetaDeployCommon {
     function run() external {
@@ -22,8 +21,8 @@ contract DeployFinalize is BetaDeployCommon {
         ScuroToken token = ScuroToken(envAddress("ScuroToken"));
         TimelockController timelock = TimelockController(payable(envAddress("TimelockController")));
         GameCatalog catalog = GameCatalog(envAddress("GameCatalog"));
-        GameDeploymentFactory factory = GameDeploymentFactory(envAddress("GameDeploymentFactory"));
-        DeveloperExpressionRegistry expressionRegistry = DeveloperExpressionRegistry(envAddress("DeveloperExpressionRegistry"));
+        DeveloperExpressionRegistry expressionRegistry =
+            DeveloperExpressionRegistry(envAddress("DeveloperExpressionRegistry"));
         NumberPickerEngine numberPickerEngine = NumberPickerEngine(envAddress("NumberPickerEngine"));
         SlotMachineEngine slotMachineEngine = SlotMachineEngine(envAddress("SlotMachineEngine"));
 
@@ -58,16 +57,7 @@ contract DeployFinalize is BetaDeployCommon {
         catalog.renounceRole(catalog.DEFAULT_ADMIN_ROLE(), admin);
         logStageAction("Finalize:RenounceCatalogRegistrar");
         catalog.renounceRole(catalog.REGISTRAR_ROLE(), admin);
-        logStageAction("Finalize:GrantFactoryAdminToTimelock");
-        factory.grantRole(factory.DEFAULT_ADMIN_ROLE(), address(timelock));
-        logStageAction("Finalize:GrantFactoryDeployerToTimelock");
-        factory.grantRole(factory.DEPLOYER_ROLE(), address(timelock));
-        logStageAction("Finalize:RenounceFactoryAdmin");
-        factory.renounceRole(factory.DEFAULT_ADMIN_ROLE(), admin);
-        logStageAction("Finalize:RenounceFactoryDeployer");
-        factory.renounceRole(factory.DEPLOYER_ROLE(), admin);
 
-        logAddress("GameDeploymentFactory", address(factory));
         logAddress("Admin", admin);
         logAddress("Player1", player1);
         logAddress("Player2", player2);

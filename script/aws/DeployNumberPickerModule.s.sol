@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {GameDeploymentFactory} from "../../src/GameDeploymentFactory.sol";
-import {BetaDeployCommon} from "./BetaDeployCommon.s.sol";
+import { GameCatalog } from "../../src/GameCatalog.sol";
+import { NumberPickerAdapter } from "../../src/controllers/NumberPickerAdapter.sol";
+import { NumberPickerEngine } from "../../src/engines/NumberPickerEngine.sol";
+import { BetaDeployCommon } from "./BetaDeployCommon.s.sol";
 
 contract DeployNumberPickerModule is BetaDeployCommon {
     function run() external {
@@ -10,21 +12,29 @@ contract DeployNumberPickerModule is BetaDeployCommon {
         vm.startBroadcast(deployerPrivateKey);
 
         logStage("DeployNumberPickerModule");
-        GameDeploymentFactory factory = GameDeploymentFactory(envAddress("GameDeploymentFactory"));
-        logStageAction("NumberPicker:DeployModule");
-        (uint256 moduleId, address controller, address engine) = factory.deploySoloModule(
-            uint8(GameDeploymentFactory.SoloFamily.NumberPicker),
-            abi.encode(
-                GameDeploymentFactory.NumberPickerDeployment({
-                    vrfCoordinator: envAddress("VRFCoordinatorMock"),
-                    configHash: keccak256("number-picker-auto"),
-                    developerRewardBps: 500
-                })
-            )
+        GameCatalog catalog = GameCatalog(envAddress("GameCatalog"));
+        address settlement = envAddress("ProtocolSettlement");
+        address vrfCoordinator = envAddress("VRFCoordinatorMock");
+
+        logStageAction("NumberPicker:Engine");
+        NumberPickerEngine numberPickerEngine = new NumberPickerEngine(address(catalog), vrfCoordinator);
+        logStageAction("NumberPicker:Adapter");
+        NumberPickerAdapter numberPickerAdapter =
+            new NumberPickerAdapter(settlement, address(catalog), address(numberPickerEngine));
+        logStageAction("NumberPicker:RegisterModule");
+        uint256 moduleId = catalog.registerModule(
+            GameCatalog.Module({
+                controller: address(numberPickerAdapter),
+                engine: address(numberPickerEngine),
+                engineType: numberPickerEngine.engineType(),
+                configHash: keccak256("number-picker-auto"),
+                developerRewardBps: 500,
+                status: GameCatalog.ModuleStatus.LIVE
+            })
         );
 
-        logAddress("NumberPickerEngine", engine);
-        logAddress("NumberPickerAdapter", controller);
+        logAddress("NumberPickerEngine", address(numberPickerEngine));
+        logAddress("NumberPickerAdapter", address(numberPickerAdapter));
         logUint("NumberPickerModuleId", moduleId);
 
         vm.stopBroadcast();

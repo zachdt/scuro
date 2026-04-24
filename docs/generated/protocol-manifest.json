@@ -47,22 +47,6 @@
       ]
     },
     {
-      "name": "GameDeploymentFactory",
-      "category": "core",
-      "source": "src/GameDeploymentFactory.sol",
-      "artifact": "out/GameDeploymentFactory.sol/GameDeploymentFactory.json",
-      "reference_doc": "docs/reference/game-deployment-factory.md",
-      "abi_path": "docs/generated/contracts/GameDeploymentFactory.abi.json",
-      "functions": [
-        "catalog",
-        "deploySoloModule",
-        "settlement"
-      ],
-      "events": [
-        "ModuleDeployed"
-      ]
-    },
-    {
       "name": "DeveloperExpressionRegistry",
       "category": "economics",
       "source": "src/DeveloperExpressionRegistry.sol",
@@ -310,7 +294,6 @@
       "TimelockController",
       "ScuroGovernor",
       "GameCatalog",
-      "GameDeploymentFactory",
       "DeveloperExpressionRegistry",
       "DeveloperRewards",
       "ProtocolSettlement"

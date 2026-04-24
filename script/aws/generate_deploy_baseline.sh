@@ -32,7 +32,7 @@ forge build \
   script/aws/DeploySlotModule.s.sol \
   script/aws/DeployFinalize.s.sol >/dev/null
 
-anvil --port "${RPC_PORT}" --disable-code-size-limit --gas-limit 100000000 >"${ANVIL_LOG}" 2>&1 &
+anvil --port "${RPC_PORT}" >"${ANVIL_LOG}" 2>&1 &
 ANVIL_PID=$!
 
 rpc_ready() {
@@ -71,8 +71,6 @@ report_path = pathlib.Path(sys.argv[2])
 deploy_status = int(sys.argv[3])
 
 contracts = [
-    ("GameDeploymentFactory", "out/GameDeploymentFactory.sol/GameDeploymentFactory.json"),
-    ("SoloModuleDeployer", "out/SoloModuleDeployer.sol/SoloModuleDeployer.json"),
     ("NumberPickerEngine", "out/NumberPickerEngine.sol/NumberPickerEngine.json"),
     ("SlotMachineEngine", "out/SlotMachineEngine.sol/SlotMachineEngine.json"),
     ("NumberPickerAdapter", "out/NumberPickerAdapter.sol/NumberPickerAdapter.json"),
@@ -83,8 +81,8 @@ size_rows: list[tuple[str, int, int]] = []
 for label, rel_path in contracts:
     artifact = root / rel_path
     data = json.loads(artifact.read_text())
-    bytecode = len(data["bytecode"]["object"]) // 2
-    deployed = len(data["deployedBytecode"]["object"]) // 2
+    bytecode = len(data["bytecode"]["object"].removeprefix("0x")) // 2
+    deployed = len(data["deployedBytecode"]["object"].removeprefix("0x")) // 2
     size_rows.append((label, bytecode, deployed))
 
 gas_rows: list[tuple[str, int]] = []
@@ -93,18 +91,24 @@ total_gas = 0
 stage_receipts = [
     (
         root / "broadcast/DeployCore.s.sol/31337/run-latest.json",
-        {
-            "SoloModuleDeployer": "Core:SoloModuleDeployer",
-            "GameDeploymentFactory": "Core:GameDeploymentFactory",
-        },
+        {},
     ),
     (
         root / "broadcast/DeployNumberPickerModule.s.sol/31337/run-latest.json",
-        {"deploySoloModule(uint8,bytes)": "NumberPicker:DeployModule"},
+        {
+            "NumberPickerEngine": "NumberPicker:Engine",
+            "NumberPickerAdapter": "NumberPicker:Adapter",
+            "registerModule((address,address,bytes32,bytes32,uint16,uint8))": "NumberPicker:RegisterModule",
+        },
     ),
     (
         root / "broadcast/DeploySlotModule.s.sol/31337/run-latest.json",
-        {"deploySoloModule(uint8,bytes)": "SlotMachine:DeployModule"},
+        {
+            "SlotMachineEngine": "SlotMachine:Engine",
+            "SlotMachineController": "SlotMachine:Controller",
+            "registerModule((address,address,bytes32,bytes32,uint16,uint8))": "SlotMachine:RegisterModule",
+            "registerPreset((uint8,bytes32,uint8,uint8,uint8,uint256,uint256,uint256,uint16[],uint16,uint16,uint16,uint16,uint16[],uint16[],uint16[],uint16[],uint8[],uint32[],uint8,uint8[],uint8,uint8,uint32,uint8,uint8,uint32[],uint8,uint8,uint8,uint8,uint32[],uint8[],uint32[],uint16[],uint8))": "SlotMachine:RegisterPreset",
+        },
     ),
     (
         root / "broadcast/DeployFinalize.s.sol/31337/run-latest.json",
@@ -122,7 +126,7 @@ if deploy_status == 0:
         for tx, receipt in zip(run["transactions"], run["receipts"]):
             gas_used = int(receipt["gasUsed"], 16)
             total_gas += gas_used
-            label = labels.get(tx.get("contractName") or tx.get("function"))
+            label = labels.get(tx.get("function") or tx.get("contractName"))
             if label:
                 gas_rows.append((label, gas_used))
 else:
@@ -131,7 +135,7 @@ else:
 report_lines = [
     "# Deploy Gas Baseline",
     "",
-    "- Anvil reference gas limit: `100000000`",
+    "- Anvil reference gas limit: default",
     "- This baseline uses the staged beta deploy path, not `DeployLocal`.",
     "- The canonical staged path deploys core, number-picker, slot, then finalizes expression ownership.",
     "",

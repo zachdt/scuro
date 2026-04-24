@@ -19,7 +19,7 @@ trap cleanup EXIT
 
 cd "${ROOT_DIR}"
 
-anvil --port "${RPC_PORT}" --disable-code-size-limit --gas-limit 100000000 >"${ANVIL_LOG}" 2>&1 &
+anvil --port "${RPC_PORT}" >"${ANVIL_LOG}" 2>&1 &
 ANVIL_PID=$!
 
 rpc_ready() {
@@ -114,7 +114,7 @@ SLOT_MACHINE_CONTROLLER="${SLOT_MACHINE_CONTROLLER}" \
 SLOT_MACHINE_ENGINE="${SLOT_MACHINE_ENGINE}" \
 NUMBER_PICKER_EXPRESSION_TOKEN_ID="${NUMBER_PICKER_EXPRESSION_TOKEN_ID}" \
 SLOT_MACHINE_EXPRESSION_TOKEN_ID="${SLOT_MACHINE_EXPRESSION_TOKEN_ID}" \
-forge script script/aws/SmokeNumberPicker.s.sol:SmokeNumberPicker --rpc-url "${RPC_URL}" --broadcast --offline --skip-simulation --non-interactive --disable-code-size-limit >/dev/null
+forge script script/aws/SmokeNumberPicker.s.sol:SmokeNumberPicker --rpc-url "${RPC_URL}" --broadcast --offline --skip-simulation --non-interactive >/dev/null
 
 PRIVATE_KEY="${ADMIN_KEY}" \
 PLAYER1_PRIVATE_KEY=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d \
@@ -124,6 +124,6 @@ PROTOCOL_SETTLEMENT="${SETTLEMENT}" \
 SLOT_MACHINE_CONTROLLER="${SLOT_MACHINE_CONTROLLER}" \
 SLOT_MACHINE_ENGINE="${SLOT_MACHINE_ENGINE}" \
 SLOT_MACHINE_EXPRESSION_TOKEN_ID="${SLOT_MACHINE_EXPRESSION_TOKEN_ID}" \
-forge script script/aws/SmokeSlot.s.sol:SmokeSlot --rpc-url "${RPC_URL}" --broadcast --offline --skip-simulation --non-interactive --disable-code-size-limit >/dev/null
+forge script script/aws/SmokeSlot.s.sol:SmokeSlot --rpc-url "${RPC_URL}" --broadcast --offline --skip-simulation --non-interactive >/dev/null
 
 echo "deploy smoke passed"

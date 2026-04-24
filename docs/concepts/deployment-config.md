@@ -4,7 +4,7 @@ The canonical deployment surface emits labels for core contracts, the two solo m
 
 ## Required Labels
 
-- Core: `ScuroToken`, `ScuroStakingToken`, `TimelockController`, `ScuroGovernor`, `GameCatalog`, `GameDeploymentFactory`, `DeveloperExpressionRegistry`, `DeveloperRewards`, `ProtocolSettlement`
+- Core: `ScuroToken`, `ScuroStakingToken`, `TimelockController`, `ScuroGovernor`, `GameCatalog`, `DeveloperExpressionRegistry`, `DeveloperRewards`, `ProtocolSettlement`
 - Controllers: `NumberPickerAdapter`, `SlotMachineController`
 - Engines: `NumberPickerEngine`, `SlotMachineEngine`
 - Module ids: `NumberPickerModuleId`, `SlotMachineModuleId`

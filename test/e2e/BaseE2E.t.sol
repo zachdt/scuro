@@ -1,26 +1,24 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {TimelockController} from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
-import {DeveloperExpressionRegistry} from "../../src/DeveloperExpressionRegistry.sol";
-import {DeveloperRewards} from "../../src/DeveloperRewards.sol";
-import {GameCatalog} from "../../src/GameCatalog.sol";
-import {GameDeploymentFactory} from "../../src/GameDeploymentFactory.sol";
-import {ProtocolSettlement} from "../../src/ProtocolSettlement.sol";
-import {ScuroGovernor} from "../../src/ScuroGovernor.sol";
-import {ScuroStakingToken} from "../../src/ScuroStakingToken.sol";
-import {ScuroToken} from "../../src/ScuroToken.sol";
-import {NumberPickerAdapter} from "../../src/controllers/NumberPickerAdapter.sol";
-import {SlotMachineController} from "../../src/controllers/SlotMachineController.sol";
-import {NumberPickerEngine} from "../../src/engines/NumberPickerEngine.sol";
-import {SlotMachineEngine} from "../../src/engines/SlotMachineEngine.sol";
-import {SoloModuleDeployer} from "../../src/factory/SoloModuleDeployer.sol";
-import {VRFCoordinatorMock} from "../../src/mocks/VRFCoordinatorMock.sol";
-import {ManualVRFCoordinatorMock} from "./helpers/ManualVRFCoordinatorMock.sol";
-import {NumberPickerAdapterHarness} from "./helpers/NumberPickerAdapterHarness.sol";
-import {SlotMachineControllerHarness} from "../helpers/SlotMachineControllerHarness.sol";
-import {SlotMachinePresetFactory} from "../helpers/SlotMachinePresetFactory.sol";
+import { Test } from "forge-std/Test.sol";
+import { TimelockController } from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
+import { DeveloperExpressionRegistry } from "../../src/DeveloperExpressionRegistry.sol";
+import { DeveloperRewards } from "../../src/DeveloperRewards.sol";
+import { GameCatalog } from "../../src/GameCatalog.sol";
+import { ProtocolSettlement } from "../../src/ProtocolSettlement.sol";
+import { ScuroGovernor } from "../../src/ScuroGovernor.sol";
+import { ScuroStakingToken } from "../../src/ScuroStakingToken.sol";
+import { ScuroToken } from "../../src/ScuroToken.sol";
+import { NumberPickerAdapter } from "../../src/controllers/NumberPickerAdapter.sol";
+import { SlotMachineController } from "../../src/controllers/SlotMachineController.sol";
+import { NumberPickerEngine } from "../../src/engines/NumberPickerEngine.sol";
+import { SlotMachineEngine } from "../../src/engines/SlotMachineEngine.sol";
+import { VRFCoordinatorMock } from "../../src/mocks/VRFCoordinatorMock.sol";
+import { ManualVRFCoordinatorMock } from "./helpers/ManualVRFCoordinatorMock.sol";
+import { NumberPickerAdapterHarness } from "./helpers/NumberPickerAdapterHarness.sol";
+import { SlotMachineControllerHarness } from "../helpers/SlotMachineControllerHarness.sol";
+import { SlotMachinePresetFactory } from "../helpers/SlotMachinePresetFactory.sol";
 
 abstract contract BaseE2ETest is Test {
     struct Actor {
@@ -42,7 +40,6 @@ abstract contract BaseE2ETest is Test {
     TimelockController internal timelock;
     ScuroGovernor internal governor;
     GameCatalog internal catalog;
-    GameDeploymentFactory internal factory;
     DeveloperExpressionRegistry internal expressionRegistry;
     DeveloperRewards internal developerRewards;
     ProtocolSettlement internal settlement;
@@ -97,10 +94,8 @@ abstract contract BaseE2ETest is Test {
         catalog = new GameCatalog(address(this));
         expressionRegistry = new DeveloperExpressionRegistry(address(this));
         developerRewards = new DeveloperRewards(address(this), address(token), 7 days);
-        settlement =
-            new ProtocolSettlement(address(token), address(catalog), address(expressionRegistry), address(developerRewards));
-        factory = new GameDeploymentFactory(
-            address(this), address(catalog), address(settlement), address(new SoloModuleDeployer())
+        settlement = new ProtocolSettlement(
+            address(token), address(catalog), address(expressionRegistry), address(developerRewards)
         );
 
         autoVrfCoordinator = new VRFCoordinatorMock();
@@ -114,27 +109,24 @@ abstract contract BaseE2ETest is Test {
         developerRewards.grantRole(developerRewards.EPOCH_MANAGER_ROLE(), address(timelock));
         catalog.grantRole(catalog.DEFAULT_ADMIN_ROLE(), address(timelock));
         catalog.grantRole(catalog.REGISTRAR_ROLE(), address(timelock));
-        catalog.grantRole(catalog.REGISTRAR_ROLE(), address(factory));
-        factory.grantRole(factory.DEFAULT_ADMIN_ROLE(), address(timelock));
-        factory.grantRole(factory.DEPLOYER_ROLE(), address(timelock));
         timelock.grantRole(timelock.PROPOSER_ROLE(), address(governor));
         timelock.grantRole(timelock.EXECUTOR_ROLE(), address(0));
     }
 
     function _deployModules() internal {
-        GameDeploymentFactory.NumberPickerDeployment memory numberPickerParams =
-            GameDeploymentFactory.NumberPickerDeployment({
-                vrfCoordinator: address(autoVrfCoordinator),
+        numberPickerEngine = new NumberPickerEngine(address(catalog), address(autoVrfCoordinator));
+        numberPickerAdapter =
+            new NumberPickerAdapter(address(settlement), address(catalog), address(numberPickerEngine));
+        numberPickerModuleId = catalog.registerModule(
+            GameCatalog.Module({
+                controller: address(numberPickerAdapter),
+                engine: address(numberPickerEngine),
+                engineType: numberPickerEngine.engineType(),
                 configHash: keccak256("number-picker-auto"),
-                developerRewardBps: SOLO_DEVELOPER_BPS
-            });
-        address numberPickerControllerAddress;
-        address numberPickerEngineAddress;
-        (numberPickerModuleId, numberPickerControllerAddress, numberPickerEngineAddress) = factory.deploySoloModule(
-            uint8(GameDeploymentFactory.SoloFamily.NumberPicker), abi.encode(numberPickerParams)
+                developerRewardBps: SOLO_DEVELOPER_BPS,
+                status: GameCatalog.ModuleStatus.LIVE
+            })
         );
-        numberPickerAdapter = NumberPickerAdapter(numberPickerControllerAddress);
-        numberPickerEngine = NumberPickerEngine(numberPickerEngineAddress);
 
         delayedNumberPickerEngine = new NumberPickerEngine(address(catalog), address(manualVrfCoordinator));
         delayedNumberPickerAdapter =
@@ -150,17 +142,19 @@ abstract contract BaseE2ETest is Test {
             })
         );
 
-        GameDeploymentFactory.SlotDeployment memory slotParams = GameDeploymentFactory.SlotDeployment({
-            vrfCoordinator: address(autoVrfCoordinator),
-            configHash: keccak256("slot-machine-auto"),
-            developerRewardBps: SOLO_DEVELOPER_BPS
-        });
-        address slotControllerAddress;
-        address slotEngineAddress;
-        (slotMachineModuleId, slotControllerAddress, slotEngineAddress) =
-            factory.deploySoloModule(uint8(GameDeploymentFactory.SoloFamily.SlotMachine), abi.encode(slotParams));
-        slotMachineController = SlotMachineController(slotControllerAddress);
-        slotMachineEngine = SlotMachineEngine(slotEngineAddress);
+        slotMachineEngine = new SlotMachineEngine(address(this), address(catalog), address(autoVrfCoordinator));
+        slotMachineController =
+            new SlotMachineController(address(settlement), address(catalog), address(slotMachineEngine));
+        slotMachineModuleId = catalog.registerModule(
+            GameCatalog.Module({
+                controller: address(slotMachineController),
+                engine: address(slotMachineEngine),
+                engineType: slotMachineEngine.engineType(),
+                configHash: keccak256("slot-machine-auto"),
+                developerRewardBps: SOLO_DEVELOPER_BPS,
+                status: GameCatalog.ModuleStatus.LIVE
+            })
+        );
         _registerSlotPresets(slotMachineEngine);
 
         delayedSlotMachineEngine = new SlotMachineEngine(address(this), address(catalog), address(manualVrfCoordinator));

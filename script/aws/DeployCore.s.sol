@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {TimelockController} from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
-import {DeveloperExpressionRegistry} from "../../src/DeveloperExpressionRegistry.sol";
-import {DeveloperRewards} from "../../src/DeveloperRewards.sol";
-import {GameCatalog} from "../../src/GameCatalog.sol";
-import {GameDeploymentFactory} from "../../src/GameDeploymentFactory.sol";
-import {ProtocolSettlement} from "../../src/ProtocolSettlement.sol";
-import {ScuroGovernor} from "../../src/ScuroGovernor.sol";
-import {ScuroStakingToken} from "../../src/ScuroStakingToken.sol";
-import {ScuroToken} from "../../src/ScuroToken.sol";
-import {SoloModuleDeployer} from "../../src/factory/SoloModuleDeployer.sol";
-import {VRFCoordinatorMock} from "../../src/mocks/VRFCoordinatorMock.sol";
-import {BetaDeployCommon} from "./BetaDeployCommon.s.sol";
+import { TimelockController } from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
+import { DeveloperExpressionRegistry } from "../../src/DeveloperExpressionRegistry.sol";
+import { DeveloperRewards } from "../../src/DeveloperRewards.sol";
+import { GameCatalog } from "../../src/GameCatalog.sol";
+import { ProtocolSettlement } from "../../src/ProtocolSettlement.sol";
+import { ScuroGovernor } from "../../src/ScuroGovernor.sol";
+import { ScuroStakingToken } from "../../src/ScuroStakingToken.sol";
+import { ScuroToken } from "../../src/ScuroToken.sol";
+import { VRFCoordinatorMock } from "../../src/mocks/VRFCoordinatorMock.sol";
+import { BetaDeployCommon } from "./BetaDeployCommon.s.sol";
 
 contract DeployCore is BetaDeployCommon {
     function run() external {
@@ -41,16 +39,8 @@ contract DeployCore is BetaDeployCommon {
         logStageAction("Core:DeveloperRewards");
         DeveloperRewards developerRewards = new DeveloperRewards(admin, address(token), 7 days);
         logStageAction("Core:ProtocolSettlement");
-        ProtocolSettlement settlement =
-            new ProtocolSettlement(address(token), address(catalog), address(expressionRegistry), address(developerRewards));
-        logStageAction("Core:SoloModuleDeployer");
-        SoloModuleDeployer soloModuleDeployer = new SoloModuleDeployer();
-        logStageAction("Core:GameDeploymentFactory");
-        GameDeploymentFactory factory = new GameDeploymentFactory(
-            admin,
-            address(catalog),
-            address(settlement),
-            address(soloModuleDeployer)
+        ProtocolSettlement settlement = new ProtocolSettlement(
+            address(token), address(catalog), address(expressionRegistry), address(developerRewards)
         );
         logStageAction("Core:VRFCoordinatorMock");
         VRFCoordinatorMock vrfCoordinator = new VRFCoordinatorMock();
@@ -67,15 +57,12 @@ contract DeployCore is BetaDeployCommon {
         timelock.grantRole(timelock.PROPOSER_ROLE(), address(governor));
         logStageAction("Core:GrantExecutorRole");
         timelock.grantRole(timelock.EXECUTOR_ROLE(), address(0));
-        logStageAction("Core:GrantCatalogRegistrarToFactory");
-        catalog.grantRole(catalog.REGISTRAR_ROLE(), address(factory));
 
         logAddress("ScuroToken", address(token));
         logAddress("ScuroStakingToken", address(stakingToken));
         logAddress("TimelockController", address(timelock));
         logAddress("ScuroGovernor", address(governor));
         logAddress("GameCatalog", address(catalog));
-        logAddress("GameDeploymentFactory", address(factory));
         logAddress("DeveloperExpressionRegistry", address(expressionRegistry));
         logAddress("DeveloperRewards", address(developerRewards));
         logAddress("ProtocolSettlement", address(settlement));

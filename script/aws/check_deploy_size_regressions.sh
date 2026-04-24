@@ -29,8 +29,6 @@ root = pathlib.Path(sys.argv[1])
 thresholds_path = pathlib.Path(sys.argv[2])
 
 artifact_paths = {
-    "GameDeploymentFactory": "out/GameDeploymentFactory.sol/GameDeploymentFactory.json",
-    "SoloModuleDeployer": "out/SoloModuleDeployer.sol/SoloModuleDeployer.json",
     "NumberPickerEngine": "out/NumberPickerEngine.sol/NumberPickerEngine.json",
     "SlotMachineEngine": "out/SlotMachineEngine.sol/SlotMachineEngine.json",
     "NumberPickerAdapter": "out/NumberPickerAdapter.sol/NumberPickerAdapter.json",
@@ -43,8 +41,8 @@ failures: list[str] = []
 for contract, limits in thresholds.items():
     artifact = root / artifact_paths[contract]
     data = json.loads(artifact.read_text())
-    constructor_bytes = len(data["bytecode"]["object"]) // 2
-    runtime_bytes = len(data["deployedBytecode"]["object"]) // 2
+    constructor_bytes = len(data["bytecode"]["object"].removeprefix("0x")) // 2
+    runtime_bytes = len(data["deployedBytecode"]["object"].removeprefix("0x")) // 2
 
     max_constructor = limits["constructor_bytes_max"]
     max_runtime = limits["runtime_bytes_max"]

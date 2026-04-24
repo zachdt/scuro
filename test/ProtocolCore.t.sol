@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {TimelockController} from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
-import {DeveloperExpressionRegistry} from "../src/DeveloperExpressionRegistry.sol";
-import {DeveloperRewards} from "../src/DeveloperRewards.sol";
-import {GameCatalog} from "../src/GameCatalog.sol";
-import {GameDeploymentFactory} from "../src/GameDeploymentFactory.sol";
-import {ProtocolSettlement} from "../src/ProtocolSettlement.sol";
-import {ScuroGovernor} from "../src/ScuroGovernor.sol";
-import {ScuroStakingToken} from "../src/ScuroStakingToken.sol";
-import {ScuroToken} from "../src/ScuroToken.sol";
-import {SoloModuleDeployer} from "../src/factory/SoloModuleDeployer.sol";
+import { Test } from "forge-std/Test.sol";
+import { TimelockController } from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
+import { DeveloperExpressionRegistry } from "../src/DeveloperExpressionRegistry.sol";
+import { DeveloperRewards } from "../src/DeveloperRewards.sol";
+import { GameCatalog } from "../src/GameCatalog.sol";
+import { ProtocolSettlement } from "../src/ProtocolSettlement.sol";
+import { ScuroGovernor } from "../src/ScuroGovernor.sol";
+import { ScuroStakingToken } from "../src/ScuroStakingToken.sol";
+import { ScuroToken } from "../src/ScuroToken.sol";
+import { NumberPickerAdapter } from "../src/controllers/NumberPickerAdapter.sol";
+import { NumberPickerEngine } from "../src/engines/NumberPickerEngine.sol";
 
 contract ProtocolCoreTest is Test {
     bytes32 internal constant NUMBER_PICKER_TYPE = keccak256("NUMBER_PICKER");
@@ -22,7 +22,6 @@ contract ProtocolCoreTest is Test {
     TimelockController internal timelock;
     ScuroGovernor internal governor;
     GameCatalog internal catalog;
-    GameDeploymentFactory internal factory;
     DeveloperExpressionRegistry internal expressionRegistry;
     DeveloperRewards internal developerRewards;
     ProtocolSettlement internal settlement;
@@ -48,12 +47,8 @@ contract ProtocolCoreTest is Test {
         catalog = new GameCatalog(address(this));
         expressionRegistry = new DeveloperExpressionRegistry(address(this));
         developerRewards = new DeveloperRewards(address(this), address(token), 7 days);
-        settlement = new ProtocolSettlement(address(token), address(catalog), address(expressionRegistry), address(developerRewards));
-        factory = new GameDeploymentFactory(
-            address(this),
-            address(catalog),
-            address(settlement),
-            address(new SoloModuleDeployer())
+        settlement = new ProtocolSettlement(
+            address(token), address(catalog), address(expressionRegistry), address(developerRewards)
         );
 
         token.grantRole(token.MINTER_ROLE(), address(settlement));
@@ -61,7 +56,6 @@ contract ProtocolCoreTest is Test {
         developerRewards.grantRole(developerRewards.SETTLEMENT_ROLE(), address(settlement));
         developerRewards.grantRole(developerRewards.EPOCH_MANAGER_ROLE(), address(timelock));
         catalog.grantRole(catalog.DEFAULT_ADMIN_ROLE(), address(timelock));
-        factory.grantRole(factory.DEPLOYER_ROLE(), address(timelock));
 
         token.mint(alice, 1_000 ether);
     }
@@ -199,7 +193,7 @@ contract ProtocolCoreTest is Test {
         settlement.accrueDeveloperForExpression(slotExpressionId, 100 ether);
     }
 
-    function test_GovernanceCanDeployModuleThroughFactory() public {
+    function test_GovernanceCanRegisterPredeployedModule() public {
         vm.startPrank(alice);
         token.approve(address(stakingToken), 500 ether);
         stakingToken.stake(500 ether);
@@ -207,26 +201,28 @@ contract ProtocolCoreTest is Test {
         vm.stopPrank();
         vm.roll(block.number + 1);
 
+        NumberPickerEngine governedEngine = new NumberPickerEngine(address(catalog), address(0x1234));
+        NumberPickerAdapter governedAdapter =
+            new NumberPickerAdapter(address(settlement), address(catalog), address(governedEngine));
+
         address[] memory targets = new address[](2);
         targets[0] = address(catalog);
-        targets[1] = address(factory);
+        targets[1] = address(catalog);
         uint256[] memory values = new uint256[](2);
         bytes[] memory calldatas = new bytes[](2);
-        calldatas[0] = abi.encodeCall(catalog.grantRole, (catalog.REGISTRAR_ROLE(), address(factory)));
+        calldatas[0] = abi.encodeCall(catalog.grantRole, (catalog.REGISTRAR_ROLE(), address(timelock)));
         calldatas[1] = abi.encodeCall(
-            factory.deploySoloModule,
-            (
-                uint8(GameDeploymentFactory.SoloFamily.NumberPicker),
-                abi.encode(
-                    GameDeploymentFactory.NumberPickerDeployment({
-                        vrfCoordinator: address(0x1234),
-                        configHash: keccak256("governed-number-picker"),
-                        developerRewardBps: 500
-                    })
-                )
-            )
+            catalog.registerModule,
+            (GameCatalog.Module({
+                    controller: address(governedAdapter),
+                    engine: address(governedEngine),
+                    engineType: governedEngine.engineType(),
+                    configHash: keccak256("governed-number-picker"),
+                    developerRewardBps: 500,
+                    status: GameCatalog.ModuleStatus.LIVE
+                }))
         );
-        string memory description = "deploy-module";
+        string memory description = "register-module";
 
         vm.prank(alice);
         uint256 proposalId = governor.propose(targets, values, calldatas, description);

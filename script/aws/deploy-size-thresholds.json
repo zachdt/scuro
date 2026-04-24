@@ -1,26 +1,18 @@
 {
-  "GameDeploymentFactory": {
-    "constructor_bytes_max": 6398,
-    "runtime_bytes_max": 5576
-  },
-  "SoloModuleDeployer": {
-    "constructor_bytes_max": 41061,
-    "runtime_bytes_max": 41034
-  },
   "NumberPickerEngine": {
-    "constructor_bytes_max": 9000,
-    "runtime_bytes_max": 8500
+    "constructor_bytes_max": 3700,
+    "runtime_bytes_max": 3500
   },
   "SlotMachineEngine": {
-    "constructor_bytes_max": 46000,
-    "runtime_bytes_max": 45500
+    "constructor_bytes_max": 22000,
+    "runtime_bytes_max": 21500
   },
   "NumberPickerAdapter": {
-    "constructor_bytes_max": 10000,
-    "runtime_bytes_max": 9500
+    "constructor_bytes_max": 3000,
+    "runtime_bytes_max": 2700
   },
   "SlotMachineController": {
-    "constructor_bytes_max": 11000,
-    "runtime_bytes_max": 10500
+    "constructor_bytes_max": 3100,
+    "runtime_bytes_max": 2800
   }
 }

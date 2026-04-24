@@ -6,7 +6,6 @@ module SdkDocsInventory
     @entries ||= [
       ["ProtocolSettlement", "src/ProtocolSettlement.sol", "docs/reference/protocol-settlement.md", "core"],
       ["GameCatalog", "src/GameCatalog.sol", "docs/reference/game-catalog.md", "core"],
-      ["GameDeploymentFactory", "src/GameDeploymentFactory.sol", "docs/reference/game-deployment-factory.md", "core"],
       ["DeveloperExpressionRegistry", "src/DeveloperExpressionRegistry.sol", "docs/reference/developer-expression-registry.md", "economics"],
       ["DeveloperRewards", "src/DeveloperRewards.sol", "docs/reference/developer-rewards.md", "economics"],
       ["ScuroToken", "src/ScuroToken.sol", "docs/reference/scuro-token.md", "economics"],
@@ -57,7 +56,7 @@ module SdkDocsInventory
   def deployment_output_labels
     {
       "core" => %w[
-        ScuroToken ScuroStakingToken TimelockController ScuroGovernor GameCatalog GameDeploymentFactory
+        ScuroToken ScuroStakingToken TimelockController ScuroGovernor GameCatalog
         DeveloperExpressionRegistry DeveloperRewards ProtocolSettlement
       ],
       "controllers" => %w[NumberPickerAdapter SlotMachineController],

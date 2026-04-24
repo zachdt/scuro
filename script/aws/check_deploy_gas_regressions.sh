@@ -34,7 +34,7 @@ forge build \
   script/aws/DeployFinalize.s.sol >/dev/null
 
 echo "[gas-check] starting anvil on ${RPC_URL}"
-anvil --port "${RPC_PORT}" --disable-code-size-limit --gas-limit 100000000 >"${ANVIL_LOG}" 2>&1 &
+anvil --port "${RPC_PORT}" >"${ANVIL_LOG}" 2>&1 &
 ANVIL_PID=$!
 
 rpc_ready() {
@@ -89,29 +89,11 @@ if failures:
         print(f" - {failure}", file=sys.stderr)
     sys.exit(1)
 
-core_run = json.loads(stage_files["core"].read_text())
-core_seen: dict[str, int] = {}
-core_map = {
-    "SoloModuleDeployer": "solo_module_deployer",
-    "GameDeploymentFactory": "game_deployment_factory",
-}
-
 total_gas = 0
-for tx, receipt in zip(core_run["transactions"], core_run["receipts"]):
+core_run = json.loads(stage_files["core"].read_text())
+for receipt in core_run["receipts"]:
     gas_used = int(receipt["gasUsed"], 16)
     total_gas += gas_used
-    contract_name = tx.get("contractName")
-    if contract_name in core_map and contract_name not in core_seen:
-        core_seen[contract_name] = gas_used
-
-for contract_name, threshold_key in core_map.items():
-    actual = core_seen.get(contract_name)
-    expected = thresholds["staged_deploy"][threshold_key]
-    if actual is None:
-        failures.append(f"missing gas sample for core {contract_name}")
-        continue
-    if actual > expected:
-        failures.append(f"core {contract_name} used {actual} gas (max {expected})")
 
 stage_map = {
     "number_picker": "number_picker_module",
@@ -123,8 +105,8 @@ for name, threshold_key in stage_map.items():
     if not run["receipts"]:
         failures.append(f"missing receipts for {name}")
         continue
-    actual = int(run["receipts"][0]["gasUsed"], 16)
-    total_gas += sum(int(receipt["gasUsed"], 16) for receipt in run["receipts"])
+    actual = sum(int(receipt["gasUsed"], 16) for receipt in run["receipts"])
+    total_gas += actual
     expected = thresholds["staged_deploy"][threshold_key]
     if actual > expected:
         failures.append(f"{name} used {actual} gas (max {expected})")

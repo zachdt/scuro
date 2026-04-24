@@ -1,13 +1,7 @@
 {
-  "factory_entrypoints": {
-    "number_picker": 1600000,
-    "slot_machine": 12000000
-  },
   "staged_deploy": {
-    "solo_module_deployer": 9800000,
-    "game_deployment_factory": 1500000,
-    "number_picker_module": 1600000,
-    "slot_machine_module": 12000000,
-    "full_beta_deploy_total": 35000000
+    "number_picker_module": 1700000,
+    "slot_machine_module": 9500000,
+    "full_beta_deploy_total": 26000000
   }
 }

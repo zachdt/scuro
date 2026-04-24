@@ -5,12 +5,10 @@ import { Test } from "forge-std/Test.sol";
 import { DeveloperExpressionRegistry } from "../src/DeveloperExpressionRegistry.sol";
 import { DeveloperRewards } from "../src/DeveloperRewards.sol";
 import { GameCatalog } from "../src/GameCatalog.sol";
-import { GameDeploymentFactory } from "../src/GameDeploymentFactory.sol";
 import { ProtocolSettlement } from "../src/ProtocolSettlement.sol";
 import { ScuroToken } from "../src/ScuroToken.sol";
 import { SlotMachineController } from "../src/controllers/SlotMachineController.sol";
 import { SlotMachineEngine } from "../src/engines/SlotMachineEngine.sol";
-import { SoloModuleDeployer } from "../src/factory/SoloModuleDeployer.sol";
 import { VRFCoordinatorMock } from "../src/mocks/VRFCoordinatorMock.sol";
 import { ManualVRFCoordinatorMock } from "./e2e/helpers/ManualVRFCoordinatorMock.sol";
 import { SlotMachineControllerHarness } from "./helpers/SlotMachineControllerHarness.sol";
@@ -19,7 +17,6 @@ import { SlotMachinePresetFactory } from "./helpers/SlotMachinePresetFactory.sol
 contract SlotMachineControllerTest is Test {
     ScuroToken internal token;
     GameCatalog internal catalog;
-    GameDeploymentFactory internal factory;
     DeveloperExpressionRegistry internal expressionRegistry;
     DeveloperRewards internal developerRewards;
     ProtocolSettlement internal settlement;
@@ -44,29 +41,25 @@ contract SlotMachineControllerTest is Test {
         settlement = new ProtocolSettlement(
             address(token), address(catalog), address(expressionRegistry), address(developerRewards)
         );
-        factory = new GameDeploymentFactory(
-            address(this),
-            address(catalog),
-            address(settlement),
-            address(new SoloModuleDeployer())
-        );
         autoVrfCoordinator = new VRFCoordinatorMock();
         manualVrfCoordinator = new ManualVRFCoordinatorMock();
 
-        catalog.grantRole(catalog.REGISTRAR_ROLE(), address(factory));
         token.grantRole(token.MINTER_ROLE(), address(settlement));
         token.grantRole(token.MINTER_ROLE(), address(developerRewards));
         developerRewards.grantRole(developerRewards.SETTLEMENT_ROLE(), address(settlement));
 
-        GameDeploymentFactory.SlotDeployment memory params = GameDeploymentFactory.SlotDeployment({
-            vrfCoordinator: address(autoVrfCoordinator), configHash: keccak256("slot-auto"), developerRewardBps: 500
-        });
-        address controllerAddress;
-        address engineAddress;
-        (, controllerAddress, engineAddress) =
-            factory.deploySoloModule(uint8(GameDeploymentFactory.SoloFamily.SlotMachine), abi.encode(params));
-        autoController = SlotMachineController(controllerAddress);
-        autoEngine = SlotMachineEngine(engineAddress);
+        autoEngine = new SlotMachineEngine(address(this), address(catalog), address(autoVrfCoordinator));
+        autoController = new SlotMachineController(address(settlement), address(catalog), address(autoEngine));
+        catalog.registerModule(
+            GameCatalog.Module({
+                controller: address(autoController),
+                engine: address(autoEngine),
+                engineType: autoEngine.engineType(),
+                configHash: keccak256("slot-auto"),
+                developerRewardBps: 500,
+                status: GameCatalog.ModuleStatus.LIVE
+            })
+        );
 
         delayedEngine = new SlotMachineEngine(address(this), address(catalog), address(manualVrfCoordinator));
         delayedController =

@@ -8,7 +8,7 @@ This playbook covers the minimum chain of calls a client needs for proposal-driv
 
 1. Stake SCU into `sSCU`.
 2. Delegate voting power to the proposer or delegatee.
-3. Build proposal calldata targeting governed contracts such as `DeveloperRewards`, `GameCatalog`, or `GameDeploymentFactory`.
+3. Build proposal calldata targeting governed contracts such as `DeveloperRewards` or `GameCatalog`.
 4. Call the standard OpenZeppelin Governor `propose(...)` flow on `ScuroGovernor`.
 5. After `votingDelay`, cast votes through the governor.
 6. After the proposal succeeds and `proposalNeedsQueuing` is true, queue it into the timelock.
@@ -23,6 +23,7 @@ This playbook covers the minimum chain of calls a client needs for proposal-driv
 
 - `ScuroGovernor` is intentionally thin; most proposal mechanics come from inherited OpenZeppelin Governor interfaces.
 - The most relevant protocol-specific client concern is mapping proposals to governed contracts and timelock-controlled roles.
+- Future module additions can deploy controller/engine implementations separately, then propose `GameCatalog.registerModule(...)` once the timelock has `REGISTRAR_ROLE`.
 
 ## Relevant References
 
